@@ -1,0 +1,226 @@
+using System;
+using CarRacer.Core.Numerics;
+
+namespace CarRacer.Core.Net
+{
+    public enum MessageType : byte
+    {
+        CarState = 1,
+        Hit = 2,
+        CheckpointReached = 3,
+        RaceCountdown = 4,
+        PlayerFinished = 5,
+    }
+
+    [Flags]
+    public enum CarStateFlags : byte
+    {
+        None = 0,
+        Drifting = 1 << 0,
+        Boosting = 1 << 1,
+        Shielded = 1 << 2,
+        SpunOut = 1 << 3,
+        BotControlled = 1 << 4,
+    }
+
+    public interface IGameMessage
+    {
+        MessageType Type { get; }
+        void Write(NetWriter writer);
+    }
+
+    /// <summary>
+    /// Owner-authoritative car state, sent by each phone for its own car at ~30 Hz
+    /// (and by the host for bot cars). Times are in the sender's clock.
+    /// </summary>
+    public sealed class CarStateMessage : IGameMessage
+    {
+        public byte PlayerId;
+        public uint Sequence;
+        public long SentAtMs;
+        public Vec3 Position;
+        public Vec3 Velocity;
+        public float HeadingRadians;
+        public CarStateFlags Flags;
+
+        public MessageType Type => MessageType.CarState;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(PlayerId);
+            w.WriteUInt(Sequence);
+            w.WriteLong(SentAtMs);
+            w.WriteVec3(Position);
+            w.WriteVec3(Velocity);
+            w.WriteFloat(HeadingRadians);
+            w.WriteByte((byte)Flags);
+        }
+
+        public static CarStateMessage Read(NetReader r) => new CarStateMessage
+        {
+            PlayerId = r.ReadByte(),
+            Sequence = r.ReadUInt(),
+            SentAtMs = r.ReadLong(),
+            Position = r.ReadVec3(),
+            Velocity = r.ReadVec3(),
+            HeadingRadians = r.ReadFloat(),
+            Flags = (CarStateFlags)r.ReadByte(),
+        };
+    }
+
+    /// <summary>
+    /// Fallback car-to-car contact notification (see BumpResolver): the attacker detected a
+    /// contact the target may have missed. The target applies <see cref="Impulse"/> unless
+    /// it already resolved a contact with the attacker recently. Item hits reuse this message
+    /// with <see cref="IsItemHit"/> set; those are sent by the host and always applied.
+    /// </summary>
+    public sealed class HitMessage : IGameMessage
+    {
+        public byte AttackerId;
+        public byte TargetId;
+        public long SentAtMs;
+        public Vec3 Impulse;
+        public bool IsItemHit;
+
+        public MessageType Type => MessageType.Hit;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(AttackerId);
+            w.WriteByte(TargetId);
+            w.WriteLong(SentAtMs);
+            w.WriteVec3(Impulse);
+            w.WriteBool(IsItemHit);
+        }
+
+        public static HitMessage Read(NetReader r) => new HitMessage
+        {
+            AttackerId = r.ReadByte(),
+            TargetId = r.ReadByte(),
+            SentAtMs = r.ReadLong(),
+            Impulse = r.ReadVec3(),
+            IsItemHit = r.ReadBool(),
+        };
+    }
+
+    /// <summary>Guest → host: "my car crossed this checkpoint". The host validates order in RaceTracker.</summary>
+    public sealed class CheckpointReachedMessage : IGameMessage
+    {
+        public byte PlayerId;
+        public ushort CheckpointIndex;
+        public long RaceTimeMs;
+
+        public MessageType Type => MessageType.CheckpointReached;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(PlayerId);
+            w.WriteUShort(CheckpointIndex);
+            w.WriteLong(RaceTimeMs);
+        }
+
+        public static CheckpointReachedMessage Read(NetReader r) => new CheckpointReachedMessage
+        {
+            PlayerId = r.ReadByte(),
+            CheckpointIndex = r.ReadUShort(),
+            RaceTimeMs = r.ReadLong(),
+        };
+    }
+
+    /// <summary>
+    /// Host → all: the race starts at <see cref="StartAtHostMs"/> in the host's clock. Each
+    /// phone converts that to its own clock using its estimated offset, so the "GO" lands
+    /// at the same moment everywhere.
+    /// </summary>
+    public sealed class RaceCountdownMessage : IGameMessage
+    {
+        public long StartAtHostMs;
+        public byte LapCount;
+
+        public MessageType Type => MessageType.RaceCountdown;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteLong(StartAtHostMs);
+            w.WriteByte(LapCount);
+        }
+
+        public static RaceCountdownMessage Read(NetReader r) => new RaceCountdownMessage
+        {
+            StartAtHostMs = r.ReadLong(),
+            LapCount = r.ReadByte(),
+        };
+    }
+
+    /// <summary>Host → all: a player crossed the finish line in the given position.</summary>
+    public sealed class PlayerFinishedMessage : IGameMessage
+    {
+        public byte PlayerId;
+        public byte FinishPosition;
+        public long RaceTimeMs;
+
+        public MessageType Type => MessageType.PlayerFinished;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(PlayerId);
+            w.WriteByte(FinishPosition);
+            w.WriteLong(RaceTimeMs);
+        }
+
+        public static PlayerFinishedMessage Read(NetReader r) => new PlayerFinishedMessage
+        {
+            PlayerId = r.ReadByte(),
+            FinishPosition = r.ReadByte(),
+            RaceTimeMs = r.ReadLong(),
+        };
+    }
+
+    /// <summary>Frames game messages as [type byte][payload].</summary>
+    public static class MessageCodec
+    {
+        public static byte[] Encode(IGameMessage message)
+        {
+            var writer = new NetWriter();
+            writer.WriteByte((byte)message.Type);
+            message.Write(writer);
+            return writer.ToArray();
+        }
+
+        public static IGameMessage Decode(byte[] data) => Decode(data, 0, data.Length);
+
+        public static IGameMessage Decode(byte[] data, int offset, int count)
+        {
+            var reader = new NetReader(data, offset, count);
+            var type = (MessageType)reader.ReadByte();
+            IGameMessage message;
+            switch (type)
+            {
+                case MessageType.CarState:
+                    message = CarStateMessage.Read(reader);
+                    break;
+                case MessageType.Hit:
+                    message = HitMessage.Read(reader);
+                    break;
+                case MessageType.CheckpointReached:
+                    message = CheckpointReachedMessage.Read(reader);
+                    break;
+                case MessageType.RaceCountdown:
+                    message = RaceCountdownMessage.Read(reader);
+                    break;
+                case MessageType.PlayerFinished:
+                    message = PlayerFinishedMessage.Read(reader);
+                    break;
+                default:
+                    throw new NetFormatException($"Unknown message type {(byte)type}.");
+            }
+
+            if (reader.Remaining != 0)
+            {
+                throw new NetFormatException($"{reader.Remaining} unexpected trailing bytes after {type}.");
+            }
+
+            return message;
+        }
+    }
+}
