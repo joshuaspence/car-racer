@@ -76,6 +76,15 @@ namespace CarRacer.Core.Driving
         /// <summary>The Boost item's extra top speed (m/s) and duration (s): a little stronger and longer than a top-tier drift boost.</summary>
         public float ItemBoostSpeed = 12f;
         public float ItemBoostDuration = 1.8f;
+
+        /// <summary>How long an item hit spins the car out, during which the driver has no control.</summary>
+        public float SpinOutSeconds = 1f;
+
+        /// <summary>How fast a spun-out car turns, in full turns per second.</summary>
+        public float SpinTurnsPerSecond = 1.5f;
+
+        /// <summary>How quickly a spun-out car's slide dies away (per second, exponential).</summary>
+        public float SpinDrag = 1.5f;
     }
 
     /// <summary>The handling state that persists between steps (and is sent over the network as flags).</summary>
@@ -95,6 +104,11 @@ namespace CarRacer.Core.Driving
         public float DriftSeconds;
         public float BoostSecondsLeft;
         public float BoostSpeed;
+
+        /// <summary>Seconds left of an item hit's spin-out; 0 when in control.</summary>
+        public float SpinSecondsLeft;
+
+        public bool SpunOut => SpinSecondsLeft > 0f;
 
         public Vec3 Forward => new Vec3(MathF.Sin(Heading), 0f, MathF.Cos(Heading));
 
@@ -153,6 +167,15 @@ namespace CarRacer.Core.Driving
             if (state.BoostSecondsLeft <= 0f)
             {
                 state.BoostSpeed = 0f;
+            }
+
+            if (state.SpinSecondsLeft > 0f)
+            {
+                // Spun out: no control, the car turns on the spot of its slide and slows down.
+                state.SpinSecondsLeft = Math.Max(0f, state.SpinSecondsLeft - deltaSeconds);
+                state.Heading = WrapAngle(state.Heading + tuning.SpinTurnsPerSecond * 2f * MathF.PI * deltaSeconds);
+                state.Velocity = velocity * MathF.Exp(-tuning.SpinDrag * deltaSeconds);
+                return state;
             }
 
             if (!grounded)
@@ -266,6 +289,16 @@ namespace CarRacer.Core.Driving
             bool boosting = state.BoostSecondsLeft > 0f;
             state.BoostSpeed = boosting ? Math.Max(state.BoostSpeed, speed) : speed;
             state.BoostSecondsLeft = Math.Max(state.BoostSecondsLeft, seconds);
+            return state;
+        }
+
+        /// <summary>Spins the car out (an item hit): any drift and boost are lost.</summary>
+        public static CarState SpinOut(CarState state, CarTuning tuning)
+        {
+            EndDrift(ref state, tuning, releaseBoost: false);
+            state.BoostSecondsLeft = 0f;
+            state.BoostSpeed = 0f;
+            state.SpinSecondsLeft = Math.Max(state.SpinSecondsLeft, tuning.SpinOutSeconds);
             return state;
         }
 

@@ -232,6 +232,14 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - **Boost** adds 12 m/s of top speed for 1.8 s, a little more than a top-tier drift boost, through
   the same path (`CarModel.Boost`). **Shield** lasts 8 s and soaks up the first item hit (`Shield`);
   other phones see it from the `Shielded` car-state flag, as a cyan ring.
+- **Item hits** (`ItemEffects`, decided in `HostItems`): a **Shockwave** hits every other car within
+  9 m, pushing it 14 m/s straight away. An **Oil slick** lands 3 m behind its dropper, is harmless
+  for 0.5 s, lasts 20 s and catches the first car on it (its dropper too), then is gone. The host
+  tells everyone with `HazardGone`, and slicks that time out are removed everywhere without a
+  message. Each relayed `ItemUsed` carries a host-assigned effect id for this. A hit reaches its
+  victim as a `HitMessage` with `IsItemHit`: a raised Shield soaks it up, otherwise the car takes
+  the push plus a small pop and **spins out** for 1 s (no control; it turns 1.5 times a second and
+  its slide dies away; `CarModel.SpinOut`).
 - **One item slot.** A player holding an item drives through boxes without taking them, leaving them
   for others (`ItemSlots`).
 - **Boxes** (`ItemBoxField`): rows from the track definition, four across the road. A car's owner

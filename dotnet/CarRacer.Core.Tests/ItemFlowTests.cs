@@ -29,19 +29,23 @@ namespace CarRacer.Core.Tests
 
             var used = Assert.IsType<ItemUsedMessage>(MessageCodec.Decode(MessageCodec.Encode(new ItemUsedMessage
             {
-                PlayerId = 1, Item = ItemKind.Missile, Position = new Vec3(1f, 2f, 3f), Velocity = new Vec3(-4f, 0f, 5.5f), HeadingRadians = 1.25f, UsedAtHostMs = 99,
+                PlayerId = 1, Item = ItemKind.Missile, Position = new Vec3(1f, 2f, 3f), Velocity = new Vec3(-4f, 0f, 5.5f), HeadingRadians = 1.25f, UsedAtHostMs = 99, EffectId = 40000,
             })));
             Assert.Equal(ItemKind.Missile, used.Item);
             Assert.Equal(new Vec3(1f, 2f, 3f), used.Position);
             Assert.Equal(new Vec3(-4f, 0f, 5.5f), used.Velocity);
             Assert.Equal(1.25f, used.HeadingRadians);
             Assert.Equal(99, used.UsedAtHostMs);
+            Assert.Equal(40000, used.EffectId);
+
+            var gone = Assert.IsType<HazardGoneMessage>(MessageCodec.Decode(MessageCodec.Encode(new HazardGoneMessage { EffectId = 1234 })));
+            Assert.Equal(1234, gone.EffectId);
         }
     }
 
     public class ItemFlowTests
     {
-        private const ushort Version = 5;
+        private const ushort Version = 6;
         private const ulong GuestConnection = 7;
         private const long GuestClockBehindMs = 1_000_000;
 
@@ -117,12 +121,16 @@ namespace CarRacer.Core.Tests
         private readonly GuestItems _guestItems;
         private readonly List<ItemUsedMessage> _hostSaw = new List<ItemUsedMessage>();
         private readonly List<ItemUsedMessage> _guestSaw = new List<ItemUsedMessage>();
+        private readonly Dictionary<byte, Vec3> _cars = new Dictionary<byte, Vec3>();
+        private readonly List<HitMessage> _guestHits = new List<HitMessage>();
+        private readonly List<HitMessage> _hostHits = new List<HitMessage>();
 
         public ItemFlowTests()
         {
             _host = new HostSession(_hostLink, "Host", Version, () => _now);
             _hostRace = new HostRace(_host, 4, () => _now, id => 0f);
-            _hostItems = new HostItems(_host, _hostRace, BoxPositions, () => _now, () => _nextRandom);
+            _hostItems = new HostItems(_host, _hostRace, BoxPositions, () => _now, () => _nextRandom, _cars.TryGetValue);
+            _host.HitReceived += _hostHits.Add;
             _hostItems.ItemUsed += _hostSaw.Add;
 
             _guestLink.Host = _host;
@@ -133,6 +141,7 @@ namespace CarRacer.Core.Tests
             _guestRace = new GuestRace(_guest, () => _now - GuestClockBehindMs);
             _guestItems = new GuestItems(_guest, _guestRace, BoxPositions, () => _now - GuestClockBehindMs);
             _guestItems.ItemUsed += _guestSaw.Add;
+            _guest.HitReceived += _guestHits.Add;
         }
 
         private byte GuestId => _guest.PlayerId;
@@ -336,6 +345,151 @@ namespace CarRacer.Core.Tests
             Assert.True(_guestItems.ClaimTouchedBox(BoxPositions[0]));
             _host.OnDisconnected(GuestConnection);
             Assert.Equal(ItemKind.None, _hostItems.Slots.Held(GuestId));
+        }
+
+        /// <summary>Gives <paramref name="player"/> <paramref name="item"/> through a box, then uses it at <paramref name="position"/> facing +Z.</summary>
+        private void GiveAndUse(byte player, ItemKind item, Vec3 position)
+        {
+            _hostItems.Slots.Give(player, item);
+            if (player == _host.HostPlayerId)
+            {
+                Assert.Equal(item, _hostItems.UseHeld(position, Vec3.Zero, 0f));
+            }
+            else
+            {
+                _host.OnMessage(GuestConnection, new ItemUsedMessage { PlayerId = player, Item = item, Position = position });
+            }
+        }
+
+        [Fact]
+        public void ItemUsesGetAnEffectIdFromTheHost()
+        {
+            StartRacing();
+            GiveAndUse(_host.HostPlayerId, ItemKind.Boost, Vec3.Zero);
+            GiveAndUse(GuestId, ItemKind.Shield, Vec3.Zero);
+            var ids = _hostLink.Sent.OfType<ItemUsedMessage>().Select(u => u.EffectId).ToList();
+            Assert.Equal(2, ids.Count);
+            Assert.NotEqual(ids[0], ids[1]);
+            Assert.DoesNotContain((ushort)0, ids);
+        }
+
+        [Fact]
+        public void AShockwaveHitsCarsInRangeAndPushesThemAway()
+        {
+            StartRacing();
+            var user = new Vec3(0f, 0.6f, 0f);
+            _cars[_host.HostPlayerId] = user;
+            _cars[GuestId] = new Vec3(ItemEffects.ShockwaveRadius - 1f, 0.6f, 0f);
+            GiveAndUse(_host.HostPlayerId, ItemKind.Shockwave, user);
+
+            var hit = Assert.Single(_guestHits);
+            Assert.True(hit.IsItemHit);
+            Assert.Equal(_host.HostPlayerId, hit.AttackerId);
+            Assert.True(hit.Impulse.X > 0f, "pushed away from the user");
+            Assert.Equal(ItemEffects.HitPop, hit.Impulse.Y, 3);
+            Assert.Empty(_hostHits); // never the user
+        }
+
+        [Fact]
+        public void AShockwaveMissesCarsOutOfRange()
+        {
+            StartRacing();
+            _cars[GuestId] = new Vec3(ItemEffects.ShockwaveRadius + 1f, 0.6f, 0f);
+            GiveAndUse(_host.HostPlayerId, ItemKind.Shockwave, new Vec3(0f, 0.6f, 0f));
+            Assert.Empty(_guestHits);
+        }
+
+        [Fact]
+        public void AGuestsShockwaveHitsTheHost()
+        {
+            StartRacing();
+            _cars[_host.HostPlayerId] = new Vec3(0f, 0.6f, -3f);
+            GiveAndUse(GuestId, ItemKind.Shockwave, new Vec3(0f, 0.6f, 0f));
+            var hit = Assert.Single(_hostHits);
+            Assert.Equal(GuestId, hit.AttackerId);
+            Assert.True(hit.Impulse.Z < 0f);
+        }
+
+        [Fact]
+        public void AnOilSlickLandsBehindAndBothPhonesSeeIt()
+        {
+            StartRacing();
+            GiveAndUse(GuestId, ItemKind.OilSlick, new Vec3(5f, 0.6f, 10f));
+
+            var expected = new Vec3(5f, 0.6f, 10f - ItemEffects.OilDropBehind);
+            var onHost = Assert.Single(_hostItems.Hazards.Active);
+            var onGuest = Assert.Single(_guestItems.Hazards.Active);
+            Assert.True(onHost.Position.ApproximatelyEquals(expected));
+            Assert.True(onGuest.Position.ApproximatelyEquals(expected));
+            Assert.Equal(onHost.EffectId, onGuest.EffectId);
+            Assert.Equal(_now + ItemEffects.OilLifetimeMs, onHost.ExpiresAtMs);
+            Assert.Equal(_guest.Clock.ToLocalTime(_now + ItemEffects.OilLifetimeMs), onGuest.ExpiresAtMs);
+        }
+
+        [Fact]
+        public void AnOilSlickCatchesTheFirstCarOnceArmedAndIsUsedUp()
+        {
+            StartRacing();
+            var drop = new Vec3(0f, 0.6f, 10f);
+            GiveAndUse(GuestId, ItemKind.OilSlick, drop);
+            var oil = ItemEffects.OilPosition(drop, 0f);
+
+            // Not yet armed: the host drives straight over it.
+            _cars[_host.HostPlayerId] = oil;
+            Tick();
+            Assert.Empty(_hostHits);
+
+            _now += ItemEffects.OilArmMs;
+            Tick();
+            var hit = Assert.Single(_hostHits);
+            Assert.True(hit.IsItemHit);
+            Assert.Equal(GuestId, hit.AttackerId);
+            Assert.Empty(_hostItems.Hazards.Active);
+            Assert.Empty(_guestItems.Hazards.Active);
+            Assert.Single(_hostLink.Sent.OfType<HazardGoneMessage>());
+
+            // Used up: the guest drives over the same spot without sliding.
+            _cars[GuestId] = oil;
+            Tick();
+            Assert.Empty(_guestHits);
+        }
+
+        [Fact]
+        public void TheDropperCanSlideOnTheirOwnOil()
+        {
+            StartRacing();
+            var drop = new Vec3(0f, 0.6f, 10f);
+            GiveAndUse(GuestId, ItemKind.OilSlick, drop);
+            _cars[GuestId] = ItemEffects.OilPosition(drop, 0f);
+            _now += ItemEffects.OilArmMs;
+            Tick();
+            Assert.Single(_guestHits);
+        }
+
+        [Fact]
+        public void OilSlicksTimeOutOnEveryPhone()
+        {
+            StartRacing();
+            GiveAndUse(GuestId, ItemKind.OilSlick, new Vec3(0f, 0.6f, 10f));
+            _now += ItemEffects.OilLifetimeMs;
+            Tick();
+            Assert.Empty(_hostItems.Hazards.Active);
+            Assert.Empty(_guestItems.Hazards.Active);
+            Assert.Empty(_hostLink.Sent.OfType<HazardGoneMessage>());
+        }
+
+        [Fact]
+        public void ANewRaceClearsTheOil()
+        {
+            StartRacing();
+            GiveAndUse(GuestId, ItemKind.OilSlick, new Vec3(0f, 0.6f, 10f));
+            _hostRace.Tracker.Retire(GuestId);
+            _hostRace.Tracker.Retire(_host.HostPlayerId);
+            Tick();
+            Assert.True(_hostRace.ReturnToLobby());
+            StartRacing();
+            Assert.Empty(_hostItems.Hazards.Active);
+            Assert.Empty(_guestItems.Hazards.Active);
         }
     }
 }

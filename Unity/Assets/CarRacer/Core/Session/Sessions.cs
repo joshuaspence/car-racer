@@ -292,6 +292,7 @@ namespace CarRacer.Core.Session
                     break;
                 case ItemBoxTakenMessage _:
                 case ItemUsedMessage _:
+                case HazardGoneMessage _:
                     if (State == GuestState.Joined)
                     {
                         ItemMessageReceived?.Invoke(message);

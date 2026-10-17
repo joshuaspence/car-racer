@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using CarRacer.Core.Items;
+using CarRacer.Core.Net;
 using CarRacer.Core.Numerics;
 using Xunit;
 
@@ -240,6 +242,73 @@ namespace CarRacer.Core.Tests
             shield.Raise();
             shield.Clear();
             Assert.False(shield.IsUp);
+        }
+    }
+
+    public class ItemHitTests
+    {
+        [Fact]
+        public void AShieldBlocksOneItemHitThenTheNextSpinsTheCarOut()
+        {
+            var shield = new Shield();
+            shield.Raise();
+            var hit = new HitMessage { IsItemHit = true };
+            Assert.Equal(ItemHitOutcome.Blocked, ItemHitResponse.Resolve(hit, shield));
+            Assert.Equal(ItemHitOutcome.SpinOut, ItemHitResponse.Resolve(hit, shield));
+        }
+
+        [Fact]
+        public void BumpsAreNotItemHitsAndLeaveTheShieldUp()
+        {
+            var shield = new Shield();
+            shield.Raise();
+            Assert.Equal(ItemHitOutcome.NotAnItemHit, ItemHitResponse.Resolve(new HitMessage(), shield));
+            Assert.True(shield.IsUp);
+        }
+
+        [Fact]
+        public void AShockwavePushesStraightAwayWithAPop()
+        {
+            var impulse = ItemEffects.ShockwaveImpulse(new Vec3(0f, 0f, 0f), new Vec3(3f, 5f, 4f));
+            Assert.Equal(ItemEffects.ShockwavePush * 0.6f, impulse.X, 3);
+            Assert.Equal(ItemEffects.ShockwavePush * 0.8f, impulse.Z, 3);
+            Assert.Equal(ItemEffects.HitPop, impulse.Y, 3);
+
+            // A car right on top of the user still gets pushed somewhere.
+            Assert.Equal(ItemEffects.ShockwavePush, ItemEffects.ShockwaveImpulse(Vec3.Zero, Vec3.Zero).Flattened.Length, 3);
+        }
+
+        [Fact]
+        public void OilLandsBehindTheCar()
+        {
+            var behind = ItemEffects.OilPosition(new Vec3(10f, 0.6f, 0f), MathF.PI / 2f); // facing +X
+            Assert.True(behind.ApproximatelyEquals(new Vec3(10f - ItemEffects.OilDropBehind, 0.6f, 0f)));
+        }
+
+        [Fact]
+        public void HazardsArmTouchAndExpire()
+        {
+            var field = new HazardField();
+            field.AddOil(new ItemUsedMessage { EffectId = 3, PlayerId = 1, Position = new Vec3(0f, 0.6f, 10f) }, 1000);
+            var oil = field.Active[0].Position;
+            Assert.False(field.TryFindTouched(oil, 1000 + ItemEffects.OilArmMs - 1, out _));
+            Assert.True(field.TryFindTouched(oil + new Vec3(ItemEffects.OilRadius - 0.1f, 0f, 0f), 1000 + ItemEffects.OilArmMs, out var hazard));
+            Assert.Equal(3, hazard.EffectId);
+            Assert.False(field.TryFindTouched(oil + new Vec3(ItemEffects.OilRadius + 0.1f, 0f, 0f), 1000 + ItemEffects.OilArmMs, out _));
+            field.Expire(1000 + ItemEffects.OilLifetimeMs);
+            Assert.Empty(field.Active);
+        }
+
+        [Fact]
+        public void AddingTheSameEffectTwiceKeepsOneHazard()
+        {
+            var field = new HazardField();
+            var used = new ItemUsedMessage { EffectId = 3 };
+            field.AddOil(used, 0);
+            field.AddOil(used, 10);
+            Assert.Single(field.Active);
+            Assert.True(field.Remove(3));
+            Assert.False(field.Remove(3));
         }
     }
 }
