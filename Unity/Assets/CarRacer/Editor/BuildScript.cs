@@ -74,6 +74,7 @@ namespace CarRacer.Editor
                 PlayerSettings.Android.bundleVersionCode = versionCode;
             }
 
+            bool development = args.ContainsKey("carRacerDevelopment");
             if (args.TryGetValue("androidKeystoreName", out string keystore) && !string.IsNullOrEmpty(keystore))
             {
                 PlayerSettings.Android.useCustomKeystore = true;
@@ -82,15 +83,20 @@ namespace CarRacer.Editor
                 PlayerSettings.Android.keyaliasName = args.TryGetValue("androidKeyaliasName", out string an) ? an : string.Empty;
                 PlayerSettings.Android.keyaliasPass = args.TryGetValue("androidKeyaliasPass", out string ap) ? ap : string.Empty;
             }
-            else
+            else if (development)
             {
                 UseSharedDebugKeystore();
+            }
+            else
+            {
+                // A non-development build without a release keystore falls back to Unity's per-machine
+                // debug key, never the public shared one.
+                PlayerSettings.Android.useCustomKeystore = false;
             }
 
             string output = args.TryGetValue("customBuildPath", out string path) && !string.IsNullOrEmpty(path)
                 ? path
                 : "build/Android/CarRacer.apk";
-            bool development = args.ContainsKey("carRacerDevelopment");
 
             bool succeeded = Build(output, development);
             EditorApplication.Exit(succeeded ? 0 : 1);
