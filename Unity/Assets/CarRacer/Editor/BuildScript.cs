@@ -17,10 +17,19 @@ namespace CarRacer.Editor
     {
         public const string BootstrapScenePath = "Assets/Scenes/" + Bootstrap.SceneName + ".unity";
 
+        /// <summary>
+        /// Committed debug key, relative to the Unity project. Unity otherwise signs development
+        /// builds with a per-machine debug key, and Android refuses to install a build over one
+        /// signed with a different key, so every CI run's APK would need an uninstall first.
+        /// It uses the standard Android debug credentials and must never sign a release.
+        /// </summary>
+        public const string SharedDebugKeystorePath = "Keystores/debug.keystore";
+
         [MenuItem("Car Racer/Build/Development APK")]
         public static void BuildDevelopmentApk()
         {
             PrepareProject();
+            UseSharedDebugKeystore();
             Build("build/Android/CarRacer-dev.apk", development: true);
         }
 
@@ -75,7 +84,7 @@ namespace CarRacer.Editor
             }
             else
             {
-                PlayerSettings.Android.useCustomKeystore = false;
+                UseSharedDebugKeystore();
             }
 
             string output = args.TryGetValue("customBuildPath", out string path) && !string.IsNullOrEmpty(path)
@@ -85,6 +94,15 @@ namespace CarRacer.Editor
 
             bool succeeded = Build(output, development);
             EditorApplication.Exit(succeeded ? 0 : 1);
+        }
+
+        private static void UseSharedDebugKeystore()
+        {
+            PlayerSettings.Android.useCustomKeystore = true;
+            PlayerSettings.Android.keystoreName = SharedDebugKeystorePath;
+            PlayerSettings.Android.keystorePass = "android";
+            PlayerSettings.Android.keyaliasName = "androiddebugkey";
+            PlayerSettings.Android.keyaliasPass = "android";
         }
 
         private static void PrepareProject()

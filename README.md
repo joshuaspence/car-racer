@@ -42,3 +42,7 @@ To work in Unity, open `Unity/` with Unity **6000.3.26f1** (with Android Build S
 Install the development APK (from a PR's **Unity** workflow artifacts, or built locally) on two
 or more phones on the same Wi-Fi. Tap **Host** on one; the others should list it within a
 couple of seconds.
+
+Extract the APK from the artifact zip before tapping it; installing from inside the zip fails.
+Development builds are signed with a shared debug key (`Unity/Keystores/debug.keystore`), so
+newer ones install over older ones. Builds made before that key existed must be uninstalled once.
