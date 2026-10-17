@@ -161,6 +161,12 @@ namespace CarRacer.Game.Menu
                 GoTo(Page.Name);
             }
 
+            // Automatic by default (design doc §14); tap to choose a level instead.
+            if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
+            {
+                GraphicsQuality.Cycle();
+            }
+
             GUILayout.EndArea();
         }
 
