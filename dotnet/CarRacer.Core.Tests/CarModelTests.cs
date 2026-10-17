@@ -171,6 +171,44 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void ASpinOutTakesControlAwayThenGivesItBack()
+        {
+            var s = new CarState { Velocity = new Vec3(0f, 0f, 20f), BoostSpeed = 8f, BoostSecondsLeft = 1f, Drifting = true, DriftDirection = 1, DriftSeconds = 2f };
+            s = CarModel.SpinOut(s, Tuning);
+            Assert.True(s.SpunOut);
+            Assert.False(s.Drifting);
+            Assert.Equal(0f, s.BoostSecondsLeft);
+
+            // Full throttle and steering do nothing; the car turns and slows on its own.
+            float headingBefore = s.Heading;
+            var input = new CarInput(1f, 1f);
+            int steps = (int)(Tuning.SpinOutSeconds / Dt) - 1;
+            for (int i = 0; i < steps; i++)
+            {
+                s = CarModel.Step(s, input, grounded: true, Dt, Tuning);
+            }
+
+            Assert.True(s.SpunOut);
+            Assert.True(s.Velocity.Length < 20f * 0.4f);
+            Assert.NotEqual(headingBefore, s.Heading);
+
+            s = CarModel.Step(s, input, grounded: true, Dt, Tuning);
+            s = CarModel.Step(s, input, grounded: true, Dt, Tuning);
+            Assert.False(s.SpunOut);
+            float speedBefore = Vec3.Dot(s.Velocity, s.Forward);
+            s = CarModel.Step(s, input, grounded: true, Dt, Tuning);
+            Assert.True(Vec3.Dot(s.Velocity, s.Forward) > speedBefore, "accelerates again once back in control");
+        }
+
+        [Fact]
+        public void BeingHitAgainDoesNotShortenASpin()
+        {
+            var s = CarModel.SpinOut(new CarState(), Tuning);
+            s.SpinSecondsLeft = 2f;
+            Assert.Equal(2f, CarModel.SpinOut(s, Tuning).SpinSecondsLeft);
+        }
+
+        [Fact]
         public void BrakingWorksDuringABoost()
         {
             var s = Moving(Tuning.MaxSpeed);

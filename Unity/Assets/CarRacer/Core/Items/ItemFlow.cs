@@ -16,6 +16,9 @@ namespace CarRacer.Core.Items
         /// <summary>The item this phone's player holds.</summary>
         ItemKind Held { get; }
 
+        /// <summary>Oil slicks on the track, in this phone's clock.</summary>
+        HazardField Hazards { get; }
+
         /// <summary>
         /// Someone used an item. This phone's own use is raised at once, so its effects feel instant;
         /// other players' arrive through the host.
@@ -37,8 +40,9 @@ namespace CarRacer.Core.Items
 
     /// <summary>
     /// The host's item referee (design doc §8): grants box claims first come first served, rolls
-    /// each item with catch-up odds from the latest standings, keeps every player's slot, and
-    /// relays item uses to everyone once it has checked the player held that item.
+    /// each item with catch-up odds from the latest standings, keeps every player's slot, relays
+    /// item uses to everyone once it has checked the player held that item, and decides every item
+    /// hit: a Shockwave's victims at once, an oil slick's when a car drives onto it.
     /// </summary>
     public sealed class HostItems : IItemView
     {
@@ -46,15 +50,19 @@ namespace CarRacer.Core.Items
         private readonly IRaceView _race;
         private readonly Func<long> _clockMs;
         private readonly Func<double> _random01;
+        private readonly CarPositionLookup _carPositions;
         private RacePhase _lastPhase = RacePhase.Lobby;
+        private ushort _lastEffectId;
 
         /// <param name="random01">Uniform random numbers in [0, 1) for item rolls.</param>
-        public HostItems(HostSession session, IRaceView race, IReadOnlyList<Vec3> boxPositions, Func<long> clockMs, Func<double> random01)
+        /// <param name="carPositions">Where the host sees each player's car, for deciding hits.</param>
+        public HostItems(HostSession session, IRaceView race, IReadOnlyList<Vec3> boxPositions, Func<long> clockMs, Func<double> random01, CarPositionLookup carPositions)
         {
             _session = session;
             _race = race;
             _clockMs = clockMs;
             _random01 = random01;
+            _carPositions = carPositions;
             Boxes = new ItemBoxField(boxPositions);
             _session.ItemMessageReceived += OnMessage;
             _session.PlayerLeft += (playerId, name) => Slots.Remove(playerId);
@@ -63,6 +71,7 @@ namespace CarRacer.Core.Items
         public ItemBoxField Boxes { get; }
         public ItemSlots Slots { get; } = new ItemSlots();
         public ItemKind Held => Slots.Held(_session.HostPlayerId);
+        public HazardField Hazards { get; } = new HazardField();
 
         public event Action<ItemUsedMessage> ItemUsed;
 
@@ -73,9 +82,16 @@ namespace CarRacer.Core.Items
             {
                 Boxes.Reset();
                 Slots.Clear();
+                Hazards.Clear();
             }
 
             _lastPhase = phase;
+            long now = _clockMs();
+            Hazards.Expire(now);
+            if (phase == RacePhase.Racing)
+            {
+                CatchCarsOnHazards(now);
+            }
         }
 
         public bool ClaimTouchedBox(Vec3 carPosition)
@@ -134,9 +150,56 @@ namespace CarRacer.Core.Items
             }
 
             used.UsedAtHostMs = _clockMs();
+            used.EffectId = ++_lastEffectId;
             _session.Broadcast(used, reliable: true);
             ItemUsed?.Invoke(used);
+
+            if (used.Item == ItemKind.Shockwave)
+            {
+                HitEveryoneNear(used);
+            }
+            else if (used.Item == ItemKind.OilSlick)
+            {
+                Hazards.AddOil(used, used.UsedAtHostMs);
+            }
+
             return true;
+        }
+
+        private void HitEveryoneNear(ItemUsedMessage used)
+        {
+            foreach (var player in _session.Roster.Players)
+            {
+                if (player.PlayerId != used.PlayerId && _carPositions(player.PlayerId, out var position)
+                    && (position - used.Position).Flattened.LengthSquared <= ItemEffects.ShockwaveRadius * ItemEffects.ShockwaveRadius)
+                {
+                    Hit(used.PlayerId, player.PlayerId, ItemEffects.ShockwaveImpulse(used.Position, position));
+                }
+            }
+        }
+
+        /// <summary>Each armed oil slick catches the first car on it (its dropper included, once armed) and is used up.</summary>
+        private void CatchCarsOnHazards(long now)
+        {
+            if (Hazards.Active.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var player in _session.Roster.Players)
+            {
+                if (_carPositions(player.PlayerId, out var position) && Hazards.TryFindTouched(position, now, out var hazard))
+                {
+                    Hazards.Remove(hazard.EffectId);
+                    _session.Broadcast(new HazardGoneMessage { EffectId = hazard.EffectId }, reliable: true);
+                    Hit(hazard.OwnerId, player.PlayerId, ItemEffects.OilImpulse);
+                }
+            }
+        }
+
+        private void Hit(byte attackerId, byte targetId, Vec3 impulse)
+        {
+            _session.SendHit(new HitMessage { AttackerId = attackerId, TargetId = targetId, SentAtMs = _clockMs(), Impulse = impulse, IsItemHit = true });
         }
 
         /// <summary>The player's place in the latest standings; mid-pack before the first standings of a race.</summary>
@@ -163,7 +226,7 @@ namespace CarRacer.Core.Items
 
     /// <summary>
     /// A guest's side of the items: claims boxes its car drives through (hiding them at once), learns
-    /// its item from the host, and tells the host when it uses it.
+    /// its item from the host, tells the host when it uses it, and mirrors the oil slicks on the track.
     /// </summary>
     public sealed class GuestItems : IItemView
     {
@@ -188,6 +251,7 @@ namespace CarRacer.Core.Items
 
         public ItemBoxField Boxes { get; }
         public ItemKind Held { get; private set; }
+        public HazardField Hazards { get; } = new HazardField();
 
         public event Action<ItemUsedMessage> ItemUsed;
 
@@ -197,11 +261,13 @@ namespace CarRacer.Core.Items
             if (phase == RacePhase.Countdown && _lastPhase != RacePhase.Countdown)
             {
                 Boxes.Reset();
+                Hazards.Clear();
                 Held = ItemKind.None;
                 _pendingBox = -1;
             }
 
             _lastPhase = phase;
+            Hazards.Expire(_clockMs());
         }
 
         public bool ClaimTouchedBox(Vec3 carPosition)
@@ -270,8 +336,21 @@ namespace CarRacer.Core.Items
                     }
 
                     break;
-                case ItemUsedMessage used when used.PlayerId != _session.PlayerId:
-                    ItemUsed?.Invoke(used);
+                case ItemUsedMessage used:
+                    // The host's relay carries the effect id, so hazards come from it even for this phone's own use.
+                    if (used.Item == ItemKind.OilSlick)
+                    {
+                        Hazards.AddOil(used, _session.Clock.ToLocalTime(used.UsedAtHostMs));
+                    }
+
+                    if (used.PlayerId != _session.PlayerId)
+                    {
+                        ItemUsed?.Invoke(used);
+                    }
+
+                    break;
+                case HazardGoneMessage gone:
+                    Hazards.Remove(gone.EffectId);
                     break;
             }
         }

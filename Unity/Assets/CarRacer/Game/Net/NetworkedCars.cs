@@ -16,7 +16,8 @@ namespace CarRacer.Game.Net
     /// sends its state at 30 Hz, shows every other player as a <see cref="RemoteCar"/> that
     /// follows the roster, bumps its car off the others (§2.2), holds the car on the grid through
     /// the countdown, and reports the checkpoints it crosses. In a race it also picks up item boxes
-    /// and uses the held item (design doc §8), applying Boost and Shield to its own car at once.
+    /// and uses the held item (design doc §8), applying Boost and Shield to its own car at once,
+    /// and takes item hits from the host (a shield soaks one up; otherwise the car spins out).
     /// </summary>
     public sealed class NetworkedCars : MonoBehaviour
     {
@@ -53,8 +54,9 @@ namespace CarRacer.Game.Net
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
-            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, arena.Track.ItemBoxPositions());
+            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, arena.Track.ItemBoxPositions(), TryGetCarPosition);
             gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
+            gameObject.AddComponent<ItemEffectViews>().Initialise(_session.Items);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
         }
 
@@ -128,10 +130,46 @@ namespace CarRacer.Game.Net
         private void OnHit(HitMessage hit)
         {
             var car = _arena.Car;
-            if (car != null && _bumpMonitor.OnHit(hit, _me, NetworkSession.NowMs, out var impulse))
+            if (car == null)
             {
-                car.AddImpulse(impulse.ToUnity());
+                return;
             }
+
+            switch (ItemHitResponse.Resolve(hit, _shield))
+            {
+                case ItemHitOutcome.Blocked:
+                    break;
+                case ItemHitOutcome.SpinOut:
+                    car.AddImpulse(hit.Impulse.ToUnity());
+                    car.SpinOut();
+                    break;
+                default:
+                    if (_bumpMonitor.OnHit(hit, _me, NetworkSession.NowMs, out var impulse))
+                    {
+                        car.AddImpulse(impulse.ToUnity());
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>Host only, for item hits: where this phone sees a player's car.</summary>
+        private bool TryGetCarPosition(byte playerId, out CarRacer.Core.Numerics.Vec3 position)
+        {
+            if (playerId == _me && _arena.Car != null)
+            {
+                position = _arena.Car.BodyPosition.ToCore();
+                return true;
+            }
+
+            if (_remotes.TryGetValue(playerId, out var remote) && remote.HasState)
+            {
+                position = remote.transform.position.ToCore();
+                return true;
+            }
+
+            position = default;
+            return false;
         }
 
         private void FixedUpdate()
@@ -231,6 +269,11 @@ namespace CarRacer.Game.Net
             if (_shield.IsUp)
             {
                 flags |= CarStateFlags.Shielded;
+            }
+
+            if (state.SpunOut)
+            {
+                flags |= CarStateFlags.SpunOut;
             }
 
             _session.SendCarState(new CarStateMessage

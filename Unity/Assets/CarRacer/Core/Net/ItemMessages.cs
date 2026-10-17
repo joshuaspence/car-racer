@@ -66,6 +66,9 @@ namespace CarRacer.Core.Net
         /// <summary>Set by the host when it relays the message; 0 from the owner.</summary>
         public long UsedAtHostMs;
 
+        /// <summary>Set by the host when it relays the message: names what the item left behind (an oil slick), so <see cref="HazardGoneMessage"/> can refer to it.</summary>
+        public ushort EffectId;
+
         public MessageType Type => MessageType.ItemUsed;
 
         public void Write(NetWriter w)
@@ -76,6 +79,7 @@ namespace CarRacer.Core.Net
             w.WriteVec3(Velocity);
             w.WriteFloat(HeadingRadians);
             w.WriteLong(UsedAtHostMs);
+            w.WriteUShort(EffectId);
         }
 
         public static ItemUsedMessage Read(NetReader r) => new ItemUsedMessage
@@ -86,6 +90,22 @@ namespace CarRacer.Core.Net
             Velocity = r.ReadVec3(),
             HeadingRadians = r.ReadFloat(),
             UsedAtHostMs = r.ReadLong(),
+            EffectId = r.ReadUShort(),
         };
+    }
+
+    /// <summary>Host → all: the hazard left by item use <see cref="EffectId"/> caught a car and is gone. Hazards that time out are removed by everyone without a message.</summary>
+    public sealed class HazardGoneMessage : IGameMessage
+    {
+        public ushort EffectId;
+
+        public MessageType Type => MessageType.HazardGone;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteUShort(EffectId);
+        }
+
+        public static HazardGoneMessage Read(NetReader r) => new HazardGoneMessage { EffectId = r.ReadUShort() };
     }
 }

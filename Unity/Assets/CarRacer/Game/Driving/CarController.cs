@@ -95,6 +95,12 @@ namespace CarRacer.Game.Driving
             _state = CarModel.Boost(_state, speed, seconds);
         }
 
+        /// <summary>Spins the car out (an item hit): no control for a moment.</summary>
+        public void SpinOut()
+        {
+            _state = CarModel.SpinOut(_state, Tuning);
+        }
+
         private void Respawn()
         {
             _pendingImpulse = Vector3.zero;
