@@ -209,6 +209,35 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void GasPullsAwayFromACarRollingBackSlowly()
+        {
+            // A slope (or a wall pushing back) takes a little forward speed away every physics step.
+            var s = new CarState { Velocity = new Vec3(0f, 0f, -0.3f) };
+            var gas = new CarInput(0f, 1f);
+            for (int i = 0; i < 50; i++)
+            {
+                s = CarModel.Step(s, gas, grounded: true, Dt, Tuning);
+                s.Velocity += new Vec3(0f, 0f, -0.1f);
+            }
+
+            Assert.True(s.Velocity.Z > 5f, $"expected the car to pull away, but its speed is {s.Velocity.Z}");
+        }
+
+        [Fact]
+        public void BrakeReversesACarCreepingForwardSlowly()
+        {
+            var s = new CarState { Velocity = new Vec3(0f, 0f, 0.3f) };
+            var reverse = new CarInput(0f, -1f);
+            for (int i = 0; i < 50; i++)
+            {
+                s = CarModel.Step(s, reverse, grounded: true, Dt, Tuning);
+                s.Velocity += new Vec3(0f, 0f, 0.1f);
+            }
+
+            Assert.True(s.Velocity.Z < -2f, $"expected the car to reverse, but its speed is {s.Velocity.Z}");
+        }
+
+        [Fact]
         public void BrakingWorksDuringABoost()
         {
             var s = Moving(Tuning.MaxSpeed);
