@@ -371,7 +371,7 @@ namespace CarRacer.Game.Bots
                 bot.TrackIndex = _arena.TrackIndex;
             }
 
-            _arena.PlaceAtStart(bot.Car, bot.PlayerId, mode);
+            _arena.PlaceAtStart(bot.Car, _session.Race.GridSlotOf(bot.PlayerId), mode);
             bot.WasSpunOut = false;
             bot.Detector.Reset();
             bot.Driver.Reset();

@@ -348,7 +348,7 @@ namespace CarRacer.Game.Net
                     _detectorTrack = _arena.TrackIndex;
                 }
 
-                _arena.PlaceLocalCarAtStart(_me, _session.Race.Mode);
+                _arena.PlaceLocalCarAtStart(_session.Race.GridSlotOf(_me), _session.Race.Mode);
                 _detector.Reset();
                 _shield.Clear();
                 _lastPosition = _arena.Car.BodyPosition;

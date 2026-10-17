@@ -32,6 +32,7 @@ namespace CarRacer.Game.Net
         private int _laps = 3;
         private GameMode _mode = GameMode.Race;
         private int _track;
+        private CupPanel _cup;
         /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
         private const float AddressRefreshSeconds = 3f;
 
@@ -44,12 +45,21 @@ namespace CarRacer.Game.Net
         {
             _session = session;
             _cars = cars;
+            _cup = new CupPanel(session);
             if (session.IsHost)
             {
                 session.HostSide.BotFill = PlayerPrefs.GetInt(BotFillKey, 0);
                 session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
                 _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
                 _track = TrackCatalog.Clamp(PlayerPrefs.GetInt(TrackKey, 0));
+            }
+        }
+
+        private void Update()
+        {
+            if (_session != null && !_session.Ended && _session.Race != null)
+            {
+                _cup.Tick();
             }
         }
 
@@ -123,53 +133,30 @@ namespace CarRacer.Game.Net
                     GUILayout.Label(_hostAddresses, UiStyle.Hint);
                 }
 
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button(ModeName(_mode), UiStyle.Button, GUILayout.Width(150f)))
+                _cup.DrawLobbyChoice();
+                if (!_cup.CupChosen)
                 {
-                    _mode = (GameMode)(((int)_mode + 1) % 3);
-                    PlayerPrefs.SetInt(ModeKey, (int)_mode);
-                }
-
-                if (_mode == GameMode.Race)
-                {
-                    GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(130f));
-                    if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
-                    {
-                        _laps = Mathf.Max(1, _laps - 1);
-                    }
-
-                    if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
-                    {
-                        _laps = Mathf.Min(MaxLaps, _laps + 1);
-                    }
-                }
-                else
-                {
-                    GUILayout.Label(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only", UiStyle.Hint);
-                }
-
-                GUILayout.EndHorizontal();
-                if (_mode == GameMode.Race)
-                {
-                    // The host picks the track (design doc §11); everyone moves to it at the countdown.
-                    if (GUILayout.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, UiStyle.Button))
-                    {
-                        _track = (_track + 1) % TrackCatalog.Count;
-                        PlayerPrefs.SetInt(TrackKey, _track);
-                    }
+                    DrawSingleEventSettings();
                 }
 
                 DrawBotSettings();
 
                 // The host decides (design doc §11); alone, it's a practice race.
                 bool canStart = _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
-                GUI.enabled = canStart;
-                if (GUILayout.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
+                if (_cup.CupChosen)
                 {
-                    ((HostRace)_session.Race).Start(_laps, _mode, _track);
+                    _cup.DrawStartButtons(canStart);
                 }
+                else
+                {
+                    GUI.enabled = canStart;
+                    if (GUILayout.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
+                    {
+                        ((HostRace)_session.Race).Start(_laps, _mode, _track);
+                    }
 
-                GUI.enabled = true;
+                    GUI.enabled = true;
+                }
             }
             else
             {
@@ -184,6 +171,46 @@ namespace CarRacer.Game.Net
 
             GUILayout.EndVertical();
             GUILayout.EndArea();
+        }
+
+        /// <summary>The host's settings for a single event: mode, laps and track.</summary>
+        private void DrawSingleEventSettings()
+        {
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(ModeName(_mode), UiStyle.Button, GUILayout.Width(150f)))
+            {
+                _mode = (GameMode)(((int)_mode + 1) % 3);
+                PlayerPrefs.SetInt(ModeKey, (int)_mode);
+            }
+
+            if (_mode == GameMode.Race)
+            {
+                GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(130f));
+                if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
+                {
+                    _laps = Mathf.Max(1, _laps - 1);
+                }
+
+                if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
+                {
+                    _laps = Mathf.Min(MaxLaps, _laps + 1);
+                }
+            }
+            else
+            {
+                GUILayout.Label(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only", UiStyle.Hint);
+            }
+
+            GUILayout.EndHorizontal();
+            if (_mode == GameMode.Race)
+            {
+                // The host picks the track (design doc §11); everyone moves to it at the countdown.
+                if (GUILayout.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, UiStyle.Button))
+                {
+                    _track = (_track + 1) % TrackCatalog.Count;
+                    PlayerPrefs.SetInt(TrackKey, _track);
+                }
+            }
         }
 
         /// <summary>The host's bot fill and difficulty (design doc §9), remembered between sessions.</summary>
@@ -310,7 +337,15 @@ namespace CarRacer.Game.Net
         private void DrawResults(IRaceView race, float width, byte me)
         {
             var results = race.Results;
-            float x = width / 2f - 260f;
+
+            // In a cup the table goes beside the results, and its buttons replace the lobby button.
+            var cup = _cup.CurrentStandings(race);
+            float x = cup != null ? width / 2f - 580f : width / 2f - 260f;
+            if (cup != null)
+            {
+                _cup.DrawStandings(cup, width / 2f + 40f, 140f, TryFind(me, out var self) ? self.Name : string.Empty);
+            }
+
             float y = 140f;
             GUI.Box(new Rect(x - 20f, y - 20f, 560f, 80f + 32f * results.Results.Count), GUIContent.none);
             GUI.Label(new Rect(x, y, 520f, 34f), "Results", new GUIStyle(_small) { fontSize = 30, fontStyle = FontStyle.Bold });
@@ -328,14 +363,14 @@ namespace CarRacer.Game.Net
             }
 
             y += 16f;
-            if (_session.IsHost)
+            if (_session.IsHost && _cup.Run == null)
             {
                 if (GUI.Button(new Rect(x, y, 220f, 48f), "Back to lobby"))
                 {
                     ((HostRace)race).ReturnToLobby();
                 }
             }
-            else
+            else if (!_session.IsHost && cup == null)
             {
                 GUI.Label(new Rect(x, y, 520f, 30f), "Waiting for the host...", _small);
             }
