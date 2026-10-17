@@ -47,6 +47,9 @@ namespace CarRacer.Core.Session
         /// <summary>A guest's car state arrived (already relayed to the other guests).</summary>
         public event Action<CarStateMessage> CarStateReceived;
 
+        /// <summary>A joined guest reported a checkpoint for its own car (see <c>HostRace</c>).</summary>
+        public event Action<CheckpointReachedMessage> CheckpointReceived;
+
         public IEnumerable<ulong> GuestConnections => _playerByConnection.Keys;
 
         public bool TryGetPlayerId(ulong connection, out byte playerId) => _playerByConnection.TryGetValue(connection, out playerId);
@@ -91,11 +94,21 @@ namespace CarRacer.Core.Session
 
                     CarStateReceived?.Invoke(state);
                     break;
+                case CheckpointReachedMessage checkpoint when joined && checkpoint.PlayerId == playerId:
+                    CheckpointReceived?.Invoke(checkpoint);
+                    break;
             }
         }
 
         /// <summary>Sends the host's own car (or a bot's) to every guest.</summary>
         public void BroadcastCarState(CarStateMessage state) => Broadcast(state, reliable: false);
+
+        /// <summary>Clears every guest's Ready (the lobby reopening after an event) and tells everyone.</summary>
+        public void ResetReady()
+        {
+            Roster.ResetReady();
+            BroadcastRoster();
+        }
 
         public void SetHostName(string name)
         {
@@ -125,7 +138,8 @@ namespace CarRacer.Core.Session
             RosterChanged?.Invoke();
         }
 
-        private void Broadcast(IGameMessage message, bool reliable)
+        /// <summary>Sends a message to every joined guest.</summary>
+        public void Broadcast(IGameMessage message, bool reliable)
         {
             foreach (ulong connection in _playerByConnection.Keys)
             {
@@ -180,6 +194,9 @@ namespace CarRacer.Core.Session
         public event Action RosterChanged;
         public event Action<CarStateMessage> CarStateReceived;
 
+        /// <summary>Race messages from the host (countdown, standings, finishes, results, back to lobby); see <c>GuestRace</c>.</summary>
+        public event Action<IGameMessage> RaceMessageReceived;
+
         /// <summary>Call once the transport has connected to the host.</summary>
         public void OnConnected()
         {
@@ -214,6 +231,17 @@ namespace CarRacer.Core.Session
                 case CarStateMessage state when state.PlayerId != PlayerId:
                     CarStateReceived?.Invoke(state);
                     break;
+                case RaceCountdownMessage _:
+                case StandingsMessage _:
+                case PlayerFinishedMessage _:
+                case RaceResultsMessage _:
+                case ReturnToLobbyMessage _:
+                    if (State == GuestState.Joined)
+                    {
+                        RaceMessageReceived?.Invoke(message);
+                    }
+
+                    break;
             }
         }
 
@@ -240,11 +268,13 @@ namespace CarRacer.Core.Session
             }
         }
 
-        public void SendCarState(CarStateMessage state)
+        public void SendCarState(CarStateMessage state) => SendToHost(state, reliable: false);
+
+        public void SendToHost(IGameMessage message, bool reliable)
         {
             if (State == GuestState.Joined)
             {
-                _transport.Send(HostConnection, state, reliable: false);
+                _transport.Send(HostConnection, message, reliable);
             }
         }
     }
