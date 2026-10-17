@@ -4,8 +4,8 @@ Four GitHub Actions workflows live in `.github/workflows/`:
 
 | Workflow | Runs on | Needs secrets? | What it does |
 |---|---|---|---|
-| `core.yml` | every push to `main`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
-| `unity.yml` | every push to `main`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and attaches it to the run |
+| `core.yml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
+| `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and attaches it to the run |
 | `release.yml` | pushing a `v*` tag | Unity licence + keystore | Builds a release-signed APK and publishes it to GitHub Releases |
 | `claude.yaml` | every non-draft PR (on each push), and `@claude` mentions | `CLAUDE_CODE_OAUTH_TOKEN` | Claude reviews the PR, or answers the mention, via [`spence-com-au/claude-code-action`](https://github.com/spence-com-au/claude-code-action) |
 

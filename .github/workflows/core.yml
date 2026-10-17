@@ -3,7 +3,7 @@ name: Core
 # Engine-independent game logic: builds and tests without Unity, so it needs no secrets.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:

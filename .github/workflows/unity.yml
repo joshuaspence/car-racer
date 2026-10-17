@@ -4,7 +4,7 @@ name: Unity
 # UNITY_PASSWORD secrets (see docs/ci-setup.md); without them these jobs are skipped.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
