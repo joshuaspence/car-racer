@@ -104,10 +104,10 @@ namespace CarRacer.Core.Track
         }
 
         /// <summary>
-        /// Distance along the track of the centre-line point nearest to <paramref name="position"/>
-        /// (measured on the ground plane). Pass the car's previous distance as
-        /// <paramref name="hintDistance"/> to search only nearby, which is faster and avoids
-        /// jumping to the other road at a figure-eight crossover.
+        /// Distance along the track of the centre-line point nearest to <paramref name="position"/>,
+        /// measured in 3D so a car under a bridge matches the road it is on, not the one overhead.
+        /// Pass the car's previous distance as <paramref name="hintDistance"/> to search only
+        /// nearby, which is faster.
         /// </summary>
         public float FindNearestDistance(Vec3 position, float? hintDistance = null, float searchWindow = 40f)
         {
@@ -141,16 +141,16 @@ namespace CarRacer.Core.Track
             {
                 Vec3 pa = _tablePosition[a];
                 Vec3 pb = _tablePosition[b];
-                Vec3 seg = (pb - pa).Flattened;
+                Vec3 seg = pb - pa;
                 float segLenSq = seg.LengthSquared;
                 if (segLenSq < 1e-8f)
                 {
                     continue;
                 }
 
-                float u = Math.Max(0f, Math.Min(1f, Vec3.Dot((position - pa).Flattened, seg) / segLenSq));
-                Vec3 p = pa + (pb - pa) * u;
-                float sq = (position - p).Flattened.LengthSquared;
+                float u = Math.Max(0f, Math.Min(1f, Vec3.Dot(position - pa, seg) / segLenSq));
+                Vec3 p = pa + seg * u;
+                float sq = (position - p).LengthSquared;
                 if (sq < bestSq)
                 {
                     bestSq = sq;
@@ -164,7 +164,7 @@ namespace CarRacer.Core.Track
 
             void Consider(int i)
             {
-                float sq = (position - _tablePosition[i]).Flattened.LengthSquared;
+                float sq = (position - _tablePosition[i]).LengthSquared;
                 if (sq < bestSq)
                 {
                     bestSq = sq;

@@ -7,14 +7,21 @@ namespace CarRacer.Core.Race
 {
     /// <summary>
     /// Runs on each phone for its own car (design doc §7.1): watches for the car crossing the next
-    /// expected checkpoint gate, forwards, between the road edges, and reports only that one. The
-    /// host's <see cref="RaceTracker"/> applies the same ordering rule, so a report it rejects
-    /// can't advance anything.
+    /// expected checkpoint gate, forwards, between the road edges and near the road's height, and
+    /// reports only that one. The host's <see cref="RaceTracker"/> applies the same ordering rule,
+    /// so a report it rejects can't advance anything.
     /// </summary>
     public sealed class CheckpointDetector
     {
         /// <summary>Gates are this much wider than the road on each side, so a car riding the wall still counts.</summary>
         public const float EdgeMargin = 2f;
+
+        /// <summary>
+        /// Gates reach this far below and above the road, so a car in the air off a jump still
+        /// counts but one crossing on a bridge overhead (a figure-eight) doesn't.
+        /// </summary>
+        public const float GateBelow = 2f;
+        public const float GateAbove = 5f;
 
         /// <summary>A jump longer than this in one step is a respawn or teleport, not a crossing.</summary>
         public const float MaxStepDistance = 20f;
@@ -78,7 +85,8 @@ namespace CarRacer.Core.Race
             float t = before / (before - after);
             Vec3 crossing = from + (to - from) * t;
             float lateral = Math.Abs(Vec3.Dot((crossing - gate.Position).Flattened, right));
-            if (lateral > gate.Width / 2f + EdgeMargin)
+            float height = crossing.Y - gate.Position.Y;
+            if (lateral > gate.Width / 2f + EdgeMargin || height < -GateBelow || height > GateAbove)
             {
                 return -1;
             }

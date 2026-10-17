@@ -364,14 +364,24 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 ## 13. Tracks, arenas and art
 
 - **Tracks are data**: `TrackDefinition` holds closed-spline control points with width,
-  banking and elevation, plus checkpoint count, laps and item box rows. Loaded with
-  `JsonUtility` from a TextAsset.
+  banking and elevation, plus checkpoint count, laps and item box rows. The built-in tracks are
+  defined in code (`SampleTracks`) so `dotnet test` can check them; the fields stay
+  `JsonUtility`-friendly for track files later.
 - **Everything else is generated** from it: road and wall meshes (`RoadMeshBuilder`),
   checkpoint gates, start grid (two staggered columns behind the line), item box positions and
   the bot racing line (`TrackLayout`). Arenas will work the same way (platform shape + edge type).
-- Initial content: **3 tracks** (an easy oval-ish circuit, a technical track with a jump, a
-  figure-eight with a crossover) and **2 arenas** (Sumo platform, Battle bowl).
-  `FindNearestDistance` takes a hint so it doesn't jump between roads at the crossover.
+- Initial content: **3 tracks** and **2 arenas** (Sumo platform, Battle bowl):
+  - **Pebble Oval** (`oval`, ~390 m): an easy rounded rectangle.
+  - **Canyon Hairpins** (`canyon`, ~590 m): a jump over a crest on the opening straight, two
+    hairpins, a chicane and a fast sweeper.
+  - **Crossover Eight** (`figure-eight`, ~700 m): crosses the middle on the ground, climbs round
+    the right-hand loop and crosses back on a bridge 8 m up.
+- **Track checks** (`TrackCatalogTests`): every track keeps its roads 4 m apart (or 6 m above
+  each other), has no slope over 20% or bend under an 11 m radius, and bots lap it at every
+  difficulty without leaving the road.
+- **Crossovers:** `FindNearestDistance` measures in 3D, so a car under the bridge matches its own
+  road, and checkpoint gates only reach 2 m below and 5 m above the road, so a car on the bridge
+  doesn't cross the gate below it.
 - **Art:** CC0 low-poly packs (Kenney Car Kit, Racing Kit), flat-shaded, bright toy-like look.
 - **Audio:** CC0 sound effects (Kenney), engine loops that change pitch with speed, a crunch
   scaled by impact, per-item sounds, CC0 music per track, and separate music and sound-effects volume.
