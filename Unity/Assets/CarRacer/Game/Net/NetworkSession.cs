@@ -52,6 +52,12 @@ namespace CarRacer.Game.Net
         /// <summary>The port the host listens on (for the join link in its QR code); 0 for a guest.</summary>
         public ushort Port { get; private set; }
 
+        /// <summary>When the session ended, in <see cref="Time.realtimeSinceStartup"/>.</summary>
+        public float EndedAt { get; private set; }
+
+        /// <summary>A guest that hasn't heard from the host for a moment (design doc §12): the HUD says "Reconnecting…".</summary>
+        public bool Reconnecting => !Ended && GuestSide != null && GuestSide.HostQuiet;
+
         public event Action<CarStateMessage> CarStateReceived;
 
         /// <summary>A hit addressed to this phone's car: another car's fallback bump, or an item hit from the host.</summary>
@@ -304,9 +310,28 @@ namespace CarRacer.Game.Net
 
         private void RaiseHit(HitMessage hit) => HitReceived?.Invoke(hit);
 
+        /// <summary>Time in the background doesn't count as the host going quiet; the host's own takeover rules cover it (§12).</summary>
+        private void OnApplicationPause(bool paused)
+        {
+            if (!paused)
+            {
+                GuestSide?.ForgiveSilence();
+            }
+        }
+
         private void Update()
         {
             long now = NowMs;
+            if (!Ended && GuestSide != null && GuestSide.HostLost)
+            {
+                // The transport's own timeout is long so a guest can come back from the background; Wi-Fi drops end sooner.
+                Fail("Lost the connection to the host");
+                if (_network != null && _network.IsListening)
+                {
+                    _network.Shutdown();
+                }
+            }
+
             GuestSide?.Tick();
             if (!Ended)
             {
@@ -353,6 +378,7 @@ namespace CarRacer.Game.Net
         private void Fail(string reason)
         {
             Ended = true;
+            EndedAt = Time.realtimeSinceStartup;
             Status = reason;
             _announcer?.Dispose();
             _announcer = null;

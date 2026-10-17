@@ -37,6 +37,9 @@ namespace CarRacer.Game.Menu
         /// <summary>A join link that arrived before the player had a name; joined once they choose one.</summary>
         public static (string Address, ushort Port)? PendingJoin { get; set; }
 
+        /// <summary>Shown on the main page, e.g. why the last session ended.</summary>
+        public string Notice { get; set; }
+
         private static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
         private void OnEnable()
@@ -149,6 +152,11 @@ namespace CarRacer.Game.Menu
             GUILayout.BeginArea(UiStyle.CentredPanel(480f, 70f, 600f), UiStyle.Panel);
             GUILayout.Label("Car Racer", UiStyle.Title);
             GUILayout.Label($"Racing as {_name}", UiStyle.HintCentred);
+            if (!string.IsNullOrEmpty(Notice))
+            {
+                GUILayout.Label(Notice, UiStyle.HintCentred);
+            }
+
             GUILayout.Space(20f);
 
             if (GUILayout.Button("Host game", UiStyle.PrimaryButton))
