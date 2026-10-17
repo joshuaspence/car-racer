@@ -1,0 +1,42 @@
+using System;
+
+namespace CarRacer.Core.Driving
+{
+    /// <summary>What one input device (touch screen, keyboard, gamepad) is asking for this frame.</summary>
+    public struct DriverControls
+    {
+        /// <summary>-1 (full left) to 1 (full right).</summary>
+        public float Steer;
+
+        /// <summary>0 to 1.</summary>
+        public float Accelerate;
+
+        /// <summary>0 to 1. Brakes, then reverses once stopped.</summary>
+        public float Brake;
+
+        public bool Drift;
+    }
+
+    /// <summary>Merges every device's controls into the single <see cref="CarInput"/> the car model takes.</summary>
+    public static class DriverInput
+    {
+        /// <summary>Brake input below this is treated as resting on the trigger, not braking.</summary>
+        public const float BrakeThreshold = 0.1f;
+
+        /// <summary>
+        /// The strongest steer wins, so a gamepad and the touch screen can be used side by side.
+        /// Braking overrides accelerating. With auto-accelerate on (design doc §5) the car drives at
+        /// full throttle unless braking.
+        /// </summary>
+        public static CarInput Combine(DriverControls a, DriverControls b, bool autoAccelerate)
+        {
+            float steer = Math.Abs(a.Steer) >= Math.Abs(b.Steer) ? a.Steer : b.Steer;
+            float brake = Clamp01(Math.Max(a.Brake, b.Brake));
+            float accelerate = autoAccelerate ? 1f : Clamp01(Math.Max(a.Accelerate, b.Accelerate));
+            float throttle = brake > BrakeThreshold ? -brake : accelerate;
+            return new CarInput(Math.Max(-1f, Math.Min(1f, steer)), throttle, a.Drift || b.Drift);
+        }
+
+        private static float Clamp01(float value) => Math.Max(0f, Math.Min(1f, value));
+    }
+}

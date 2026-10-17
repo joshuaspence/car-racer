@@ -130,7 +130,12 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - **Right half:** large **Drift** and **Brake/Reverse** buttons; item use is also on the right.
 - **Auto-accelerate on by default** (settings toggle).
 - **Tilt steering** is optional in settings.
-- **Gamepad support** through the Input System.
+- **Gamepad support** through the Input System: left stick steers, A or the right trigger
+  accelerates, B or the left trigger brakes, either shoulder drifts. The keyboard (arrows/WASD,
+  Space to drift) works too, for testing in the editor. All devices work at once; the strongest
+  steer wins and braking overrides accelerating (`DriverInput`).
+- With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. Each finger keeps
+  the control it first landed on until it lifts (`TouchControls`).
 - **Haptics** on hits, boosts and item impacts.
 
 ## 6. Camera and HUD
