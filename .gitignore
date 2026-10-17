@@ -1,0 +1,54 @@
+# Unity (project lives in Unity/)
+/Unity/[Ll]ibrary/
+/Unity/[Tt]emp/
+/Unity/[Oo]bj/
+/Unity/[Bb]uild/
+/Unity/[Bb]uilds/
+/Unity/[Ll]ogs/
+/Unity/[Uu]ser[Ss]ettings/
+/Unity/[Mm]emoryCaptures/
+/Unity/[Rr]ecordings/
+/Unity/.vs/
+/Unity/.idea/
+/Unity/.vscode/
+/Unity/*.csproj
+/Unity/*.sln
+/Unity/*.slnx
+/Unity/*.user
+/Unity/*.unityproj
+/Unity/*.pidb
+/Unity/*.booproj
+/Unity/*.svd
+/Unity/*.pdb
+/Unity/*.mdb
+/Unity/*.opendb
+/Unity/*.VC.db
+/Unity/Assets/Plugins/Editor/JetBrains*
+/Unity/Assets/StreamingAssets/aa*
+crashlytics-build.properties
+sysinfo.txt
+
+# Build output (local and CI)
+/build/
+/Unity/build/
+*.apk
+*.aab
+
+# Secrets: never commit these
+*.keystore
+*.jks
+*.ulf
+*.alf
+
+# .NET (dotnet/)
+bin/
+obj/
+TestResults/
+*.trx
+
+# Editors / OS
+.idea/
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
