@@ -165,6 +165,19 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void BrakingAboveTopSpeedUsesFullBraking()
+        {
+            // Just after a boost ends: over the normal top speed with no boost left.
+            var s = Moving(Tuning.MaxSpeed + 8f);
+            for (int i = 0; i < 10; i++)
+            {
+                s = CarModel.Step(s, new CarInput(0f, -1f), true, Dt, Tuning);
+            }
+
+            Assert.Equal(Tuning.MaxSpeed + 8f - Tuning.Braking * Dt * 10, ForwardSpeed(s), 2);
+        }
+
+        [Fact]
         public void AWeakerBoostDoesNotCutAStrongerOneShort()
         {
             // Mid tier-3 boost at its top speed, the player releases a short (tier-1) drift.

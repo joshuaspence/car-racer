@@ -172,13 +172,14 @@ namespace CarRacer.Core.Driving
         {
             float topSpeed = t.MaxSpeed + state.BoostSpeed;
             // A boost drives the car up to the boosted top speed unless the player brakes, which always
-            // takes priority. Anything above that top speed eases off below, rather than snapping down.
+            // takes priority. Anything above that top speed eases off below, rather than snapping down,
+            // unless the player brakes, which uses the full braking rate.
             if (state.BoostSecondsLeft > 0f && throttle >= 0f && speed <= topSpeed)
             {
                 return Math.Min(topSpeed, speed + t.BoostAcceleration * dt);
             }
 
-            if (speed > topSpeed)
+            if (speed > topSpeed && throttle >= 0f)
             {
                 return Math.Max(topSpeed, speed - t.OverSpeedDeceleration * dt);
             }
