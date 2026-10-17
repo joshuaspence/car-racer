@@ -335,6 +335,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - **Reverse grid** (leader starts last) is on by default as a host toggle.
 - Tiebreaks: most wins, then best finish in the latest event, then name.
 - Between events: a standings screen and a 10 s auto-advance that the host can pause.
+  Built (`CupPanel`): the host's lobby cycles **Event: single / Grand Prix / Mixed Cup**, with a
+  reverse-grid toggle and **Resume** for a saved cup (both remembered; the save lives in
+  PlayerPrefs). The results screen shows the cup table beside the results with the countdown;
+  the host gets Pause/Resume, Next event and Leave cup (which keeps the save), and Back to lobby
+  once the cup is won. Cars start on their grid order's slot.
 - The host **auto-saves after every event**; a dead session can be **resumed**, and players
   reclaim their points by name (ignoring case and spaces at the ends). Names are unique within a
   lobby; device ids aren't needed on a LAN of friends.
