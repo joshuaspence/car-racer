@@ -16,7 +16,8 @@ temporary on-device screen tests LAN discovery between phones.
 
 **M1: core loop (in progress).** The arcade car handling, touch/gamepad/keyboard controls and
 chase camera are in. **Drive test** on the start screen puts one car on the sample oval for tuning.
-**Host game** and **Join** start a free drive on the oval with everyone in the session.
+**Host game** and **Join** put everyone in the session on the oval: drive around in the lobby,
+tap **Ready**, and the host starts a race with a synced countdown, laps, positions and results.
 
 ## Layout
 
