@@ -151,10 +151,45 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
-        public void SlidingOntoAButtonDoesNotPressIt()
+        public void SlidingOntoAButtonFromEmptyScreenPressesIt()
         {
-            Frame(Touch(1, 1300f, 900f, TouchStage.Began)); // right half, away from the buttons
-            Assert.Equal(0f, Frame(At(1, Layout.BrakeCentre)).Brake);
+            Frame(Touch(1, 1300f, 900f, TouchStage.Began)); // right half, just missed the buttons
+            Assert.Equal(1f, Frame(At(1, Layout.BrakeCentre)).Brake);
+        }
+
+        [Fact]
+        public void AThumbRockingFromBrakeToGasLetsGoOfTheBrake()
+        {
+            var controls = new TouchControls();
+            DriverControls Step(TouchPoint touch) => controls.Update(new List<TouchPoint> { touch }, Layout, showGas: true);
+
+            Assert.Equal(1f, Step(At(1, Layout.BrakeCentre, TouchStage.Began)).Brake);
+            var onGas = Step(At(1, Layout.GasCentre));
+            Assert.Equal(0f, onGas.Brake);
+            Assert.Equal(1f, onGas.Accelerate);
+            Assert.Equal(1f, Step(At(1, Layout.BrakeCentre)).Brake);
+        }
+
+        [Fact]
+        public void WhereTheReachesOverlapTheNearerButtonWins()
+        {
+            // Drift and Brake are 2.43 radii apart and each reaches 1.25 radii, so their reaches overlap.
+            var d = Layout.DriftCentre;
+            var b = Layout.BrakeCentre;
+            var nearerBrake = new Vec2(d.X + 0.51f * (b.X - d.X), d.Y + 0.51f * (b.Y - d.Y));
+            Assert.True(Layout.HitsButton(nearerBrake, d));
+            var controls = Frame(At(1, nearerBrake, TouchStage.Began));
+            Assert.Equal(1f, controls.Brake);
+            Assert.False(controls.Drift);
+        }
+
+        [Fact]
+        public void TheSteeringThumbNeverPressesButtons()
+        {
+            Frame(Touch(1, 400f, 300f, TouchStage.Began));
+            var controls = Frame(At(1, Layout.BrakeCentre));
+            Assert.Equal(0f, controls.Brake);
+            Assert.True(_controls.Steering);
         }
 
         [Fact]
