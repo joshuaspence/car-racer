@@ -29,10 +29,14 @@ namespace CarRacer.Core.Driving
         public float MaxSpeed = 26f;
         public float MaxReverseSpeed = 8f;
         public float Acceleration = 16f;
+        public float ReverseAcceleration = 9.6f;
         public float Braking = 32f;
 
-        /// <summary>Deceleration with no throttle, and when above top speed (e.g. after a boost).</summary>
+        /// <summary>Deceleration with no throttle.</summary>
         public float Coasting = 5f;
+
+        /// <summary>Deceleration while above top speed, e.g. when a boost ends.</summary>
+        public float OverSpeedDeceleration = 10f;
 
         /// <summary>Peak turn rate, reached at <see cref="FullSteerSpeed"/>.</summary>
         public float SteerDegreesPerSecond = 150f;
@@ -53,6 +57,9 @@ namespace CarRacer.Core.Driving
         public float DriftMaxTurn = 1.25f;
 
         public float DriftMinSpeed = 9f;
+
+        /// <summary>A drift in progress ends, without a boost, if the car slows below this.</summary>
+        public float DriftCancelSpeed = 5.4f;
         public float DriftMinSteer = 0.3f;
 
         /// <summary>Seconds of drifting needed for each boost tier (ascending).</summary>
@@ -171,7 +178,7 @@ namespace CarRacer.Core.Driving
 
             if (speed > topSpeed)
             {
-                return Math.Max(topSpeed, speed - t.Coasting * 2f * dt);
+                return Math.Max(topSpeed, speed - t.OverSpeedDeceleration * dt);
             }
 
             if (throttle > 0f)
@@ -191,7 +198,7 @@ namespace CarRacer.Core.Driving
                     return Math.Max(0f, speed + t.Braking * throttle * dt);
                 }
 
-                return Math.Max(-t.MaxReverseSpeed, speed + t.Acceleration * 0.6f * throttle * dt);
+                return Math.Max(-t.MaxReverseSpeed, speed + t.ReverseAcceleration * throttle * dt);
             }
 
             return speed > 0f
@@ -207,7 +214,7 @@ namespace CarRacer.Core.Driving
                 {
                     EndDrift(ref state, t, releaseBoost: true);
                 }
-                else if (forwardSpeed < t.DriftMinSpeed * 0.6f)
+                else if (forwardSpeed < t.DriftCancelSpeed)
                 {
                     EndDrift(ref state, t, releaseBoost: false);
                 }
