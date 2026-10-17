@@ -155,6 +155,16 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void BrakingWorksDuringABoost()
+        {
+            var s = Moving(Tuning.MaxSpeed);
+            s.BoostSpeed = 8f;
+            s.BoostSecondsLeft = 1.5f;
+            s = Run(s, new CarInput(0f, -1f), 0.5f);
+            Assert.Equal(Tuning.MaxSpeed - Tuning.Braking * 0.5f, ForwardSpeed(s), 1);
+        }
+
+        [Fact]
         public void SlowingDownCancelsADriftWithoutBoost()
         {
             var s = Run(Moving(15f), new CarInput(1f, 0f, drift: true), 0.1f);

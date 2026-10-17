@@ -171,7 +171,8 @@ namespace CarRacer.Core.Driving
         private static float ApplyThrottle(float speed, float throttle, CarState state, float dt, CarTuning t)
         {
             float topSpeed = t.MaxSpeed + state.BoostSpeed;
-            if (state.BoostSecondsLeft > 0f)
+            // A boost drives the car forward unless the player brakes, which always takes priority.
+            if (state.BoostSecondsLeft > 0f && throttle >= 0f)
             {
                 return Math.Min(topSpeed, speed + t.BoostAcceleration * dt);
             }
