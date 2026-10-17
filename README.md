@@ -35,7 +35,7 @@ dotnet test dotnet/CarRacer.sln
 ```
 
 To work in Unity, open `Unity/` with Unity **6000.3.26f1** (with Android Build Support) and follow
-[first-time setup](docs/ci-setup.md#4-first-time-unity-editor-setup-local).
+[first-time setup](docs/ci-setup.md#5-first-time-unity-editor-setup-local).
 
 ### Trying LAN discovery on phones
 
