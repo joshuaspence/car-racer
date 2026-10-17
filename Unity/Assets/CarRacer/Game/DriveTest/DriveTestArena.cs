@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Driving;
-using CarRacer.Core.Net;
 using CarRacer.Core.Numerics;
-using CarRacer.Core.Session;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
@@ -119,10 +117,16 @@ namespace CarRacer.Game.DriveTest
 
             Car = CarFactory.Build("Car", colour, transform);
             Car.InputSource = _inputSource;
+            CameraRig.Target = Car;
+            PlaceLocalCarOnGrid(slot);
+        }
+
+        /// <summary>Puts this phone's car back at rest on grid slot <paramref name="slot"/>, e.g. for a race start.</summary>
+        public void PlaceLocalCarOnGrid(int slot)
+        {
             var grid = Track.StartGrid(slot + 1)[slot];
             Vector3 spawn = grid.Position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f);
             Car.Place(spawn, Mathf.Atan2(grid.Forward.X, grid.Forward.Z));
-            CameraRig.Target = Car;
             CameraRig.Snap();
         }
 
@@ -180,11 +184,6 @@ namespace CarRacer.Game.DriveTest
                 GUI.Label(new Rect(left, 20f, 600f, 40f), $"{Mathf.Abs(Car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}");
             }
 
-            if (_session != null)
-            {
-                DrawSessionStatus(left);
-            }
-
             if (GUI.Button(new Rect(width - 160f, 20f, 136f, 52f), "Back"))
             {
                 Bootstrap.ShowDiscoveryScreen();
@@ -197,30 +196,6 @@ namespace CarRacer.Game.DriveTest
                 {
                     _playerInput.AutoAccelerate = !_playerInput.AutoAccelerate;
                 }
-            }
-        }
-
-        private void DrawSessionStatus(float left)
-        {
-            var small = new GUIStyle(GUI.skin.label) { fontSize = 20 };
-            float y = 64f;
-            GUI.Label(new Rect(left, y, 700f, 30f), _session.Status, small);
-            if (_session.Ended)
-            {
-                return;
-            }
-
-            _session.TryGetLocalPlayerId(out byte me);
-            bool joined = _session.IsHost || _session.GuestSide.State == GuestState.Joined;
-            foreach (var player in joined ? _session.Players : new List<RosterEntry>())
-            {
-                y += 26f;
-                string tags = (player.IsHost ? " (host)" : string.Empty) + (player.PlayerId == me ? " (you)" : string.Empty);
-                var previous = GUI.color;
-                GUI.color = CarColours.ForIndex(player.ColourIndex);
-                GUI.DrawTexture(new Rect(left, y + 5f, 16f, 16f), Texture2D.whiteTexture);
-                GUI.color = previous;
-                GUI.Label(new Rect(left + 28f, y, 500f, 26f), player.Name + tags, small);
             }
         }
 

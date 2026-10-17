@@ -36,6 +36,9 @@ namespace CarRacer.Game.Driving
         public CarTuning Tuning = new CarTuning();
         public ICarInputSource InputSource;
 
+        /// <summary>While true the driver's input is ignored, e.g. on the grid before the start.</summary>
+        public bool InputLocked;
+
         private Rigidbody _body;
         private Transform _visual;
         private CarState _state;
@@ -83,7 +86,7 @@ namespace CarRacer.Game.Driving
         private void FixedUpdate()
         {
             Grounded = Physics.Raycast(_body.position, Vector3.down, SphereRadius + GroundProbe, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            LastInput = InputSource?.Read() ?? default;
+            LastInput = InputLocked ? default : InputSource?.Read() ?? default;
 
             Vector3 velocity = _body.linearVelocity;
             _state.Velocity = velocity.ToCore();

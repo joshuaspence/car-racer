@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Net;
+using CarRacer.Core.Race;
 using CarRacer.Core.Session;
 using Unity.Collections;
 using Unity.Netcode;
@@ -48,6 +49,9 @@ namespace CarRacer.Game.Net
 
         public event Action<CarStateMessage> CarStateReceived;
 
+        /// <summary>The race referee (host) or follower (guest), once <see cref="CreateRace"/> has been called.</summary>
+        public IRaceView Race { get; private set; }
+
         public static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
         /// <summary>This phone's player id, once it has one.</summary>
@@ -76,6 +80,18 @@ namespace CarRacer.Game.Net
             float toHost = GuestSide.Clock.HasEstimate ? GuestSide.Clock.OneWayLatencyMs : HostLatencyGuessMs;
             bool fromHost = playerId == HostPlayerIdFromRoster();
             return fromHost ? toHost : 2f * toHost;
+        }
+
+        /// <summary>
+        /// Sets up racing on a track with <paramref name="checkpointCount"/> checkpoints. The host
+        /// needs <paramref name="fractionToNextCheckpoint"/> (how far each player's car is towards
+        /// its next checkpoint) for standings.
+        /// </summary>
+        public void CreateRace(int checkpointCount, Func<int, float> fractionToNextCheckpoint)
+        {
+            Race = IsHost
+                ? new HostRace(HostSide, checkpointCount, () => NowMs, fractionToNextCheckpoint)
+                : (IRaceView)new GuestRace(GuestSide, () => NowMs);
         }
 
         public void SendCarState(CarStateMessage state)
@@ -253,6 +269,10 @@ namespace CarRacer.Game.Net
         {
             long now = NowMs;
             GuestSide?.Tick();
+            if (!Ended)
+            {
+                Race?.Tick();
+            }
 
             if (_announcer != null)
             {
