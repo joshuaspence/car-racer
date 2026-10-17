@@ -39,7 +39,9 @@ bugs and differs between phone makers, and it can't be tested on desktop.
 - Android: the app holds a **`WifiManager.MulticastLock`** only while the lobby or join screen is
   open, and declares `CHANGE_WIFI_MULTICAST_STATE` (added by `AndroidManifestPostProcessor`).
 - Fallback for networks with client isolation: **join by IP**, or scan a **QR code** on the host
-  screen that contains `ip:port`.
+  screen that contains `ip:port`. Join by IP is in (`HostAddress`): the host's lobby lists its
+  IPv4 addresses, and a guest types one as `ip` or `ip:port`, with the port defaulting to 47778.
+  The QR code is still to come.
 
 Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test screen.
 
