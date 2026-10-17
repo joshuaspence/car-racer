@@ -329,6 +329,7 @@ namespace CarRacer.Game.Net
             }
 
             GuestSide?.Tick();
+            HostSide?.Tick();
             if (!Ended)
             {
                 Race?.Tick();

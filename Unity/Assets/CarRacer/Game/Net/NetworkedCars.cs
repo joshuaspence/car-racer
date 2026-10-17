@@ -62,6 +62,11 @@ namespace CarRacer.Game.Net
             _session = session;
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
+            if (!session.IsHost)
+            {
+                session.GuestSide.ControlReturned += OnControlReturned;
+            }
+
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
             _detectorTrack = arena.TrackIndex;
 
@@ -92,6 +97,10 @@ namespace CarRacer.Game.Net
             {
                 _session.CarStateReceived -= OnCarState;
                 _session.HitReceived -= OnHit;
+                if (_session.GuestSide != null)
+                {
+                    _session.GuestSide.ControlReturned -= OnControlReturned;
+                }
             }
         }
 
@@ -208,6 +217,21 @@ namespace CarRacer.Game.Net
             }
 
             ShieldRing.Show(_shieldRing, _shield.IsUp);
+        }
+
+        /// <summary>Back from the background after a bot drove this phone's car (design doc §12): carry on from where it got to.</summary>
+        private void OnControlReturned(ControlReturnedMessage returned)
+        {
+            var car = _arena.Car;
+            if (car == null)
+            {
+                return;
+            }
+
+            car.Place(returned.Position.ToUnity(), returned.HeadingRadians);
+            car.AddImpulse(returned.Velocity.ToUnity() * car.GetComponent<Rigidbody>().mass);
+            _detector.Resume(returned.CheckpointsPassed);
+            _lastPosition = car.BodyPosition;
         }
 
         private void OnHit(HitMessage hit)

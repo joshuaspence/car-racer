@@ -370,7 +370,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 |---|---|
 | Guest drops mid-race | A bot takes over the car (`HostSession.PlayerTakenOver`): the same id, name, colour, race progress and held item, now marked as a bot. The host's `BotCars` carries on from where the car was last seen, at its speed, with its laps (`CheckpointDetector.Resume`). Other phones just see the car carry on. The bot leaves with the others when the lobby reopens. Leaving in the lobby is still just leaving. |
 | Guest rejoins | Lobby only (no joining mid-race); reclaims their championship slot. |
-| App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. |
+| App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. Built: the host's `HostSession` takes over any guest it hasn't heard from for 10 s during an event (`PlayerTakenOver`, as for a drop). The first message from them afterwards gives the car back (`PlayerReturned`): the host's `BotCars` sends a `ControlReturnedMessage` (protocol 12) with where the car got to and its checkpoint count, and the guest carries on from there. A guest still away when the event ends is back in the lobby as a player. |
 | Host leaves | Session ends: "Host left". The host gets a confirmation before leaving. The screen is kept awake during sessions. |
 | Wi-Fi drops | "Reconnecting…" until the NGO timeout (~5–10 s), then back to the menu. Built: a guest that hasn't heard from the host for 1.5 s shows "Reconnecting…" (`GuestSession.HostQuiet`). After 10 s it gives up (`HostLost`), shows why, and is back at the main menu 4 s later with the reason under the title. The transport's own timeout stays long so a guest can come back from the background (row above), and time in the background doesn't count as silence. The same 4 s return applies whenever a session ends ("The host left"). |
 
@@ -439,6 +439,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M2: Items** | Item boxes, the six items, host-side hit resolution, catch-up rolls. |
 | **M3: Arenas and bots** | Sumo and Battle arenas, overhead camera, bots (racing line, ramming, items), bot takeover on disconnect, practice mode. |
 | **M4: Championship** | Cups, points, reverse grid, standings screens, auto-save and resume. |
+| **M5: Robustness** | Background grace with bot takeover and return, "Reconnecting…" on Wi-Fi drops, join by QR code, automatic quality presets. |
+| **M6: Race feel** | Edge-of-screen indicators, incoming-missile warning, rear-view glance, audio (engines, crunches, items, music). |
 | Later | Track voting, Google Play internal testing track, more tracks and cars, accessibility pass. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

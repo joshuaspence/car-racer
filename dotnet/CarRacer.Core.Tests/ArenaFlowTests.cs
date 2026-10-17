@@ -11,7 +11,7 @@ namespace CarRacer.Core.Tests
 {
     public class ArenaFlowTests
     {
-        private const ushort Version = 11;
+        private const ushort Version = 12;
         private const ulong GuestConnection = 7;
 
         private sealed class HostLink : ISessionTransport
