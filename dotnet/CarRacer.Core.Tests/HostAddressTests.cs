@@ -11,6 +11,7 @@ namespace CarRacer.Core.Tests
         [InlineData("  10.0.0.7  ", "10.0.0.7", DiscoveryConstants.DefaultGamePort)]
         [InlineData("192.168.1.23:47800", "192.168.1.23", 47800)]
         [InlineData("172.20.10.1:1", "172.20.10.1", 1)]
+        [InlineData("10.0.0.0", "10.0.0.0", DiscoveryConstants.DefaultGamePort)]
         public void ValidAddressesParse(string text, string address, int port)
         {
             Assert.True(HostAddress.TryParse(text, out string parsed, out ushort parsedPort));
@@ -33,6 +34,9 @@ namespace CarRacer.Core.Tests
         [InlineData("192.168.1.23:-5")]
         [InlineData("+1.2.3.4")]
         [InlineData("1.2.3.0004")]
+        [InlineData("1.2.3.007")]
+        [InlineData("01.2.3.4")]
+        [InlineData("192.168.001.010")]
         [InlineData("myphone.local")]
         public void InvalidAddressesDoNot(string text)
         {

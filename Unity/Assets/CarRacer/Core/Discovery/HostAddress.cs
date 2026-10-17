@@ -16,8 +16,8 @@ namespace CarRacer.Core.Discovery
     {
         /// <summary>
         /// Reads "192.168.1.23" or "192.168.1.23:47778" (spaces around it are ignored). Only IPv4
-        /// dotted quads are accepted, since that's what a phone's Wi-Fi settings show; without a
-        /// port the default game port is used.
+        /// dotted quads without leading zeros are accepted, since that's what a phone's Wi-Fi
+        /// settings show; without a port the default game port is used.
         /// </summary>
         public static bool TryParse(string text, out string address, out ushort port)
         {
@@ -48,7 +48,9 @@ namespace CarRacer.Core.Discovery
 
             foreach (string part in parts)
             {
-                if (part.Length == 0 || part.Length > 3 || !byte.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+                // No leading zeros: some network stacks read "010" as octal (8).
+                if (part.Length == 0 || part.Length > 3 || (part.Length > 1 && part[0] == '0')
+                    || !byte.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out _))
                 {
                     return false;
                 }
