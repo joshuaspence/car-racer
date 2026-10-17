@@ -19,6 +19,9 @@ namespace CarRacer.Core.Net
         Standings = 12,
         RaceResults = 13,
         ReturnToLobby = 14,
+        ItemBoxClaim = 15,
+        ItemBoxTaken = 16,
+        ItemUsed = 17,
     }
 
     [Flags]
@@ -246,6 +249,15 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.ReturnToLobby:
                     message = new ReturnToLobbyMessage();
+                    break;
+                case MessageType.ItemBoxClaim:
+                    message = ItemBoxClaimMessage.Read(reader);
+                    break;
+                case MessageType.ItemBoxTaken:
+                    message = ItemBoxTakenMessage.Read(reader);
+                    break;
+                case MessageType.ItemUsed:
+                    message = ItemUsedMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");

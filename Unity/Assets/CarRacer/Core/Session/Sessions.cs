@@ -56,6 +56,9 @@ namespace CarRacer.Core.Session
         /// <summary>A guest's car bumped the host's car (fallback hit, see <c>BumpMonitor</c>).</summary>
         public event Action<HitMessage> HitReceived;
 
+        /// <summary>A joined guest claimed an item box or used its item, for its own car (see <c>HostItems</c>).</summary>
+        public event Action<IGameMessage> ItemMessageReceived;
+
         public IEnumerable<ulong> GuestConnections => _playerByConnection.Keys;
 
         public bool TryGetPlayerId(ulong connection, out byte playerId) => _playerByConnection.TryGetValue(connection, out playerId);
@@ -107,6 +110,12 @@ namespace CarRacer.Core.Session
                 case HitMessage hit when joined && hit.AttackerId == playerId && !hit.IsItemHit:
                     // Item hits come only from the host; a guest may only report bumps by its own car.
                     SendHit(hit);
+                    break;
+                case ItemBoxClaimMessage claim when joined && claim.PlayerId == playerId:
+                    ItemMessageReceived?.Invoke(claim);
+                    break;
+                case ItemUsedMessage used when joined && used.PlayerId == playerId:
+                    ItemMessageReceived?.Invoke(used);
                     break;
             }
         }
@@ -230,6 +239,9 @@ namespace CarRacer.Core.Session
         /// <summary>Another car bumped this guest's car, or the host scored an item hit on it.</summary>
         public event Action<HitMessage> HitReceived;
 
+        /// <summary>Item boxes taken and items used, from the host (see <c>GuestItems</c>).</summary>
+        public event Action<IGameMessage> ItemMessageReceived;
+
         /// <summary>Call once the transport has connected to the host.</summary>
         public void OnConnected()
         {
@@ -275,6 +287,14 @@ namespace CarRacer.Core.Session
                     if (State == GuestState.Joined)
                     {
                         RaceMessageReceived?.Invoke(message);
+                    }
+
+                    break;
+                case ItemBoxTakenMessage _:
+                case ItemUsedMessage _:
+                    if (State == GuestState.Joined)
+                    {
+                        ItemMessageReceived?.Invoke(message);
                     }
 
                     break;
