@@ -23,4 +23,29 @@ namespace CarRacer.Core.Items
         /// <summary>A lobbed projectile that bounces and explodes.</summary>
         Bomb = 6,
     }
+
+    public static class ItemNames
+    {
+        /// <summary>The short label shown on the Item button and in the HUD slot; "ITEM" when the slot is empty.</summary>
+        public static string Label(ItemKind kind)
+        {
+            switch (kind)
+            {
+                case ItemKind.Boost:
+                    return "BOOST";
+                case ItemKind.Shield:
+                    return "SHIELD";
+                case ItemKind.Shockwave:
+                    return "SHOCK";
+                case ItemKind.Missile:
+                    return "MISSILE";
+                case ItemKind.OilSlick:
+                    return "OIL";
+                case ItemKind.Bomb:
+                    return "BOMB";
+                default:
+                    return "ITEM";
+            }
+        }
+    }
 }

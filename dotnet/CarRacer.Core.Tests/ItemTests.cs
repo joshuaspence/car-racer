@@ -206,4 +206,40 @@ namespace CarRacer.Core.Tests
             Assert.False(slots.TryUse(2, ItemKind.None));
         }
     }
+
+    public class ShieldTests
+    {
+        [Fact]
+        public void TheShieldLastsItsTimeThenDrops()
+        {
+            var shield = new Shield();
+            Assert.False(shield.IsUp);
+            shield.Raise();
+            shield.Tick(Shield.Seconds - 0.1f);
+            Assert.True(shield.IsUp);
+            shield.Tick(0.2f);
+            Assert.False(shield.IsUp);
+            Assert.Equal(0f, shield.SecondsLeft);
+        }
+
+        [Fact]
+        public void TheShieldSoaksUpOneHit()
+        {
+            var shield = new Shield();
+            Assert.False(shield.Absorb());
+            shield.Raise();
+            Assert.True(shield.Absorb());
+            Assert.False(shield.IsUp);
+            Assert.False(shield.Absorb());
+        }
+
+        [Fact]
+        public void ClearDropsTheShield()
+        {
+            var shield = new Shield();
+            shield.Raise();
+            shield.Clear();
+            Assert.False(shield.IsUp);
+        }
+    }
 }

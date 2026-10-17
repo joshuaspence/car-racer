@@ -39,6 +39,24 @@ namespace CarRacer.Game.DriveTest
         /// <summary>The hosted or joined session, if any.</summary>
         public NetworkSession Session => _session;
 
+        /// <summary>The player's own controls; null when a test drives the car.</summary>
+        public PlayerCarInput PlayerInput => _playerInput;
+
+        /// <summary>Shows the Item button (in a race), labelled with the item held, and lets touches press it.</summary>
+        public bool ShowItemButton
+        {
+            get => _playerInput != null && _playerInput.ShowItem;
+            set
+            {
+                if (_playerInput != null)
+                {
+                    _playerInput.ShowItem = value;
+                }
+            }
+        }
+
+        public string ItemButtonLabel { get; set; } = string.Empty;
+
         /// <summary>
         /// Builds the arena. Pass <paramref name="inputOverride"/> to drive the car from a test instead
         /// of the player's devices, and <paramref name="startSession"/> to start a hosted or joined
@@ -223,6 +241,11 @@ namespace CarRacer.Game.DriveTest
             if (!_playerInput.AutoAccelerate)
             {
                 DrawButton(layout, layout.GasCentre, "GAS", touch.GasHeld);
+            }
+
+            if (ShowItemButton)
+            {
+                DrawButton(layout, layout.ItemCentre, ItemButtonLabel, touch.ItemHeld);
             }
         }
 

@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Items;
 using UnityEngine;
 
 namespace CarRacer.Game.Net
@@ -13,7 +15,8 @@ namespace CarRacer.Game.Net
     /// phone's part of a race (§7.2): spawns its car on its grid slot once it has a player id,
     /// sends its state at 30 Hz, shows every other player as a <see cref="RemoteCar"/> that
     /// follows the roster, bumps its car off the others (§2.2), holds the car on the grid through
-    /// the countdown, and reports the checkpoints it crosses.
+    /// the countdown, and reports the checkpoints it crosses. In a race it also picks up item boxes
+    /// and uses the held item (design doc §8), applying Boost and Shield to its own car at once.
     /// </summary>
     public sealed class NetworkedCars : MonoBehaviour
     {
@@ -25,6 +28,8 @@ namespace CarRacer.Game.Net
         private readonly BumpMonitor _bumpMonitor = new BumpMonitor();
         private readonly List<OtherCar> _others = new List<OtherCar>();
         private readonly List<Bump> _bumps = new List<Bump>();
+        private readonly Shield _shield = new Shield();
+        private Transform _shieldRing;
         private DriveTestArena _arena;
         private NetworkSession _session;
         private CheckpointDetector _detector;
@@ -48,7 +53,8 @@ namespace CarRacer.Game.Net
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
-            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint);
+            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, arena.Track.ItemBoxPositions());
+            gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
         }
 
@@ -85,7 +91,38 @@ namespace CarRacer.Game.Net
                 pair.Value.Tick(now, _session.LatencyMsFor(pair.Key), Time.deltaTime);
             }
 
+            UseItems();
             SendOwnState(now);
+        }
+
+        /// <summary>Uses the held item when the player presses Item, and keeps the Item button and shield ring up to date.</summary>
+        private void UseItems()
+        {
+            var car = _arena.Car;
+            var input = _arena.PlayerInput;
+            bool pressed = input != null && input.ConsumeItemPress();
+            _shield.Tick(Time.deltaTime);
+            if (pressed && car != null && _phase == RacePhase.Racing)
+            {
+                var item = _session.Items.UseHeld(car.BodyPosition.ToCore(), car.BodyVelocity.ToCore(), car.State.Heading);
+                if (item == ItemKind.Boost)
+                {
+                    car.Boost(car.Tuning.ItemBoostSpeed, car.Tuning.ItemBoostDuration);
+                }
+                else if (item == ItemKind.Shield)
+                {
+                    _shield.Raise();
+                }
+            }
+
+            _arena.ShowItemButton = _phase == RacePhase.Racing;
+            _arena.ItemButtonLabel = ItemNames.Label(_session.Items.Held);
+            if (car != null && _shieldRing == null)
+            {
+                _shieldRing = ShieldRing.Build(car.transform);
+            }
+
+            ShieldRing.Show(_shieldRing, _shield.IsUp);
         }
 
         private void OnHit(HitMessage hit)
@@ -118,6 +155,8 @@ namespace CarRacer.Game.Net
             {
                 _session.Race.ReportOwnCheckpoint(crossed);
             }
+
+            _session.Items.ClaimTouchedBox(position.ToCore());
         }
 
         /// <summary>Pushes this phone's car off any car it touches and tells that car's phone, in case it missed the contact.</summary>
@@ -154,6 +193,7 @@ namespace CarRacer.Game.Net
             {
                 _arena.PlaceLocalCarOnGrid(_me);
                 _detector.Reset();
+                _shield.Clear();
                 _lastPosition = _arena.Car.BodyPosition;
             }
 
@@ -186,6 +226,11 @@ namespace CarRacer.Game.Net
             if (state.BoostSecondsLeft > 0f)
             {
                 flags |= CarStateFlags.Boosting;
+            }
+
+            if (_shield.IsUp)
+            {
+                flags |= CarStateFlags.Shielded;
             }
 
             _session.SendCarState(new CarStateMessage

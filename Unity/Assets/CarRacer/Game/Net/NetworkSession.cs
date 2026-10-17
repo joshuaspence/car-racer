@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using CarRacer.Core.Discovery;
+using CarRacer.Core.Items;
 using CarRacer.Core.Net;
+using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Session;
 using Unity.Collections;
@@ -55,6 +57,9 @@ namespace CarRacer.Game.Net
         /// <summary>The race referee (host) or follower (guest), once <see cref="CreateRace"/> has been called.</summary>
         public IRaceView Race { get; private set; }
 
+        /// <summary>The item referee (host) or follower (guest), created with the race.</summary>
+        public IItemView Items { get; private set; }
+
         public static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
         /// <summary>This phone's player id, once it has one.</summary>
@@ -86,15 +91,23 @@ namespace CarRacer.Game.Net
         }
 
         /// <summary>
-        /// Sets up racing on a track with <paramref name="checkpointCount"/> checkpoints. The host
-        /// needs <paramref name="fractionToNextCheckpoint"/> (how far each player's car is towards
-        /// its next checkpoint) for standings.
+        /// Sets up racing on a track with <paramref name="checkpointCount"/> checkpoints and item
+        /// boxes at <paramref name="itemBoxes"/>. The host needs <paramref name="fractionToNextCheckpoint"/>
+        /// (how far each player's car is towards its next checkpoint) for standings.
         /// </summary>
-        public void CreateRace(int checkpointCount, Func<int, float> fractionToNextCheckpoint)
+        public void CreateRace(int checkpointCount, Func<int, float> fractionToNextCheckpoint, IReadOnlyList<Vec3> itemBoxes)
         {
-            Race = IsHost
-                ? new HostRace(HostSide, checkpointCount, () => NowMs, fractionToNextCheckpoint)
-                : (IRaceView)new GuestRace(GuestSide, () => NowMs);
+            if (IsHost)
+            {
+                var random = new System.Random();
+                Race = new HostRace(HostSide, checkpointCount, () => NowMs, fractionToNextCheckpoint);
+                Items = new HostItems(HostSide, Race, itemBoxes, () => NowMs, random.NextDouble);
+            }
+            else
+            {
+                Race = new GuestRace(GuestSide, () => NowMs);
+                Items = new GuestItems(GuestSide, Race, itemBoxes, () => NowMs);
+            }
         }
 
         /// <summary>Sends a fallback bump (or, on the host, an item hit) to the car it hit.</summary>
@@ -292,6 +305,7 @@ namespace CarRacer.Game.Net
             if (!Ended)
             {
                 Race?.Tick();
+                Items?.Tick();
             }
 
             if (_announcer != null)

@@ -28,7 +28,7 @@ namespace CarRacer.Core.Driving
 
     /// <summary>
     /// Where the on-screen controls sit (design doc §5): the left half steers, and round Drift,
-    /// Brake and (with auto-accelerate off) Gas buttons sit on the right, inside the safe area.
+    /// Brake, Item and (with auto-accelerate off) Gas buttons sit on the right, inside the safe area.
     /// Sizes are in physical inches so they suit any screen density.
     /// </summary>
     public sealed class TouchControlLayout
@@ -56,6 +56,7 @@ namespace CarRacer.Core.Driving
             DriftCentre = new Vec2(safeRight - margin - ButtonRadius, safeBottom + margin + ButtonRadius);
             BrakeCentre = new Vec2(DriftCentre.X - 2.4f * ButtonRadius, DriftCentre.Y + 0.4f * ButtonRadius);
             GasCentre = new Vec2(DriftCentre.X, Math.Min(safeTop - margin - ButtonRadius, DriftCentre.Y + 2.6f * ButtonRadius));
+            ItemCentre = new Vec2(BrakeCentre.X, Math.Min(safeTop - margin - ButtonRadius, BrakeCentre.Y + 2.4f * ButtonRadius));
         }
 
         public float ScreenWidth { get; }
@@ -71,6 +72,7 @@ namespace CarRacer.Core.Driving
         public Vec2 DriftCentre { get; }
         public Vec2 BrakeCentre { get; }
         public Vec2 GasCentre { get; }
+        public Vec2 ItemCentre { get; }
 
         public bool HitsButton(Vec2 point, Vec2 centre)
         {
@@ -144,7 +146,8 @@ namespace CarRacer.Core.Driving
     /// Turns raw touches into <see cref="DriverControls"/>. A steering thumb keeps steering until it
     /// lifts, even if it strays right. Any other finger presses whichever button it is over, so a
     /// thumb can rock from Brake to Gas or slide onto a button it just missed; over empty screen it
-    /// keeps its last button, so slipping off doesn't let go.
+    /// keeps its last button, so slipping off doesn't let go. Item is the exception: firing an item
+    /// by accident is costly, so only a finger that lands on it uses the item, once per tap.
     /// </summary>
     public sealed class TouchControls
     {
@@ -155,6 +158,7 @@ namespace CarRacer.Core.Driving
             Drift,
             Brake,
             Gas,
+            Item,
         }
 
         private readonly Dictionary<int, Role> _roles = new Dictionary<int, Role>();
@@ -166,10 +170,14 @@ namespace CarRacer.Core.Driving
         public bool DriftHeld { get; private set; }
         public bool BrakeHeld { get; private set; }
         public bool GasHeld { get; private set; }
+        public bool ItemHeld { get; private set; }
 
-        public DriverControls Update(IReadOnlyList<TouchPoint> touches, TouchControlLayout layout, bool showGas)
+        /// <param name="showGas">The Gas button is shown (auto-accelerate off).</param>
+        /// <param name="showItem">The Item button is shown (in a race); a hidden button takes no fingers.</param>
+        public DriverControls Update(IReadOnlyList<TouchPoint> touches, TouchControlLayout layout, bool showGas, bool showItem = false)
         {
             _seen.Clear();
+            bool itemTapped = false;
             foreach (var touch in touches)
             {
                 _seen.Add(touch.Id);
@@ -182,11 +190,12 @@ namespace CarRacer.Core.Driving
                 // A finger first seen mid-press (its Began frame was missed) is treated as just landing.
                 if (!_roles.TryGetValue(touch.Id, out var role))
                 {
-                    role = Assign(touch, layout, showGas);
+                    role = Assign(touch, layout, showGas, showItem);
+                    itemTapped |= role == Role.Item;
                 }
-                else if (role != Role.Steer)
+                else if (role != Role.Steer && role != Role.Item)
                 {
-                    var under = ButtonAt(touch.Position, layout, showGas);
+                    var under = ButtonAt(touch.Position, layout, showGas, includeItem: false);
                     if (under != Role.None)
                     {
                         role = under;
@@ -216,12 +225,13 @@ namespace CarRacer.Core.Driving
                 Release(id);
             }
 
-            DriftHeld = BrakeHeld = GasHeld = false;
+            DriftHeld = BrakeHeld = GasHeld = ItemHeld = false;
             foreach (var role in _roles.Values)
             {
                 DriftHeld |= role == Role.Drift;
                 BrakeHeld |= role == Role.Brake;
                 GasHeld |= role == Role.Gas;
+                ItemHeld |= role == Role.Item;
             }
 
             return new DriverControls
@@ -230,14 +240,15 @@ namespace CarRacer.Core.Driving
                 Accelerate = GasHeld ? 1f : 0f,
                 Brake = BrakeHeld ? 1f : 0f,
                 Drift = DriftHeld,
+                UseItem = itemTapped,
             };
         }
 
         public bool Steering => _steering.Active;
 
-        private Role Assign(TouchPoint touch, TouchControlLayout layout, bool showGas)
+        private Role Assign(TouchPoint touch, TouchControlLayout layout, bool showGas, bool showItem)
         {
-            var button = ButtonAt(touch.Position, layout, showGas);
+            var button = ButtonAt(touch.Position, layout, showGas, includeItem: showItem);
             if (button != Role.None)
             {
                 return button;
@@ -253,8 +264,8 @@ namespace CarRacer.Core.Driving
             return Role.None;
         }
 
-        /// <summary>The nearest button within reach of <paramref name="point"/>, since the reaches of Drift and Brake overlap.</summary>
-        private static Role ButtonAt(Vec2 point, TouchControlLayout layout, bool showGas)
+        /// <summary>The nearest button within reach of <paramref name="point"/>, since some buttons' reaches overlap.</summary>
+        private static Role ButtonAt(Vec2 point, TouchControlLayout layout, bool showGas, bool includeItem)
         {
             var best = Role.None;
             float bestDistance = float.MaxValue;
@@ -263,6 +274,13 @@ namespace CarRacer.Core.Driving
             if (showGas)
             {
                 Consider(point, layout, layout.GasCentre, Role.Gas, ref best, ref bestDistance);
+            }
+
+            // A finger sliding over Item must not stop a nearer pedal from winning, nor take Item, so
+            // Item only competes for a finger that has just landed.
+            if (includeItem)
+            {
+                Consider(point, layout, layout.ItemCentre, Role.Item, ref best, ref bestDistance);
             }
 
             return best;

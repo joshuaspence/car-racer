@@ -72,6 +72,10 @@ namespace CarRacer.Core.Driving
         public float[] BoostDurations = { 0.6f, 1.0f, 1.5f };
 
         public float BoostAcceleration = 30f;
+
+        /// <summary>The Boost item's extra top speed (m/s) and duration (s): a little stronger and longer than a top-tier drift boost.</summary>
+        public float ItemBoostSpeed = 12f;
+        public float ItemBoostDuration = 1.8f;
     }
 
     /// <summary>The handling state that persists between steps (and is sent over the network as flags).</summary>
@@ -253,6 +257,18 @@ namespace CarRacer.Core.Driving
             }
         }
 
+        /// <summary>
+        /// Starts a boost of <paramref name="speed"/> extra top speed for <paramref name="seconds"/>,
+        /// from a drift or the Boost item. A weaker boost never cuts short a stronger one still running.
+        /// </summary>
+        public static CarState Boost(CarState state, float speed, float seconds)
+        {
+            bool boosting = state.BoostSecondsLeft > 0f;
+            state.BoostSpeed = boosting ? Math.Max(state.BoostSpeed, speed) : speed;
+            state.BoostSecondsLeft = Math.Max(state.BoostSecondsLeft, seconds);
+            return state;
+        }
+
         private static void EndDrift(ref CarState state, CarTuning t, bool releaseBoost)
         {
             if (state.Drifting && releaseBoost)
@@ -260,10 +276,7 @@ namespace CarRacer.Core.Driving
                 int tier = state.DriftTier(t);
                 if (tier > 0)
                 {
-                    // Never let a weaker boost cut short a stronger one that is still running.
-                    bool boosting = state.BoostSecondsLeft > 0f;
-                    state.BoostSpeed = boosting ? Math.Max(state.BoostSpeed, t.BoostSpeeds[tier - 1]) : t.BoostSpeeds[tier - 1];
-                    state.BoostSecondsLeft = Math.Max(state.BoostSecondsLeft, t.BoostDurations[tier - 1]);
+                    state = Boost(state, t.BoostSpeeds[tier - 1], t.BoostDurations[tier - 1]);
                 }
             }
 

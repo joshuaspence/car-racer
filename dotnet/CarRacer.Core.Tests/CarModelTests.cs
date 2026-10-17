@@ -155,6 +155,22 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void AnItemBoostStartsAtOnceAndAWeakerBoostNeverCutsItShort()
+        {
+            var s = CarModel.Boost(new CarState(), Tuning.ItemBoostSpeed, Tuning.ItemBoostDuration);
+            Assert.Equal(Tuning.ItemBoostSpeed, s.BoostSpeed);
+            Assert.Equal(Tuning.ItemBoostDuration, s.BoostSecondsLeft);
+
+            var weaker = CarModel.Boost(s, Tuning.BoostSpeeds[0], Tuning.BoostDurations[0]);
+            Assert.Equal(Tuning.ItemBoostSpeed, weaker.BoostSpeed);
+            Assert.Equal(Tuning.ItemBoostDuration, weaker.BoostSecondsLeft);
+
+            var expired = s;
+            expired.BoostSecondsLeft = 0f;
+            Assert.Equal(Tuning.BoostSpeeds[0], CarModel.Boost(expired, Tuning.BoostSpeeds[0], 1f).BoostSpeed);
+        }
+
+        [Fact]
         public void BrakingWorksDuringABoost()
         {
             var s = Moving(Tuning.MaxSpeed);

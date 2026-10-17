@@ -15,6 +15,9 @@ namespace CarRacer.Core.Driving
         public float Brake;
 
         public bool Drift;
+
+        /// <summary>The use-item control was pressed this frame (a fresh tap or key press, not a hold).</summary>
+        public bool UseItem;
     }
 
     /// <summary>Merges every device's controls into the single <see cref="CarInput"/> the car model takes.</summary>

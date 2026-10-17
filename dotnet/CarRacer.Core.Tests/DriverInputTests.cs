@@ -63,7 +63,7 @@ namespace CarRacer.Core.Tests
         private readonly TouchControls _controls = new TouchControls();
 
         private DriverControls Frame(params TouchPoint[] touches) =>
-            _controls.Update(new List<TouchPoint>(touches), Layout, showGas: false);
+            _controls.Update(new List<TouchPoint>(touches), Layout, showGas: false, showItem: true);
 
         private static TouchPoint Touch(int id, float x, float y, TouchStage stage = TouchStage.Held) => new TouchPoint(id, x, y, stage);
 
@@ -153,7 +153,7 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void SlidingOntoAButtonFromEmptyScreenPressesIt()
         {
-            Frame(Touch(1, 1300f, 900f, TouchStage.Began)); // right half, just missed the buttons
+            Frame(Touch(1, 1000f, 1000f, TouchStage.Began)); // right half, just missed the buttons
             Assert.Equal(1f, Frame(At(1, Layout.BrakeCentre)).Brake);
         }
 
@@ -204,6 +204,63 @@ namespace CarRacer.Core.Tests
         public void AFingerFirstSeenMidPressStillCounts()
         {
             Assert.Equal(1f, Frame(At(1, Layout.BrakeCentre)).Brake);
+        }
+
+        [Fact]
+        public void TappingItemUsesTheItemOnceAndHoldingDoesNotRepeat()
+        {
+            Assert.True(Frame(At(1, Layout.ItemCentre, TouchStage.Began)).UseItem);
+            Assert.True(_controls.ItemHeld);
+            Assert.False(Frame(At(1, Layout.ItemCentre)).UseItem);
+            Assert.False(Frame(At(1, Layout.ItemCentre, TouchStage.Ended)).UseItem);
+            Assert.True(Frame(At(2, Layout.ItemCentre, TouchStage.Began)).UseItem);
+        }
+
+        [Fact]
+        public void SlidingOntoItemNeverUsesIt()
+        {
+            Frame(At(1, Layout.BrakeCentre, TouchStage.Began));
+            var controls = Frame(At(1, Layout.ItemCentre));
+            Assert.False(controls.UseItem);
+            Assert.Equal(1f, controls.Brake); // it keeps its pedal over the Item button
+            Frame(At(1, Layout.ItemCentre), Touch(2, 1000f, 1000f, TouchStage.Began)); // plus a stray finger on the right
+            Assert.False(Frame(At(1, Layout.ItemCentre), At(2, Layout.ItemCentre)).UseItem);
+        }
+
+        [Fact]
+        public void AFingerOnItemStaysThereWhenItSlides()
+        {
+            Frame(At(1, Layout.ItemCentre, TouchStage.Began));
+            var controls = Frame(At(1, Layout.BrakeCentre));
+            Assert.Equal(0f, controls.Brake);
+            Assert.True(_controls.ItemHeld);
+        }
+
+        [Fact]
+        public void AHiddenItemButtonTakesNoFingers()
+        {
+            var controls = new TouchControls();
+            var touches = new List<TouchPoint> { At(1, Layout.ItemCentre, TouchStage.Began) };
+            Assert.False(controls.Update(touches, Layout, showGas: false, showItem: false).UseItem);
+            Assert.False(controls.ItemHeld);
+
+            // Nor does it win a finger from Brake where their reaches overlap.
+            var b = Layout.BrakeCentre;
+            var i = Layout.ItemCentre;
+            var nearerItem = new Vec2(b.X + 0.51f * (i.X - b.X), b.Y + 0.51f * (i.Y - b.Y));
+            Assert.True(Layout.HitsButton(nearerItem, b));
+            var hidden = new TouchControls().Update(new List<TouchPoint> { At(2, nearerItem, TouchStage.Began) }, Layout, showGas: false, showItem: false);
+            Assert.Equal(1f, hidden.Brake);
+        }
+
+        [Fact]
+        public void TheItemButtonSitsAboveBrakeInsideTheScreen()
+        {
+            Assert.Equal(Layout.BrakeCentre.X, Layout.ItemCentre.X);
+            Assert.True(Layout.ItemCentre.Y > Layout.BrakeCentre.Y);
+            Assert.True(Layout.ItemCentre.Y + Layout.ButtonRadius <= 1080f);
+            var low = new TouchControlLayout(1920f, 600f, 0f, 0f, 1920f, 600f, 400f);
+            Assert.True(low.ItemCentre.Y + low.ButtonRadius <= 600f);
         }
 
         [Fact]

@@ -20,8 +20,12 @@ namespace CarRacer.Game.Driving
         private readonly List<TouchPoint> _touches = new List<TouchPoint>();
         private CarInput _current;
         private bool _autoAccelerate;
+        private bool _itemPressed;
 
         public TouchControls TouchState => _touchControls;
+
+        /// <summary>Whether the Item button is on screen (in a race); while it isn't, its spot takes no fingers.</summary>
+        public bool ShowItem { get; set; }
         public TouchControlLayout Layout { get; private set; }
 
         public bool AutoAccelerate
@@ -35,6 +39,14 @@ namespace CarRacer.Game.Driving
         }
 
         public CarInput Read() => _current;
+
+        /// <summary>True once per press of the use-item control (Item button, E, or a gamepad's Y/X), then false until the next press.</summary>
+        public bool ConsumeItemPress()
+        {
+            bool pressed = _itemPressed;
+            _itemPressed = false;
+            return pressed;
+        }
 
         private void Awake()
         {
@@ -50,8 +62,10 @@ namespace CarRacer.Game.Driving
             }
 
             ReadTouches(_touches);
-            var touch = _touchControls.Update(_touches, Layout, showGas: !_autoAccelerate);
-            _current = DriverInput.Combine(touch, ReadDevices(), _autoAccelerate);
+            var touch = _touchControls.Update(_touches, Layout, showGas: !_autoAccelerate, showItem: ShowItem);
+            var devices = ReadDevices();
+            _current = DriverInput.Combine(touch, devices, _autoAccelerate);
+            _itemPressed |= touch.UseItem || devices.UseItem;
         }
 
 #if ENABLE_INPUT_SYSTEM
@@ -92,9 +106,10 @@ namespace CarRacer.Game.Driving
                 controls.Accelerate = keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed ? 1f : 0f;
                 controls.Brake = keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed ? 1f : 0f;
                 controls.Drift = keyboard.spaceKey.isPressed || keyboard.leftShiftKey.isPressed;
+                controls.UseItem = keyboard.eKey.wasPressedThisFrame || keyboard.leftCtrlKey.wasPressedThisFrame;
             }
 
-            // Left stick steers; A or the right trigger accelerates; B or the left trigger brakes; either shoulder drifts.
+            // Left stick steers; A or the right trigger accelerates; B or the left trigger brakes; either shoulder drifts; Y or X uses the item.
             var pad = Gamepad.current;
             if (pad != null)
             {
@@ -107,6 +122,7 @@ namespace CarRacer.Game.Driving
                 controls.Accelerate = Mathf.Max(controls.Accelerate, Mathf.Max(pad.rightTrigger.ReadValue(), pad.buttonSouth.isPressed ? 1f : 0f));
                 controls.Brake = Mathf.Max(controls.Brake, Mathf.Max(pad.leftTrigger.ReadValue(), pad.buttonEast.isPressed ? 1f : 0f));
                 controls.Drift |= pad.rightShoulder.isPressed || pad.leftShoulder.isPressed;
+                controls.UseItem |= pad.buttonNorth.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame;
             }
 
             return controls;
@@ -134,6 +150,7 @@ namespace CarRacer.Game.Driving
                 Accelerate = Mathf.Max(0f, Input.GetAxisRaw("Vertical")),
                 Brake = Mathf.Max(0f, -Input.GetAxisRaw("Vertical")),
                 Drift = Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.JoystickButton5) || Input.GetKey(KeyCode.JoystickButton4),
+                UseItem = Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.JoystickButton3) || Input.GetKeyDown(KeyCode.JoystickButton2),
             };
         }
 #endif
