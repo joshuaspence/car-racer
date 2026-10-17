@@ -267,6 +267,18 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   rivals, use items opportunistically. In arenas, chase opponents and avoid edges.
 - Difficulty scales top speed, line accuracy and item timing, with optional catch-up.
 - A guest who disconnects mid-race is **taken over by a bot** (shown as "(bot)").
+- **Driving** (`BotDriver`): a bot chases a point on the track 6 m plus 0.45 s of travel ahead,
+  wandering a little either side of the centre line (its seed varies the wander, so bots don't
+  share a line). It judges the bend over the next 10 m plus 1.2 s of travel and slows to keep its
+  cornering under its skill's sideways acceleration. A rival within 10 m and about 35° of straight
+  ahead gets rammed. Bots make the same `CarInput` a player's controls do, so their cars use the
+  same model and physics.
+- **Difficulty** (`BotSkill`): Easy drives at 82% of top speed, corners at up to 10 m/s², wanders
+  2 m and waits 2.5 s before using an item; Normal 92%, 13 m/s², 1.2 m, 1.2 s; Hard 100%, 16 m/s²,
+  0.5 m, 0.4 s. On the sample oval that is about 18.7, 16.8 and 15.6 s a lap.
+- **Items** (`BotItems`): Boost on a straight, Shield straight away, Shockwave with a rival within
+  7 m, Missile when there is a car ahead within 60 m, Oil with a rival behind within 20 m, Bomb
+  with a rival ahead within 25 m. Anything held for 10 s is used anyway.
 
 ## 10. Championship (`Championship`)
 
