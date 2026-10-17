@@ -189,8 +189,8 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 
 ### 7.0 Arena rules (`SumoRules`, `BattleRules`, `EliminationTracker`, host side)
 
-- **Sumo:** a circular platform, 30 m across at the start, holds its size for 20 s, then shrinks
-  steadily to 10 m over 90 s and stays there. A car is out once its centre is past the edge or it
+- **Sumo:** a circular platform, 30 m in radius at the start, holds its size for 20 s, then
+  shrinks steadily to a 10 m radius over 90 s and stays there. A car is out once its centre is past the edge or it
   has dropped 3 m below the platform. The last car on it wins.
 - **Battle:** a walled bowl 35 m in radius. Everyone starts with 3 lives; each item hit that
   lands (a Shield still soaks one up) costs a life, and bumps cost nothing. The last car with
