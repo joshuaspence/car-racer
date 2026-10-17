@@ -165,6 +165,32 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void AWeakerBoostDoesNotCutAStrongerOneShort()
+        {
+            // Mid tier-3 boost at its top speed, the player releases a short (tier-1) drift.
+            var s = Moving(Tuning.MaxSpeed + Tuning.BoostSpeeds[2]);
+            s.BoostSpeed = Tuning.BoostSpeeds[2];
+            s.BoostSecondsLeft = 1.2f;
+            s = Run(s, new CarInput(1f, 1f, drift: true), Tuning.DriftTierSeconds[0] + 0.1f);
+            Assert.Equal(1, s.DriftTier(Tuning));
+
+            float before = ForwardSpeed(s);
+            s = CarModel.Step(s, new CarInput(0f, 1f), true, Dt, Tuning);
+            Assert.Equal(Tuning.BoostSpeeds[2], s.BoostSpeed);
+            Assert.True(before - ForwardSpeed(s) < 0.5f, $"no sudden drop: {before} -> {ForwardSpeed(s)}");
+        }
+
+        [Fact]
+        public void SpeedAboveABoostEasesOffRatherThanSnapping()
+        {
+            var s = Moving(Tuning.MaxSpeed + 11f);
+            s.BoostSpeed = 5f;
+            s.BoostSecondsLeft = 1f;
+            var next = CarModel.Step(s, new CarInput(0f, 1f), true, Dt, Tuning);
+            Assert.Equal(Tuning.MaxSpeed + 11f - Tuning.OverSpeedDeceleration * Dt, ForwardSpeed(next), 3);
+        }
+
+        [Fact]
         public void SlowingDownCancelsADriftWithoutBoost()
         {
             var s = Run(Moving(15f), new CarInput(1f, 0f, drift: true), 0.1f);
