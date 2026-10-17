@@ -189,6 +189,9 @@ namespace CarRacer.Core.Arena
     /// <summary>Where cars start in an arena and, in Battle, where the item boxes sit (design doc §13: generated, not hand-placed).</summary>
     public static class ArenaLayout
     {
+        /// <summary>Arenas are built round this point: the centre of the Sumo platform's top, or of the Battle bowl's floor.</summary>
+        public static readonly Vec3 Centre = Vec3.Zero;
+
         /// <summary>Starting spots are on a circle at this share of the arena's radius.</summary>
         public const float StartRingFraction = 0.7f;
 

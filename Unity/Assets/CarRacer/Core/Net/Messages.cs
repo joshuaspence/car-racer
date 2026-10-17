@@ -151,18 +151,23 @@ namespace CarRacer.Core.Net
         public long StartAtHostMs;
         public byte LapCount;
 
+        /// <summary>Race, Sumo or Battle (design doc §7).</summary>
+        public CarRacer.Core.Arena.GameMode Mode;
+
         public MessageType Type => MessageType.RaceCountdown;
 
         public void Write(NetWriter w)
         {
             w.WriteLong(StartAtHostMs);
             w.WriteByte(LapCount);
+            w.WriteByte((byte)Mode);
         }
 
         public static RaceCountdownMessage Read(NetReader r) => new RaceCountdownMessage
         {
             StartAtHostMs = r.ReadLong(),
             LapCount = r.ReadByte(),
+            Mode = (CarRacer.Core.Arena.GameMode)r.ReadByte(),
         };
     }
 
