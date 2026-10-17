@@ -1,3 +1,4 @@
+using CarRacer.Core.Discovery;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Menu;
 using CarRacer.Game.Net;
@@ -34,6 +35,39 @@ namespace CarRacer.Game
             // Fixed 50 Hz physics on every device (design doc §4).
             Time.fixedDeltaTime = 0.02f;
             ShowMainMenu();
+
+            // A guest's camera app opens the host's QR code link, launching (or switching to) the game.
+            Application.deepLinkActivated += OnLink;
+            if (!string.IsNullOrEmpty(Application.absoluteURL))
+            {
+                OnLink(Application.absoluteURL);
+            }
+        }
+
+        /// <summary>Joins the host in a join link (design doc §1.1), unless this phone is already in a session.</summary>
+        private static void OnLink(string link)
+        {
+            if (!JoinLink.TryParse(link, out string address, out ushort port))
+            {
+                return;
+            }
+
+            var arena = _screen != null ? _screen.GetComponent<DriveTestArena>() : null;
+            if (arena != null && arena.Session != null && !arena.Session.Ended)
+            {
+                return;
+            }
+
+            string name = PlayerPrefs.GetString(MainMenu.NameKey, string.Empty);
+            if (name.Length == 0)
+            {
+                // First launch: the name comes first, then the join.
+                MainMenu.PendingJoin = (address, port);
+                ShowMainMenu();
+                return;
+            }
+
+            JoinGame(name, address, port);
         }
 
         /// <summary>Shows the main menu, with <paramref name="notice"/> (e.g. why a session ended) under the title.</summary>
