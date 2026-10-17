@@ -1,0 +1,24 @@
+name: Core
+
+# Engine-independent game logic: builds and tests without Unity, so it needs no secrets.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: dotnet test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: dotnet test dotnet/CarRacer.sln --configuration Release
+
+      - name: Check Unity .meta files
+        run: python3 tools/generate_unity_meta.py --check
