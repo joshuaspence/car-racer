@@ -40,12 +40,20 @@ namespace CarRacer.Core.Tests
 
             var gone = Assert.IsType<HazardGoneMessage>(MessageCodec.Decode(MessageCodec.Encode(new HazardGoneMessage { EffectId = 1234 })));
             Assert.Equal(1234, gone.EffectId);
+
+            var flying = new ProjectilesMessage();
+            flying.Projectiles.Add(new ProjectileSnapshot { EffectId = 5, Kind = ItemKind.Bomb, Position = new Vec3(1f, 2f, 3f) });
+            flying.Projectiles.Add(new ProjectileSnapshot { EffectId = 6, Kind = ItemKind.Missile, Position = new Vec3(-1f, 0f, 9f) });
+            var decoded = Assert.IsType<ProjectilesMessage>(MessageCodec.Decode(MessageCodec.Encode(flying)));
+            Assert.Equal(2, decoded.Projectiles.Count);
+            Assert.Equal(ItemKind.Bomb, decoded.Projectiles[0].Kind);
+            Assert.Equal(new Vec3(-1f, 0f, 9f), decoded.Projectiles[1].Position);
         }
     }
 
     public class ItemFlowTests
     {
-        private const ushort Version = 6;
+        private const ushort Version = 7;
         private const ulong GuestConnection = 7;
         private const long GuestClockBehindMs = 1_000_000;
 
@@ -490,6 +498,141 @@ namespace CarRacer.Core.Tests
             StartRacing();
             Assert.Empty(_hostItems.Hazards.Active);
             Assert.Empty(_guestItems.Hazards.Active);
+        }
+
+        private void Advance(long ms)
+        {
+            for (long t = 0; t < ms; t += 20)
+            {
+                _now += 20;
+                Tick();
+            }
+        }
+
+        /// <summary>Ticks until the standings list both racers; returns (leader, second).</summary>
+        private (byte Leader, byte Second) Standings()
+        {
+            _now += HostRace.StandingsIntervalMs;
+            Tick();
+            var order = _hostRace.Standings.Order;
+            return (order[0].PlayerId, order[1].PlayerId);
+        }
+
+        [Fact]
+        public void AMissileChasesTheCarAheadAndHitsIt()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[second] = new Vec3(0f, 0.6f, 0f);
+            _cars[leader] = new Vec3(10f, 0.6f, 30f);
+            GiveAndUse(second, ItemKind.Missile, _cars[second]);
+            Assert.Single(_hostItems.Projectiles);
+
+            Advance(2000);
+            var hits = leader == _host.HostPlayerId ? _hostHits : _guestHits;
+            var hit = Assert.Single(hits);
+            Assert.Equal(second, hit.AttackerId);
+            Assert.True(hit.IsItemHit);
+            Assert.Empty(_hostItems.Projectiles);
+            Assert.Empty(_guestItems.Projectiles);
+            Assert.Single(_hostLink.Sent.OfType<HazardGoneMessage>());
+        }
+
+        [Fact]
+        public void TheLeadersMissileFliesStraightAndRunsOut()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[leader] = new Vec3(0f, 0.6f, 0f);
+            _cars[second] = new Vec3(30f, 0.6f, 0f); // off to the side, never in its path
+            GiveAndUse(leader, ItemKind.Missile, _cars[leader]);
+            Advance(ProjectileRules.MissileLifetimeMs + 100);
+            Assert.Empty(_hostHits);
+            Assert.Empty(_guestHits);
+            Assert.Empty(_hostItems.Projectiles);
+            Assert.Single(_hostLink.Sent.OfType<HazardGoneMessage>());
+        }
+
+        [Fact]
+        public void TheGuestSeesWhereProjectilesAre()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[leader] = new Vec3(0f, 0.6f, 0f);
+            GiveAndUse(leader, ItemKind.Missile, _cars[leader]);
+            Advance(200);
+            var seen = Assert.Single(_guestItems.Projectiles);
+            Assert.Equal(ItemKind.Missile, seen.Kind);
+            Assert.True(seen.Position.Z > ProjectileRules.MissileLaunchAhead);
+            Assert.True(_hostLink.Sent.OfType<ProjectilesMessage>().Count() >= 3);
+        }
+
+        [Fact]
+        public void APositionUpdateArrivingAfterTheProjectileIsGoneIsIgnored()
+        {
+            StartRacing();
+            _guest.OnMessage(new HazardGoneMessage { EffectId = 77 });
+            var late = new ProjectilesMessage();
+            late.Projectiles.Add(new ProjectileSnapshot { EffectId = 77, Kind = ItemKind.Missile });
+            _guest.OnMessage(late);
+            Assert.Empty(_guestItems.Projectiles);
+        }
+
+        [Fact]
+        public void ABombGoesOffOnContactAndHitsEveryoneNearIncludingTheThrower()
+        {
+            StartRacing();
+            var thrower = _host.HostPlayerId;
+            _cars[thrower] = new Vec3(0f, 0.6f, 0f);
+            _cars[GuestId] = new Vec3(50f, 0.6f, 0f); // well clear of where the bomb lands
+            var guestExplosions = new List<Vec3>();
+            _guestItems.BombExploded += guestExplosions.Add;
+            GiveAndUse(thrower, ItemKind.Bomb, _cars[thrower]);
+
+            // The thrower catches up with the bomb after its safe moment: it blows up on them, and the guest is close enough too.
+            Advance(ProjectileRules.BombSafeMs);
+            Assert.Empty(_hostHits);
+            Advance(100); // let a position update reach the guest
+            _cars[thrower] = _hostItems.Projectiles[0].Position;
+            _cars[GuestId] = _cars[thrower] + new Vec3(ProjectileRules.BombBlastRadius - 1f, 0f, 0f);
+            Advance(20);
+
+            Assert.Single(_hostHits);
+            Assert.Single(_guestHits);
+            Assert.Empty(_hostItems.Projectiles);
+            Assert.Single(guestExplosions);
+        }
+
+        [Fact]
+        public void ABombGoesOffWhenItsFuseRunsOut()
+        {
+            StartRacing();
+            _cars[GuestId] = new Vec3(0f, 0.6f, 0f);
+            _cars[_host.HostPlayerId] = new Vec3(100f, 0.6f, 0f);
+            var explosions = new List<Vec3>();
+            _hostItems.BombExploded += explosions.Add;
+            GiveAndUse(GuestId, ItemKind.Bomb, _cars[GuestId]);
+            Advance(ProjectileRules.BombFuseMs - 40);
+            Assert.Empty(explosions);
+            Advance(60);
+            Assert.Single(explosions);
+            Assert.Empty(_hostHits); // too far away
+        }
+
+        [Fact]
+        public void ANewRaceClearsProjectiles()
+        {
+            StartRacing();
+            _cars[GuestId] = Vec3.Zero;
+            GiveAndUse(GuestId, ItemKind.Bomb, Vec3.Zero);
+            Advance(100);
+            _hostRace.Tracker.Retire(GuestId);
+            _hostRace.Tracker.Retire(_host.HostPlayerId);
+            Tick();
+            Assert.True(_hostRace.ReturnToLobby());
+            StartRacing();
+            Assert.Empty(_hostItems.Projectiles);
+            Assert.Empty(_guestItems.Projectiles);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CarRacer.Core.Items;
 using CarRacer.Core.Numerics;
 
@@ -94,7 +95,11 @@ namespace CarRacer.Core.Net
         };
     }
 
-    /// <summary>Host → all: the hazard left by item use <see cref="EffectId"/> caught a car and is gone. Hazards that time out are removed by everyone without a message.</summary>
+    /// <summary>
+    /// Host → all: what item use <see cref="EffectId"/> left behind is gone: an oil slick that caught
+    /// a car, or a Missile or Bomb that hit, blew up or ran out. Oil slicks that time out are removed
+    /// by everyone without a message.
+    /// </summary>
     public sealed class HazardGoneMessage : IGameMessage
     {
         public ushort EffectId;
@@ -107,5 +112,43 @@ namespace CarRacer.Core.Net
         }
 
         public static HazardGoneMessage Read(NetReader r) => new HazardGoneMessage { EffectId = r.ReadUShort() };
+    }
+
+    public struct ProjectileSnapshot
+    {
+        public ushort EffectId;
+        public ItemKind Kind;
+        public Vec3 Position;
+    }
+
+    /// <summary>Host → all, 20 times a second while any are in flight: where every Missile and Bomb is.</summary>
+    public sealed class ProjectilesMessage : IGameMessage
+    {
+        public List<ProjectileSnapshot> Projectiles = new List<ProjectileSnapshot>();
+
+        public MessageType Type => MessageType.Projectiles;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte((byte)Projectiles.Count);
+            foreach (var p in Projectiles)
+            {
+                w.WriteUShort(p.EffectId);
+                w.WriteByte((byte)p.Kind);
+                w.WriteVec3(p.Position);
+            }
+        }
+
+        public static ProjectilesMessage Read(NetReader r)
+        {
+            int count = r.ReadByte();
+            var message = new ProjectilesMessage();
+            for (int i = 0; i < count; i++)
+            {
+                message.Projectiles.Add(new ProjectileSnapshot { EffectId = r.ReadUShort(), Kind = (ItemKind)r.ReadByte(), Position = r.ReadVec3() });
+            }
+
+            return message;
+        }
     }
 }

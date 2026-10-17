@@ -19,6 +19,12 @@ namespace CarRacer.Core.Items
         /// <summary>Oil slicks on the track, in this phone's clock.</summary>
         HazardField Hazards { get; }
 
+        /// <summary>Missiles and Bombs in flight, where this phone last knew them to be.</summary>
+        IReadOnlyList<ProjectileSnapshot> Projectiles { get; }
+
+        /// <summary>A Bomb went off here.</summary>
+        event Action<Vec3> BombExploded;
+
         /// <summary>
         /// Someone used an item. This phone's own use is raised at once, so its effects feel instant;
         /// other players' arrive through the host.
@@ -51,8 +57,15 @@ namespace CarRacer.Core.Items
         private readonly Func<long> _clockMs;
         private readonly Func<double> _random01;
         private readonly CarPositionLookup _carPositions;
+        /// <summary>How often the host tells everyone where the projectiles are.</summary>
+        public const long ProjectileBroadcastMs = 50;
+
+        private readonly List<Projectile> _flying = new List<Projectile>();
+        private readonly List<ProjectileSnapshot> _snapshots = new List<ProjectileSnapshot>();
         private RacePhase _lastPhase = RacePhase.Lobby;
         private ushort _lastEffectId;
+        private long _lastTickMs = long.MinValue;
+        private long _nextProjectileBroadcastMs;
 
         /// <param name="random01">Uniform random numbers in [0, 1) for item rolls.</param>
         /// <param name="carPositions">Where the host sees each player's car, for deciding hits.</param>
@@ -72,8 +85,10 @@ namespace CarRacer.Core.Items
         public ItemSlots Slots { get; } = new ItemSlots();
         public ItemKind Held => Slots.Held(_session.HostPlayerId);
         public HazardField Hazards { get; } = new HazardField();
+        public IReadOnlyList<ProjectileSnapshot> Projectiles => _snapshots;
 
         public event Action<ItemUsedMessage> ItemUsed;
+        public event Action<Vec3> BombExploded;
 
         public void Tick()
         {
@@ -83,14 +98,19 @@ namespace CarRacer.Core.Items
                 Boxes.Reset();
                 Slots.Clear();
                 Hazards.Clear();
+                _flying.Clear();
+                _snapshots.Clear();
             }
 
             _lastPhase = phase;
             long now = _clockMs();
+            float dt = _lastTickMs == long.MinValue ? 0f : Math.Min(0.1f, (now - _lastTickMs) / 1000f);
+            _lastTickMs = now;
             Hazards.Expire(now);
             if (phase == RacePhase.Racing)
             {
                 CatchCarsOnHazards(now);
+                FlyProjectiles(now, dt);
             }
         }
 
@@ -154,15 +174,134 @@ namespace CarRacer.Core.Items
             _session.Broadcast(used, reliable: true);
             ItemUsed?.Invoke(used);
 
-            if (used.Item == ItemKind.Shockwave)
+            switch (used.Item)
             {
-                HitEveryoneNear(used);
-            }
-            else if (used.Item == ItemKind.OilSlick)
-            {
-                Hazards.AddOil(used, used.UsedAtHostMs);
+                case ItemKind.Shockwave:
+                    HitEveryoneNear(used);
+                    break;
+                case ItemKind.OilSlick:
+                    Hazards.AddOil(used, used.UsedAtHostMs);
+                    break;
+                case ItemKind.Missile:
+                    _flying.Add(ProjectileRules.LaunchMissile(used, CarAhead(used.PlayerId), used.UsedAtHostMs));
+                    TakeSnapshots();
+                    break;
+                case ItemKind.Bomb:
+                    _flying.Add(ProjectileRules.LaunchBomb(used, used.UsedAtHostMs));
+                    TakeSnapshots();
+                    break;
             }
 
+            return true;
+        }
+
+        /// <summary>The car one place ahead of <paramref name="playerId"/> in the latest standings: what a Missile chases.</summary>
+        private byte CarAhead(byte playerId)
+        {
+            var standings = _race.Standings;
+            if (standings != null)
+            {
+                for (int i = 1; i < standings.Order.Count; i++)
+                {
+                    if (standings.Order[i].PlayerId == playerId)
+                    {
+                        return standings.Order[i - 1].PlayerId;
+                    }
+                }
+            }
+
+            return ProjectileRules.NoTarget;
+        }
+
+        /// <summary>Moves every Missile and Bomb, decides what each hits, and tells everyone where the rest are.</summary>
+        private void FlyProjectiles(long now, float dt)
+        {
+            if (_flying.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = _flying.Count - 1; i >= 0; i--)
+            {
+                var p = _flying[i];
+                var targetPosition = default(Vec3);
+                bool hasTarget = p.TargetId != ProjectileRules.NoTarget && _carPositions(p.TargetId, out targetPosition);
+
+                p = ProjectileRules.Step(p, dt, hasTarget, targetPosition);
+                _flying[i] = p;
+                if (p.Kind == ItemKind.Missile ? MissileDone(p, now) : BombDone(p, now))
+                {
+                    _flying.RemoveAt(i);
+                    _session.Broadcast(new HazardGoneMessage { EffectId = p.EffectId }, reliable: true);
+                }
+            }
+
+            TakeSnapshots();
+            if (_snapshots.Count > 0 && now >= _nextProjectileBroadcastMs)
+            {
+                _nextProjectileBroadcastMs = now + ProjectileBroadcastMs;
+                var message = new ProjectilesMessage();
+                message.Projectiles.AddRange(_snapshots);
+                _session.Broadcast(message, reliable: false);
+            }
+        }
+
+        private void TakeSnapshots()
+        {
+            _snapshots.Clear();
+            foreach (var p in _flying)
+            {
+                _snapshots.Add(new ProjectileSnapshot { EffectId = p.EffectId, Kind = p.Kind, Position = p.Position });
+            }
+        }
+
+        /// <summary>A Missile hits the first car it reaches (any but its owner's) or runs out of time.</summary>
+        private bool MissileDone(Projectile missile, long now)
+        {
+            foreach (var player in _session.Roster.Players)
+            {
+                if (player.PlayerId != missile.OwnerId && _carPositions(player.PlayerId, out var position)
+                    && (position - missile.Position).Flattened.LengthSquared <= ProjectileRules.HitRadius * ProjectileRules.HitRadius)
+                {
+                    Hit(missile.OwnerId, player.PlayerId, ProjectileRules.MissileImpulse(missile));
+                    return true;
+                }
+            }
+
+            return now >= missile.ExpiresAtMs;
+        }
+
+        /// <summary>A Bomb goes off when it meets a car (its thrower only after a moment) or its fuse runs out, hitting everyone near.</summary>
+        private bool BombDone(Projectile bomb, long now)
+        {
+            bool explode = now >= bomb.ExpiresAtMs;
+            foreach (var player in _session.Roster.Players)
+            {
+                if (explode)
+                {
+                    break;
+                }
+
+                bool safe = player.PlayerId == bomb.OwnerId && now < bomb.LaunchedAtMs + ProjectileRules.BombSafeMs;
+                explode = !safe && _carPositions(player.PlayerId, out var position)
+                    && (position - bomb.Position).Flattened.LengthSquared <= ProjectileRules.HitRadius * ProjectileRules.HitRadius;
+            }
+
+            if (!explode)
+            {
+                return false;
+            }
+
+            foreach (var player in _session.Roster.Players)
+            {
+                if (_carPositions(player.PlayerId, out var position)
+                    && (position - bomb.Position).Flattened.LengthSquared <= ProjectileRules.BombBlastRadius * ProjectileRules.BombBlastRadius)
+                {
+                    Hit(bomb.OwnerId, player.PlayerId, ProjectileRules.BlastImpulse(bomb.Position, position));
+                }
+            }
+
+            BombExploded?.Invoke(bomb.Position);
             return true;
         }
 
@@ -239,6 +378,10 @@ namespace CarRacer.Core.Items
         private RacePhase _lastPhase = RacePhase.Lobby;
         private int _pendingBox = -1;
         private long _pendingSinceMs;
+        private readonly List<ProjectileSnapshot> _snapshots = new List<ProjectileSnapshot>();
+
+        /// <summary>Projectiles the host has said are gone, so a late position update can't bring one back.</summary>
+        private readonly HashSet<ushort> _gone = new HashSet<ushort>();
 
         public GuestItems(GuestSession session, IRaceView race, IReadOnlyList<Vec3> boxPositions, Func<long> clockMs)
         {
@@ -252,8 +395,10 @@ namespace CarRacer.Core.Items
         public ItemBoxField Boxes { get; }
         public ItemKind Held { get; private set; }
         public HazardField Hazards { get; } = new HazardField();
+        public IReadOnlyList<ProjectileSnapshot> Projectiles => _snapshots;
 
         public event Action<ItemUsedMessage> ItemUsed;
+        public event Action<Vec3> BombExploded;
 
         public void Tick()
         {
@@ -262,6 +407,8 @@ namespace CarRacer.Core.Items
             {
                 Boxes.Reset();
                 Hazards.Clear();
+                _snapshots.Clear();
+                _gone.Clear();
                 Held = ItemKind.None;
                 _pendingBox = -1;
             }
@@ -351,6 +498,29 @@ namespace CarRacer.Core.Items
                     break;
                 case HazardGoneMessage gone:
                     Hazards.Remove(gone.EffectId);
+                    _gone.Add(gone.EffectId);
+                    int index = _snapshots.FindIndex(p => p.EffectId == gone.EffectId);
+                    if (index >= 0)
+                    {
+                        if (_snapshots[index].Kind == ItemKind.Bomb)
+                        {
+                            BombExploded?.Invoke(_snapshots[index].Position);
+                        }
+
+                        _snapshots.RemoveAt(index);
+                    }
+
+                    break;
+                case ProjectilesMessage flying:
+                    _snapshots.Clear();
+                    foreach (var p in flying.Projectiles)
+                    {
+                        if (!_gone.Contains(p.EffectId))
+                        {
+                            _snapshots.Add(p);
+                        }
+                    }
+
                     break;
             }
         }

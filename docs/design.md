@@ -240,6 +240,15 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   victim as a `HitMessage` with `IsItemHit`: a raised Shield soaks it up, otherwise the car takes
   the push plus a small pop and **spins out** for 1 s (no control; it turns 1.5 times a second and
   its slide dies away; `CarModel.SpinOut`).
+- **Missiles and Bombs** (`ProjectileRules`) are simulated only by the host, which sends their
+  positions 20 times a second (`Projectiles`) and says when each is gone (`HazardGone`). A
+  **Missile** starts 2.5 m ahead and flies at 40 m/s at its launch height, turning at up to 220°/s
+  towards the car one place ahead in the standings (straight on if fired by the leader). It hits
+  the first car it reaches, pushing it 10 m/s along its flight, or runs out after 5 s. A **Bomb** is
+  lobbed forwards (14 m/s on top of the car's speed, 9 m/s up), bounces on the ground it was thrown
+  from, and goes off when it meets a car (its thrower only after 0.5 s) or after 2.5 s, hitting
+  everyone within 6 m, the thrower included. Both fly over walls for now; following the track comes
+  with the art.
 - **One item slot.** A player holding an item drives through boxes without taking them, leaving them
   for others (`ItemSlots`).
 - **Boxes** (`ItemBoxField`): rows from the track definition, four across the road. A car's owner

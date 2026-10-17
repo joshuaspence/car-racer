@@ -311,4 +311,89 @@ namespace CarRacer.Core.Tests
             Assert.False(field.Remove(3));
         }
     }
+
+    public class ProjectileRulesTests
+    {
+        private const float Dt = 0.02f;
+
+        private static ItemUsedMessage Used(ItemKind kind, float heading = 0f, Vec3 velocity = default) =>
+            new ItemUsedMessage { EffectId = 9, PlayerId = 2, Item = kind, Position = new Vec3(0f, 0.6f, 0f), HeadingRadians = heading, Velocity = velocity };
+
+        [Fact]
+        public void AMissileWithNoTargetFliesStraightAtItsHeight()
+        {
+            var m = ProjectileRules.LaunchMissile(Used(ItemKind.Missile), ProjectileRules.NoTarget, 1000);
+            Assert.Equal(new Vec3(0f, 0.6f, ProjectileRules.MissileLaunchAhead), m.Position);
+            Assert.Equal(1000 + ProjectileRules.MissileLifetimeMs, m.ExpiresAtMs);
+            for (int i = 0; i < 50; i++)
+            {
+                m = ProjectileRules.Step(m, Dt, false, default);
+            }
+
+            Assert.Equal(0f, m.Position.X, 3);
+            Assert.Equal(0.6f, m.Position.Y, 3);
+            Assert.Equal(ProjectileRules.MissileLaunchAhead + ProjectileRules.MissileSpeed * 1f, m.Position.Z, 2);
+        }
+
+        [Fact]
+        public void AMissileTurnsTowardsItsTargetNoFasterThanItsTurnRate()
+        {
+            var m = ProjectileRules.LaunchMissile(Used(ItemKind.Missile), 1, 0);
+            var target = new Vec3(-50f, 0.6f, m.Position.Z); // hard left
+            m = ProjectileRules.Step(m, Dt, true, target);
+            float turned = MathF.Atan2(m.Velocity.X, m.Velocity.Z) * 180f / MathF.PI;
+            Assert.Equal(-ProjectileRules.MissileTurnDegreesPerSecond * Dt, turned, 2);
+            Assert.Equal(ProjectileRules.MissileSpeed, m.Velocity.Length, 2);
+        }
+
+        [Fact]
+        public void AMissileCatchesATargetAhead()
+        {
+            var m = ProjectileRules.LaunchMissile(Used(ItemKind.Missile), 1, 0);
+            var target = new Vec3(15f, 0.6f, 40f);
+            for (int i = 0; i < 200; i++)
+            {
+                m = ProjectileRules.Step(m, Dt, true, target);
+                if ((m.Position - target).Flattened.Length <= ProjectileRules.HitRadius)
+                {
+                    return;
+                }
+            }
+
+            Assert.Fail("the missile never reached its target");
+        }
+
+        [Fact]
+        public void ABombArcsLandsAndBounces()
+        {
+            var b = ProjectileRules.LaunchBomb(Used(ItemKind.Bomb, velocity: new Vec3(0f, 0f, 10f)), 0);
+            Assert.Equal(10f + ProjectileRules.BombThrowSpeed, b.Velocity.Z, 3);
+            float highest = 0f;
+            bool bounced = false;
+            for (int i = 0; i < 100; i++)
+            {
+                float vyBefore = b.Velocity.Y;
+                b = ProjectileRules.Step(b, Dt, false, default);
+                highest = Math.Max(highest, b.Position.Y);
+                Assert.True(b.Position.Y >= b.GroundY - 1e-4f);
+                bounced |= vyBefore < 0f && b.Velocity.Y > 0f;
+            }
+
+            Assert.True(highest > b.GroundY + 1f, "it is lobbed");
+            Assert.True(bounced, "it bounces when it lands");
+            Assert.True(b.Position.Z > 10f, "it travels forwards");
+        }
+
+        [Fact]
+        public void HitsPushAlongTheMissileAndAwayFromTheBlast()
+        {
+            var m = ProjectileRules.LaunchMissile(Used(ItemKind.Missile, MathF.PI / 2f), 1, 0);
+            var push = ProjectileRules.MissileImpulse(m);
+            Assert.Equal(ProjectileRules.MissilePush, push.X, 3);
+            Assert.Equal(ItemEffects.HitPop, push.Y, 3);
+
+            var blast = ProjectileRules.BlastImpulse(Vec3.Zero, new Vec3(0f, 0f, -2f));
+            Assert.Equal(-ProjectileRules.BombPush, blast.Z, 3);
+        }
+    }
 }
