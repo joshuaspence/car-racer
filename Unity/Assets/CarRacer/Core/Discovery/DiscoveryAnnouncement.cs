@@ -6,7 +6,7 @@ namespace CarRacer.Core.Discovery
     public static class DiscoveryConstants
     {
         /// <summary>Bump whenever any network message format changes; mismatched hosts show as "Update required".</summary>
-        public const ushort ProtocolVersion = 1;
+        public const ushort ProtocolVersion = 2;
 
         /// <summary>Administratively-scoped (site-local) multicast group used for lobby announcements.</summary>
         public static readonly IPAddress MulticastGroup = IPAddress.Parse("239.255.42.99");
