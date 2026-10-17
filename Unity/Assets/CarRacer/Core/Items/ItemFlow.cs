@@ -262,7 +262,7 @@ namespace CarRacer.Core.Items
             _snapshots.Clear();
             foreach (var p in _flying)
             {
-                _snapshots.Add(new ProjectileSnapshot { EffectId = p.EffectId, Kind = p.Kind, Position = p.Position });
+                _snapshots.Add(new ProjectileSnapshot { EffectId = p.EffectId, Kind = p.Kind, Position = p.Position, TargetId = p.TargetId });
             }
         }
 

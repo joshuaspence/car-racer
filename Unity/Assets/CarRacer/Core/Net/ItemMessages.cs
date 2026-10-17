@@ -119,6 +119,9 @@ namespace CarRacer.Core.Net
         public ushort EffectId;
         public ItemKind Kind;
         public Vec3 Position;
+
+        /// <summary>The player a Missile chases (for their HUD's warning), or <see cref="ProjectileRules.NoTarget"/>.</summary>
+        public byte TargetId;
     }
 
     /// <summary>Host → all, 20 times a second while any are in flight: where every Missile and Bomb is.</summary>
@@ -136,6 +139,7 @@ namespace CarRacer.Core.Net
                 w.WriteUShort(p.EffectId);
                 w.WriteByte((byte)p.Kind);
                 w.WriteVec3(p.Position);
+                w.WriteByte(p.TargetId);
             }
         }
 
@@ -145,7 +149,7 @@ namespace CarRacer.Core.Net
             var message = new ProjectilesMessage();
             for (int i = 0; i < count; i++)
             {
-                message.Projectiles.Add(new ProjectileSnapshot { EffectId = r.ReadUShort(), Kind = (ItemKind)r.ReadByte(), Position = r.ReadVec3() });
+                message.Projectiles.Add(new ProjectileSnapshot { EffectId = r.ReadUShort(), Kind = (ItemKind)r.ReadByte(), Position = r.ReadVec3(), TargetId = r.ReadByte() });
             }
 
             return message;

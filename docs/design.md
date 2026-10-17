@@ -175,8 +175,11 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 ## 6. Camera and HUD
 
 - **Races:** chase camera that rises and widens its field of view with speed.
-  - **Edge-of-screen indicators** for nearby cars behind or beside you (coloured arrows that
-    grow as they close in), plus an **incoming-missile warning**.
+  - **Edge-of-screen indicators** for nearby cars behind or beside you (`HudIndicators`): a
+    coloured arrow at the screen's edge, pointing at each car within 25 m that is more than 50°
+    off straight ahead, growing to full size at 4 m. Hidden in arenas, whose camera shows everyone.
+  - An **incoming-missile warning**: a flashing "Missile!" and a red arrow towards it while a
+    Missile chasing you is within 80 m. The host's projectile updates say whom each Missile chases.
   - A **rear-view glance** button.
 - **Arenas:** high angled overhead camera following your car, so everyone is visible
   (`OverheadCameraRig`: 30 m up and 20 m back, never turning, its focus pulled a third of the way

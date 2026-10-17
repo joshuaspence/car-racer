@@ -78,7 +78,7 @@ namespace CarRacer.Core.Tests
 
     public class TrackChoiceTests
     {
-        private const ushort Version = 12;
+        private const ushort Version = 13;
         private const ulong GuestConnection = 7;
 
         private sealed class HostLink : ISessionTransport

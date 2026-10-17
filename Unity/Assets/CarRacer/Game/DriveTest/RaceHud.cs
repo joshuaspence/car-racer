@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Track;
@@ -8,15 +9,21 @@ using UnityEngine;
 namespace CarRacer.Game.DriveTest
 {
     /// <summary>
-    /// The driving HUD (design doc §6): a drift charge meter, the "Wrong way!" warning and a
-    /// mini-map with a dot for every car. Works alone and in a session. Temporary IMGUI until the
-    /// real UI later in M1.
+    /// The driving HUD (design doc §6): a drift charge meter, the "Wrong way!" warning, a mini-map
+    /// with a dot for every car, arrows at the screen's edge for cars behind or beside you, and a
+    /// warning when a Missile is chasing you. Works alone and in a session. Temporary IMGUI until
+    /// the real UI.
     /// </summary>
     public sealed class RaceHud : MonoBehaviour
     {
         private const float ReferenceHeight = 720f;
         private const float MapSize = 160f;
         private const float MeterWidth = 300f;
+        private const float ArrowMin = 26f;
+        private const float ArrowMax = 64f;
+        private const float ArrowInset = 12f;
+
+        private static readonly Color MissileColour = new Color(1f, 0.2f, 0.15f);
 
         private static readonly Color[] TierColours =
         {
@@ -33,6 +40,10 @@ namespace CarRacer.Game.DriveTest
         private NetworkedCars _cars;
         private BotCars _bots;
         private GUIStyle _warning;
+        private Texture2D _arrow;
+        private readonly List<Vec3> _rivalPositions = new List<Vec3>();
+        private readonly List<Color> _rivalColours = new List<Color>();
+        private readonly List<EdgeIndicator> _arrows = new List<EdgeIndicator>();
 
         /// <summary>True while this phone's car has been facing backwards for a while.</summary>
         public bool IsWrongWay => _progress != null && _progress.IsWrongWay;
@@ -54,6 +65,14 @@ namespace CarRacer.Game.DriveTest
             _mapTrack = _arena.Track;
             _progress = new TrackProgress(_mapTrack.Spline);
             _map = new MiniMap(_mapTrack.Spline);
+        }
+
+        private void OnDestroy()
+        {
+            if (_arrow != null)
+            {
+                Destroy(_arrow);
+            }
         }
 
         private void Update()
@@ -89,14 +108,128 @@ namespace CarRacer.Game.DriveTest
 
             DrawDriftMeter(width);
 
+            if (!inArena)
+            {
+                // The overhead camera shows every car in an arena; a chase camera needs the arrows.
+                DrawRivalArrows(width);
+                DrawMissileWarning(width);
+            }
+
             if (_progress.IsWrongWay && !inArena)
             {
-                _warning = _warning ?? new GUIStyle(GUI.skin.label) { fontSize = 56, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                var previous = GUI.contentColor;
-                GUI.contentColor = new Color(1f, 0.25f, 0.2f);
-                GUI.Label(new Rect(0f, 340f, width, 80f), "Wrong way!", _warning);
-                GUI.contentColor = previous;
+                Warn(new Rect(0f, 340f, width, 80f), "Wrong way!", new Color(1f, 0.25f, 0.2f));
             }
+        }
+
+        private void Warn(Rect area, string text, Color colour)
+        {
+            _warning = _warning ?? new GUIStyle(GUI.skin.label) { fontSize = 56, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            var previous = GUI.contentColor;
+            GUI.contentColor = colour;
+            GUI.Label(area, text, _warning);
+            GUI.contentColor = previous;
+        }
+
+        /// <summary>A coloured arrow at the screen's edge for each nearby car the camera can't show, growing as it closes in.</summary>
+        private void DrawRivalArrows(float width)
+        {
+            _rivalPositions.Clear();
+            _rivalColours.Clear();
+            _cars = _cars != null ? _cars : GetComponent<NetworkedCars>();
+            if (_cars != null)
+            {
+                foreach (var remote in _cars.RemoteCars)
+                {
+                    if (remote.HasState)
+                    {
+                        _rivalPositions.Add(remote.transform.position.ToCore());
+                        _rivalColours.Add(remote.Colour);
+                    }
+                }
+            }
+
+            _bots = _bots != null ? _bots : GetComponent<BotCars>();
+            if (_bots != null)
+            {
+                foreach (var (position, colour) in _bots.Dots)
+                {
+                    _rivalPositions.Add(position.ToCore());
+                    _rivalColours.Add(colour);
+                }
+            }
+
+            var car = _arena.Car;
+            HudIndicators.Rivals(car.BodyPosition.ToCore(), car.State.Heading, _rivalPositions, _arrows);
+            foreach (var arrow in _arrows)
+            {
+                DrawArrow(arrow.Bearing, Mathf.Lerp(ArrowMin, ArrowMax, arrow.Closeness), _rivalColours[arrow.Index], width);
+            }
+        }
+
+        /// <summary>A flashing "Missile!" and a red arrow towards it while a Missile is chasing this phone's car.</summary>
+        private void DrawMissileWarning(float width)
+        {
+            var session = _arena.Session;
+            if (session == null || session.Items == null || !session.TryGetLocalPlayerId(out byte me))
+            {
+                return;
+            }
+
+            var car = _arena.Car;
+            var position = car.BodyPosition.ToCore();
+            if (!HudIndicators.TryIncomingMissile(session.Items.Projectiles, me, position, out var missile, out _))
+            {
+                return;
+            }
+
+            bool lit = Mathf.Repeat(Time.unscaledTime * 4f, 1f) < 0.6f;
+            DrawArrow(HudIndicators.Bearing(position, car.State.Heading, missile.Position), ArrowMax, MissileColour, width);
+            if (lit)
+            {
+                Warn(new Rect(0f, 140f, width, 80f), "Missile!", MissileColour);
+            }
+        }
+
+        private void DrawArrow(float bearing, float size, Color colour, float width)
+        {
+            _arrow = _arrow != null ? _arrow : BuildArrow();
+            Vec2 at = HudIndicators.EdgePoint(bearing, width, ReferenceHeight, size / 2f + ArrowInset);
+            var pivot = new Vector3(at.X, at.Y, 0f);
+
+            // Turn the up-pointing arrow to face the car, about its own centre, before the HUD's scaling.
+            var previousMatrix = GUI.matrix;
+            GUI.matrix = previousMatrix
+                * Matrix4x4.Translate(pivot)
+                * Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, bearing * Mathf.Rad2Deg))
+                * Matrix4x4.Translate(-pivot);
+            var previousColour = GUI.color;
+            GUI.color = colour;
+            GUI.DrawTexture(new Rect(at.X - size / 2f, at.Y - size / 2f, size, size), _arrow);
+            GUI.color = previousColour;
+            GUI.matrix = previousMatrix;
+        }
+
+        /// <summary>A white triangle pointing up, tinted per arrow.</summary>
+        private static Texture2D BuildArrow()
+        {
+            const int size = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            var pixels = new Color32[size * size];
+            float centre = (size - 1) / 2f;
+            for (int y = 0; y < size; y++)
+            {
+                // Row 0 is the bottom of the texture: the arrow's base, full width; the tip is at the top.
+                float halfWidth = (size - 1 - y) / 2f;
+                for (int x = 0; x < size; x++)
+                {
+                    bool inside = Mathf.Abs(x - centre) <= halfWidth;
+                    pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply();
+            return texture;
         }
 
         private void DrawDriftMeter(float width)
