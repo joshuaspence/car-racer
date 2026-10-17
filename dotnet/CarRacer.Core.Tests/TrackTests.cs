@@ -38,8 +38,9 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void LengthIsPlausibleForTheOval()
         {
-            // Two 60 m straights, two 90 m straights' worth of curves: roughly 400-500 m.
-            Assert.InRange(Oval.Spline.Length, 380f, 520f);
+            // The chords between control points sum to about 380 m; the spline through them is
+            // slightly longer (386.4 m when measured).
+            Assert.InRange(Oval.Spline.Length, 383f, 390f);
         }
 
         [Fact]

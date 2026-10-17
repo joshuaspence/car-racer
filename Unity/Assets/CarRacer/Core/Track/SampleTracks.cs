@@ -3,7 +3,7 @@ namespace CarRacer.Core.Track
     /// <summary>Built-in test track used by tests and as the first M1 track until track files exist.</summary>
     public static class SampleTracks
     {
-        /// <summary>A gentle rounded-rectangle circuit (about 470 m), driven clockwise when viewed from above.</summary>
+        /// <summary>A gentle rounded-rectangle circuit (about 386 m), driven clockwise when viewed from above.</summary>
         public static TrackDefinition Oval() => new TrackDefinition
         {
             Id = "oval",
