@@ -50,6 +50,9 @@ namespace CarRacer.Core.Session
         /// <summary>A joined guest reported a checkpoint for its own car (see <c>HostRace</c>).</summary>
         public event Action<CheckpointReachedMessage> CheckpointReceived;
 
+        /// <summary>A guest's car bumped the host's car (fallback hit, see <c>BumpMonitor</c>).</summary>
+        public event Action<HitMessage> HitReceived;
+
         public IEnumerable<ulong> GuestConnections => _playerByConnection.Keys;
 
         public bool TryGetPlayerId(ulong connection, out byte playerId) => _playerByConnection.TryGetValue(connection, out playerId);
@@ -97,6 +100,10 @@ namespace CarRacer.Core.Session
                 case CheckpointReachedMessage checkpoint when joined && checkpoint.PlayerId == playerId:
                     CheckpointReceived?.Invoke(checkpoint);
                     break;
+                case HitMessage hit when joined && hit.AttackerId == playerId && !hit.IsItemHit:
+                    // Item hits come only from the host; a guest may only report bumps by its own car.
+                    SendHit(hit);
+                    break;
             }
         }
 
@@ -136,6 +143,25 @@ namespace CarRacer.Core.Session
         {
             Broadcast(Roster.ToMessage(), reliable: true);
             RosterChanged?.Invoke();
+        }
+
+        /// <summary>Delivers a hit to its target: the host's own car, or the guest that owns the target car.</summary>
+        public void SendHit(HitMessage hit)
+        {
+            if (hit.TargetId == HostPlayerId)
+            {
+                HitReceived?.Invoke(hit);
+                return;
+            }
+
+            foreach (var pair in _playerByConnection)
+            {
+                if (pair.Value == hit.TargetId)
+                {
+                    _transport.Send(pair.Key, hit, reliable: true);
+                    return;
+                }
+            }
         }
 
         /// <summary>Sends a message to every joined guest.</summary>
@@ -197,6 +223,9 @@ namespace CarRacer.Core.Session
         /// <summary>Race messages from the host (countdown, standings, finishes, results, back to lobby); see <c>GuestRace</c>.</summary>
         public event Action<IGameMessage> RaceMessageReceived;
 
+        /// <summary>Another car bumped this guest's car, or the host scored an item hit on it.</summary>
+        public event Action<HitMessage> HitReceived;
+
         /// <summary>Call once the transport has connected to the host.</summary>
         public void OnConnected()
         {
@@ -230,6 +259,9 @@ namespace CarRacer.Core.Session
                     break;
                 case CarStateMessage state when state.PlayerId != PlayerId:
                     CarStateReceived?.Invoke(state);
+                    break;
+                case HitMessage hit when State == GuestState.Joined && hit.TargetId == PlayerId:
+                    HitReceived?.Invoke(hit);
                     break;
                 case RaceCountdownMessage _:
                 case StandingsMessage _:

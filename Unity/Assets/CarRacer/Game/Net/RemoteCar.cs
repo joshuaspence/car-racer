@@ -7,7 +7,7 @@ namespace CarRacer.Game.Net
     /// <summary>
     /// Another phone's car, shown where it probably is now (design doc §2): positioned each frame
     /// by <see cref="RemoteCarPredictor"/> from that phone's latest <see cref="CarStateMessage"/>.
-    /// Its kinematic sphere is there for car-to-car contact, which comes in a later PR.
+    /// Contact with it is resolved by <c>BumpMonitor</c> against that position, not by PhysX.
     /// </summary>
     public sealed class RemoteCar : MonoBehaviour
     {
@@ -21,6 +21,9 @@ namespace CarRacer.Game.Net
 
         public byte PlayerId { get; private set; }
         public bool HasState => _predictor.HasState;
+
+        /// <summary>The car's last reported velocity, for bumps.</summary>
+        public Vector3 Velocity => _predictor.Velocity.ToUnity();
 
         public void Initialise(byte playerId, Transform visual)
         {

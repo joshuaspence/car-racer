@@ -41,6 +41,7 @@ namespace CarRacer.Game.Driving
 
         private Rigidbody _body;
         private Transform _visual;
+        private Vector3 _pendingImpulse;
         private CarState _state;
         private Vector3 _spawnPosition;
         private float _spawnHeading;
@@ -72,8 +73,18 @@ namespace CarRacer.Game.Driving
             Respawn();
         }
 
+        /// <summary>
+        /// Pushes the car (mass × Δv), e.g. a car-to-car bump. Applied at the start of the next
+        /// physics step, before the handling model, so grip then straightens the car up.
+        /// </summary>
+        public void AddImpulse(Vector3 impulse)
+        {
+            _pendingImpulse += impulse;
+        }
+
         private void Respawn()
         {
+            _pendingImpulse = Vector3.zero;
             _body.position = _spawnPosition;
             transform.position = _spawnPosition;
             _body.linearVelocity = Vector3.zero;
@@ -88,7 +99,8 @@ namespace CarRacer.Game.Driving
             Grounded = Physics.Raycast(_body.position, Vector3.down, SphereRadius + GroundProbe, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             LastInput = InputLocked ? default : InputSource?.Read() ?? default;
 
-            Vector3 velocity = _body.linearVelocity;
+            Vector3 velocity = _body.linearVelocity + _pendingImpulse / _body.mass;
+            _pendingImpulse = Vector3.zero;
             _state.Velocity = velocity.ToCore();
             _state = CarModel.Step(_state, LastInput, Grounded, Time.fixedDeltaTime, Tuning);
             _body.linearVelocity = new Vector3(_state.Velocity.X, velocity.y, _state.Velocity.Z);

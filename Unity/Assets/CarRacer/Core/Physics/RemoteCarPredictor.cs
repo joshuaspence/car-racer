@@ -85,7 +85,7 @@ namespace CarRacer.Core.Physics
             return _latest.Position + _latest.Velocity * (aheadMs / 1000f);
         }
 
-        /// <summary>Position to render and to place the remote car's kinematic collider at. Call once per frame.</summary>
+        /// <summary>Position to render the remote car at and to check bumps against. Call once per frame.</summary>
         public Vec3 UpdateDisplayPosition(long nowMs, float oneWayLatencyMs, float deltaSeconds)
         {
             if (_settings.SmoothingSeconds > 0f)

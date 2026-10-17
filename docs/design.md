@@ -83,8 +83,9 @@ and `GuestSession` (`Core/Session`) implement the protocol below against a small
 Contact must feel instant and fair for both drivers, even though no single machine sees both
 cars exactly.
 
-1. Remote cars are **kinematic** colliders at their predicted positions. PhysX doesn't resolve
-   car-to-car contact, so remote cars never act as immovable walls.
+1. Remote cars are shown at their predicted positions **with no PhysX collider**, so they never
+   act as immovable walls. Each physics step, `BumpMonitor` checks this phone's car against them,
+   using a 1 m contact radius per car (a little larger than the 0.6 m physics sphere).
 2. When a phone detects contact between **its own car** and a remote car, it calls
    `BumpResolver.ComputeSelfImpulse(self, other)` and applies the result **only to its own car**.
    The formula is antisymmetric on the ground plane, so the other phone computes the equal and

@@ -49,6 +49,9 @@ namespace CarRacer.Game.Net
 
         public event Action<CarStateMessage> CarStateReceived;
 
+        /// <summary>A hit addressed to this phone's car: another car's fallback bump, or an item hit from the host.</summary>
+        public event Action<HitMessage> HitReceived;
+
         /// <summary>The race referee (host) or follower (guest), once <see cref="CreateRace"/> has been called.</summary>
         public IRaceView Race { get; private set; }
 
@@ -94,6 +97,19 @@ namespace CarRacer.Game.Net
                 : (IRaceView)new GuestRace(GuestSide, () => NowMs);
         }
 
+        /// <summary>Sends a fallback bump (or, on the host, an item hit) to the car it hit.</summary>
+        public void SendHit(HitMessage hit)
+        {
+            if (IsHost)
+            {
+                HostSide.SendHit(hit);
+            }
+            else
+            {
+                GuestSide.SendToHost(hit, reliable: true);
+            }
+        }
+
         public void SendCarState(CarStateMessage state)
         {
             if (IsHost)
@@ -112,6 +128,7 @@ namespace CarRacer.Game.Net
             session.IsHost = true;
             session.HostSide = new HostSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs);
             session.HostSide.CarStateReceived += session.RaiseCarState;
+            session.HostSide.HitReceived += session.RaiseHit;
 
             var transport = session.GetComponent<UnityTransport>();
             transport.SetConnectionData("127.0.0.1", port, "0.0.0.0");
@@ -139,6 +156,7 @@ namespace CarRacer.Game.Net
             var session = Create();
             session.GuestSide = new GuestSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs);
             session.GuestSide.CarStateReceived += session.RaiseCarState;
+            session.GuestSide.HitReceived += session.RaiseHit;
 
             var transport = session.GetComponent<UnityTransport>();
             transport.SetConnectionData(address, port);
@@ -264,6 +282,8 @@ namespace CarRacer.Game.Net
         }
 
         private void RaiseCarState(CarStateMessage state) => CarStateReceived?.Invoke(state);
+
+        private void RaiseHit(HitMessage hit) => HitReceived?.Invoke(hit);
 
         private void Update()
         {
