@@ -336,7 +336,15 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - Tiebreaks: most wins, then best finish in the latest event, then name.
 - Between events: a standings screen and a 10 s auto-advance that the host can pause.
 - The host **auto-saves after every event**; a dead session can be **resumed**, and players
-  reclaim slots by name and device id.
+  reclaim their points by name (ignoring case and spaces at the ends). Names are unique within a
+  lobby; device ids aren't needed on a LAN of friends.
+- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the three tracks in order; Mixed Cup adds
+  Sumo then Battle. After each event `CupRun` scores the results, sends everyone a
+  `CupStandingsMessage` (the table and when the next event starts) and saves. The next event
+  starts 10 s later straight from the results screen, unless the host pauses; the host can also
+  skip the wait. The countdown carries the grid order (pole first, protocol 11) from the table,
+  reversed with reverse grid, so newcomers start at the front with reverse grid and at the back
+  without.
 
 ## 11. Lobby and identity
 

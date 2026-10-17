@@ -344,6 +344,7 @@ namespace CarRacer.Core.Session
                 case PlayerFinishedMessage _:
                 case RaceResultsMessage _:
                 case ReturnToLobbyMessage _:
+                case CupStandingsMessage _:
                     if (State == GuestState.Joined)
                     {
                         RaceMessageReceived?.Invoke(message);
