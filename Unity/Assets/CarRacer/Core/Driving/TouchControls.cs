@@ -141,9 +141,10 @@ namespace CarRacer.Core.Driving
     }
 
     /// <summary>
-    /// Turns raw touches into <see cref="DriverControls"/>. Each finger keeps the job of the control
-    /// it first landed on until it lifts, so a steering thumb can stray right and a button stays
-    /// held if the finger slides off it.
+    /// Turns raw touches into <see cref="DriverControls"/>. A steering thumb keeps steering until it
+    /// lifts, even if it strays right. Any other finger presses whichever button it is over, so a
+    /// thumb can rock from Brake to Gas or slide onto a button it just missed; over empty screen it
+    /// keeps its last button, so slipping off doesn't let go.
     /// </summary>
     public sealed class TouchControls
     {
@@ -182,8 +183,17 @@ namespace CarRacer.Core.Driving
                 if (!_roles.TryGetValue(touch.Id, out var role))
                 {
                     role = Assign(touch, layout, showGas);
-                    _roles[touch.Id] = role;
                 }
+                else if (role != Role.Steer)
+                {
+                    var under = ButtonAt(touch.Position, layout, showGas);
+                    if (under != Role.None)
+                    {
+                        role = under;
+                    }
+                }
+
+                _roles[touch.Id] = role;
 
                 if (role == Role.Steer)
                 {
@@ -227,19 +237,10 @@ namespace CarRacer.Core.Driving
 
         private Role Assign(TouchPoint touch, TouchControlLayout layout, bool showGas)
         {
-            if (layout.HitsButton(touch.Position, layout.DriftCentre))
+            var button = ButtonAt(touch.Position, layout, showGas);
+            if (button != Role.None)
             {
-                return Role.Drift;
-            }
-
-            if (layout.HitsButton(touch.Position, layout.BrakeCentre))
-            {
-                return Role.Brake;
-            }
-
-            if (showGas && layout.HitsButton(touch.Position, layout.GasCentre))
-            {
-                return Role.Gas;
+                return button;
             }
 
             if (touch.Position.X < layout.SteerZoneRight && _steeringFinger < 0)
@@ -250,6 +251,33 @@ namespace CarRacer.Core.Driving
             }
 
             return Role.None;
+        }
+
+        /// <summary>The nearest button within reach of <paramref name="point"/>, since the reaches of Drift and Brake overlap.</summary>
+        private static Role ButtonAt(Vec2 point, TouchControlLayout layout, bool showGas)
+        {
+            var best = Role.None;
+            float bestDistance = float.MaxValue;
+            Consider(point, layout, layout.DriftCentre, Role.Drift, ref best, ref bestDistance);
+            Consider(point, layout, layout.BrakeCentre, Role.Brake, ref best, ref bestDistance);
+            if (showGas)
+            {
+                Consider(point, layout, layout.GasCentre, Role.Gas, ref best, ref bestDistance);
+            }
+
+            return best;
+        }
+
+        private static void Consider(Vec2 point, TouchControlLayout layout, Vec2 centre, Role role, ref Role best, ref float bestDistance)
+        {
+            float dx = point.X - centre.X;
+            float dy = point.Y - centre.Y;
+            float distance = dx * dx + dy * dy;
+            if (distance < bestDistance && layout.HitsButton(point, centre))
+            {
+                best = role;
+                bestDistance = distance;
+            }
         }
 
         private void Release(int id)

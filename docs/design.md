@@ -156,8 +156,10 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   accelerates, B or the left trigger brakes, either shoulder drifts. The keyboard (arrows/WASD,
   Space to drift) works too, for testing in the editor. All devices work at once; the strongest
   steer wins and braking overrides accelerating (`DriverInput`).
-- With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. Each finger keeps
-  the control it first landed on until it lifts (`TouchControls`).
+- With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. A steering thumb
+  keeps steering until it lifts. Any other finger presses whichever button it is over (the nearest,
+  where reaches overlap), so a thumb can rock from Brake to Gas; over empty screen it keeps its last
+  button, so slipping off doesn't let go (`TouchControls`).
 - **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.
