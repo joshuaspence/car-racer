@@ -1,6 +1,8 @@
 using System.Linq;
 using CarRacer.Core.Arena;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Session;
+using CarRacer.Core.Track;
 using Xunit;
 
 namespace CarRacer.Core.Tests
@@ -118,6 +120,36 @@ namespace CarRacer.Core.Tests
             var boxes = ArenaLayout.BattleItemBoxes(Vec3.Zero, BattleRules.BowlRadius);
             Assert.Equal(12, boxes.Count);
             Assert.All(boxes, b => Assert.True(b.Flattened.Length < BattleRules.BowlRadius - 5f));
+        }
+
+        [Fact]
+        public void EachPlayerHasTheirOwnStartSlot()
+        {
+            foreach (var mode in new[] { GameMode.Sumo, GameMode.Battle })
+            {
+                var centre = ArenaLayout.CentreFor(mode);
+                for (int a = 0; a < LobbyRoster.MaxPlayers; a++)
+                {
+                    var slot = ArenaLayout.StartSlotFor(mode, a);
+                    Assert.Equal(centre.Y, slot.Position.Y, 3);
+                    Assert.True((slot.Position - centre).Flattened.Length < ArenaLayout.StartRadiusFor(mode));
+                    for (int b = a + 1; b < LobbyRoster.MaxPlayers; b++)
+                    {
+                        Assert.True((slot.Position - ArenaLayout.StartSlotFor(mode, b).Position).Length > 5f, $"{mode} slots {a} and {b}");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void TheArenasAreWellClearOfTheTrack()
+        {
+            var spline = new TrackLayout(SampleTracks.Oval()).Spline;
+            foreach (var sample in spline.SampleEvenly(2f))
+            {
+                Assert.True((sample.Position - ArenaLayout.SumoCentre).Flattened.Length > SumoRules.StartRadius + 100f);
+                Assert.True((sample.Position - ArenaLayout.BattleCentre).Flattened.Length > BattleRules.BowlRadius + 100f);
+            }
         }
     }
 }

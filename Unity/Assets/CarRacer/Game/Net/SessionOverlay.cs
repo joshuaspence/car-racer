@@ -1,3 +1,4 @@
+using CarRacer.Core.Arena;
 using CarRacer.Core.Bots;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
@@ -11,14 +12,15 @@ namespace CarRacer.Game.Net
 {
     /// <summary>
     /// The session screens drawn over the track (design doc §6, §11): the lobby (players, Ready,
-    /// laps and Start), the countdown, the race HUD (position and lap) and the results with a
-    /// rematch. Temporary IMGUI until the real UI later in M1.
+    /// mode, laps and Start), the countdown, the race HUD (position and lap, or lives and who is
+    /// left in an arena) and the results with a rematch. Temporary IMGUI until the real UI.
     /// </summary>
     public sealed class SessionOverlay : MonoBehaviour
     {
         public const int MaxLaps = 9;
         public const string BotFillKey = "botFill";
         public const string BotDifficultyKey = "botDifficulty";
+        public const string ModeKey = "mode";
 
         /// <summary>The bot fill choices (design doc §9): off, or fill the grid to 4 or 6 cars.</summary>
         private static readonly int[] BotFills = { 0, 4, 6 };
@@ -26,6 +28,7 @@ namespace CarRacer.Game.Net
         private NetworkSession _session;
         private NetworkedCars _cars;
         private int _laps = 3;
+        private GameMode _mode = GameMode.Race;
         /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
         private const float AddressRefreshSeconds = 3f;
 
@@ -42,6 +45,7 @@ namespace CarRacer.Game.Net
             {
                 session.HostSide.BotFill = PlayerPrefs.GetInt(BotFillKey, 0);
                 session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
+                _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
             }
         }
 
@@ -116,15 +120,28 @@ namespace CarRacer.Game.Net
                 }
 
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(150f));
-                if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
+                if (GUILayout.Button(ModeName(_mode), UiStyle.Button, GUILayout.Width(150f)))
                 {
-                    _laps = Mathf.Max(1, _laps - 1);
+                    _mode = (GameMode)(((int)_mode + 1) % 3);
+                    PlayerPrefs.SetInt(ModeKey, (int)_mode);
                 }
 
-                if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
+                if (_mode == GameMode.Race)
                 {
-                    _laps = Mathf.Min(MaxLaps, _laps + 1);
+                    GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(130f));
+                    if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
+                    {
+                        _laps = Mathf.Max(1, _laps - 1);
+                    }
+
+                    if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
+                    {
+                        _laps = Mathf.Min(MaxLaps, _laps + 1);
+                    }
+                }
+                else
+                {
+                    GUILayout.Label(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only", UiStyle.Hint);
                 }
 
                 GUILayout.EndHorizontal();
@@ -133,9 +150,9 @@ namespace CarRacer.Game.Net
                 // The host decides (design doc §11); alone, it's a practice race.
                 bool canStart = _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
                 GUI.enabled = canStart;
-                if (GUILayout.Button(canStart ? "Start race" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
+                if (GUILayout.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
                 {
-                    ((HostRace)_session.Race).Start(_laps);
+                    ((HostRace)_session.Race).Start(_laps, _mode);
                 }
 
                 GUI.enabled = true;
@@ -194,6 +211,12 @@ namespace CarRacer.Game.Net
                 GUI.Label(new Rect(0f, 200f, width, 140f), "GO!", _big);
             }
 
+            if (race.Mode != GameMode.Race)
+            {
+                DrawArenaStatus(race, width, me, msToGo);
+                return;
+            }
+
             int lap = Mathf.Min(_cars.Detector.LapsCompleted + 1, race.LapCount);
             string position = string.Empty;
             var standings = race.Standings;
@@ -218,8 +241,50 @@ namespace CarRacer.Game.Net
             var style = new GUIStyle(_small) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
             GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), position, style);
             GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), $"Lap {lap} / {race.LapCount}", style);
+            DrawItemSlot(width, style);
+        }
 
-            // The item slot, top centre (design doc §6).
+        /// <summary>The arena HUD (design doc §7.0): this phone's lives (Battle) or place once out, how many are left, and Battle's clock.</summary>
+        private void DrawArenaStatus(IRaceView race, float width, byte me, long msToGo)
+        {
+            int left = 0;
+            int total = 0;
+            string status = string.Empty;
+            var standings = race.Standings;
+            if (standings != null)
+            {
+                foreach (var entry in standings.Order)
+                {
+                    total++;
+                    if (entry.FinishPosition == 0)
+                    {
+                        left++;
+                    }
+
+                    if (entry.PlayerId == me)
+                    {
+                        status = entry.FinishPosition > 0
+                            ? $"Out: {RaceFormat.Ordinal(entry.FinishPosition)}"
+                            : race.Mode == GameMode.Battle ? $"Lives {entry.LapsCompleted}" : "Still on";
+                    }
+                }
+            }
+
+            var style = new GUIStyle(_small) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
+            GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), status, style);
+            GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), total > 0 ? $"{left} / {total} left" : string.Empty, style);
+            if (race.Mode == GameMode.Battle && race.Phase == RacePhase.Racing)
+            {
+                long remaining = System.Math.Max(0L, BattleRules.TimeLimitMs + msToGo);
+                GUI.Label(new Rect(width - 424f, 172f, 400f, 44f), RaceFormat.Time(remaining), style);
+            }
+
+            DrawItemSlot(width, style);
+        }
+
+        /// <summary>The item slot, top centre (design doc §6).</summary>
+        private void DrawItemSlot(float width, GUIStyle style)
+        {
             var held = _session.Items?.Held ?? ItemKind.None;
             var slot = new Rect(width / 2f - 110f, 16f, 220f, 56f);
             GUI.Box(slot, GUIContent.none, UiStyle.Panel);
@@ -240,6 +305,7 @@ namespace CarRacer.Game.Net
             {
                 bool stillHere = TryFind(r.PlayerId, out var player);
                 Swatch(x, y, stillHere ? player.ColourIndex : r.PlayerId);
+                // In an arena the time is how long the player lasted.
                 string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
                 string tag = r.PlayerId == me ? " (you)" : !stillHere ? " (left)" : player.IsBot ? " (bot)" : string.Empty;
                 GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", _small);
@@ -260,6 +326,8 @@ namespace CarRacer.Game.Net
                 GUI.Label(new Rect(x, y, 520f, 30f), "Waiting for the host...", _small);
             }
         }
+
+        private static string ModeName(GameMode mode) => mode == GameMode.Race ? "Race" : mode == GameMode.Sumo ? "Sumo" : "Battle";
 
         /// <summary>False if the player has left the session since the race began.</summary>
         private bool TryFind(byte playerId, out RosterEntry player)

@@ -173,7 +173,10 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   - **Edge-of-screen indicators** for nearby cars behind or beside you (coloured arrows that
     grow as they close in), plus an **incoming-missile warning**.
   - A **rear-view glance** button.
-- **Arenas:** high angled overhead camera following your car, so everyone is visible.
+- **Arenas:** high angled overhead camera following your car, so everyone is visible
+  (`OverheadCameraRig`: 30 m up and 20 m back, never turning, its focus pulled a third of the way
+  towards the arena's centre). The arena HUD shows your lives (Battle) or your place once out,
+  how many are left, and Battle's clock; the track's mini-map and "Wrong way!" are hidden.
 - HUD: position (2nd/6), lap (2/3), item slot (top centre), mini-map with coloured dots, drift
   charge meter, countdown, "Wrong way!" (`WrongWayDetector`: sustained reverse for 1 s, with hysteresis).
 
@@ -204,6 +207,13 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   spin-out (`ReportSpinOut`), which costs a life, so a hit the Shield soaks up costs nothing.
   Standings reuse the race message: `LapsCompleted` carries lives and `FinishPosition` a place
   once out. Results carry how long each player lasted as the race time.
+- **Venues** (`ArenaLayout`, `ArenaVenues`): both arenas sit in the track scene, far enough off
+  either end of it that nothing overlaps: the Sumo platform floats 40 m up, with a catch floor
+  30 m below it for the cars that fall off, and the Battle bowl sits at ground level. The Battle
+  item boxes share the track's box list; each event only reaches its own. Every phone sizes the
+  shrinking platform from the shared start time. The host picks the mode in the lobby (remembered).
+  Out players lose their controls; the host reports spin-outs for its own car, for guests (the
+  rising edge of their `SpunOut` flag) and for bots, which an `ArenaBotDriver` drives in arenas.
 
 ### 7.1 Race rules (`RaceTracker`, host side)
 

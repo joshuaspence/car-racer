@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CarRacer.Core.Arena;
 using CarRacer.Core.Bots;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Items;
@@ -21,7 +22,8 @@ namespace CarRacer.Game.Bots
     /// its items, bumps it off other phones' cars, applies the item hits aimed at it, and sends its
     /// state to everyone at 30 Hz with the <see cref="CarStateFlags.BotControlled"/> flag. A bot
     /// that takes over a player who left mid-race (design doc §12) carries on from where their car
-    /// was, at its speed and with its laps.
+    /// was, at its speed and with its laps. In Sumo and Battle an <see cref="ArenaBotDriver"/> drives
+    /// it instead, its spin-outs are reported to the referee, and it stops once it is out.
     /// </summary>
     public sealed class BotCars : MonoBehaviour
     {
@@ -31,6 +33,8 @@ namespace CarRacer.Game.Bots
             public Color Colour;
             public CarController Car;
             public BotDriver Driver;
+            public ArenaBotDriver ArenaDriver;
+            public bool WasSpunOut;
             public BotSkill Skill;
             public CheckpointDetector Detector;
             public readonly Shield Shield = new Shield();
@@ -41,7 +45,17 @@ namespace CarRacer.Game.Bots
             public uint Sequence;
             public BotCars Owner;
 
-            public CarInput Read() => Driver.Drive(Car.State, Car.BodyPosition.ToCore(), Time.fixedDeltaTime, Owner.RivalsOf(PlayerId));
+            public CarInput Read()
+            {
+                if (ArenaDriver == null)
+                {
+                    return Driver.Drive(Car.State, Car.BodyPosition.ToCore(), Time.fixedDeltaTime, Owner.RivalsOf(PlayerId));
+                }
+
+                var mode = Owner._session.Race.Mode;
+                float radius = mode == GameMode.Sumo ? ((HostRace)Owner._session.Race).PlatformRadius : BattleRules.BowlRadius;
+                return ArenaDriver.Drive(Car.State, Car.BodyPosition.ToCore(), ArenaLayout.CentreFor(mode), radius, Owner.RivalsOf(PlayerId));
+            }
         }
 
         private readonly Dictionary<byte, Bot> _bots = new Dictionary<byte, Bot>();
@@ -127,6 +141,7 @@ namespace CarRacer.Game.Bots
             foreach (var bot in _bots.Values)
             {
                 ResolveBumps(bot);
+                FollowArenaState(bot, race);
 
                 Vector3 position = bot.Car.BodyPosition;
                 int crossed = bot.Detector.Update(bot.LastPosition.ToCore(), position.ToCore());
@@ -138,6 +153,22 @@ namespace CarRacer.Game.Bots
 
                 items.ClaimTouchedBoxForBot(bot.PlayerId, position.ToCore());
                 UseItem(bot, items, race);
+            }
+        }
+
+        /// <summary>Reports a bot's spin-outs (they cost a Battle life) and takes its controls away once it is out of an arena event.</summary>
+        private static void FollowArenaState(Bot bot, HostRace race)
+        {
+            bool spun = bot.Car.State.SpunOut;
+            if (spun && !bot.WasSpunOut)
+            {
+                race.ReportSpinOut(bot.PlayerId);
+            }
+
+            bot.WasSpunOut = spun;
+            if (race.Mode != GameMode.Race)
+            {
+                bot.Car.InputLocked = NetworkedCars.IsOut(race, bot.PlayerId);
             }
         }
 
@@ -174,7 +205,7 @@ namespace CarRacer.Game.Bots
             {
                 NearestAhead = float.PositiveInfinity,
                 NearestBehind = float.PositiveInfinity,
-                OnStraight = bot.Driver.CurvatureAhead < 0.01f,
+                OnStraight = bot.ArenaDriver != null || bot.Driver.CurvatureAhead < 0.01f,
             };
 
             var position = bot.Car.BodyPosition.ToCore();
@@ -202,18 +233,19 @@ namespace CarRacer.Game.Bots
             return situation;
         }
 
-        /// <summary>Every other car's position: this phone's own car, the other bots and the other phones' cars.</summary>
+        /// <summary>Every other car still in the event: this phone's own car, the other bots and the other phones' cars.</summary>
         private List<Vec3> RivalsOf(byte playerId)
         {
             _rivals.Clear();
-            if (_arena.Car != null)
+            var race = _session.Race;
+            if (_arena.Car != null && _session.TryGetLocalPlayerId(out byte me) && !NetworkedCars.IsOut(race, me))
             {
                 _rivals.Add(_arena.Car.BodyPosition.ToCore());
             }
 
             foreach (var pair in _bots)
             {
-                if (pair.Key != playerId)
+                if (pair.Key != playerId && !NetworkedCars.IsOut(race, pair.Key))
                 {
                     _rivals.Add(pair.Value.Car.BodyPosition.ToCore());
                 }
@@ -221,7 +253,7 @@ namespace CarRacer.Game.Bots
 
             foreach (var remote in _cars.RemoteCars)
             {
-                if (remote.HasState)
+                if (remote.HasState && !NetworkedCars.IsOut(race, remote.PlayerId))
                 {
                     _rivals.Add(remote.transform.position.ToCore());
                 }
@@ -293,7 +325,9 @@ namespace CarRacer.Game.Bots
             {
                 if (lineUp)
                 {
-                    LineUp(bot);
+                    var mode = _session.Race.Mode;
+                    bot.ArenaDriver = ArenaDriverFor(bot, mode);
+                    LineUp(bot, mode);
                 }
 
                 bot.Car.InputLocked = phase != RacePhase.Racing;
@@ -310,13 +344,20 @@ namespace CarRacer.Game.Bots
             bot.LastPosition = position;
             var racer = (_session.Race as HostRace)?.Tracker?.Get(bot.PlayerId);
             bot.Detector.Resume(racer != null ? racer.CheckpointsPassed : 0);
+            bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
             bot.Car.InputLocked = _session.Race.Phase != RacePhase.Racing;
         }
 
-        private void LineUp(Bot bot)
+        /// <summary>The mode of the event under way, or Race in the lobby.</summary>
+        private GameMode CurrentMode => _session.Race.Phase == RacePhase.Lobby ? GameMode.Race : _session.Race.Mode;
+
+        private static ArenaBotDriver ArenaDriverFor(Bot bot, GameMode mode) =>
+            mode == GameMode.Race ? null : new ArenaBotDriver(bot.Skill, bot.Car.Tuning, mode, bot.PlayerId);
+
+        private void LineUp(Bot bot, GameMode mode)
         {
-            var grid = _arena.Track.StartGrid(bot.PlayerId + 1)[bot.PlayerId];
-            bot.Car.Place(grid.Position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f), Mathf.Atan2(grid.Forward.X, grid.Forward.Z));
+            _arena.PlaceAtStart(bot.Car, bot.PlayerId, mode);
+            bot.WasSpunOut = false;
             bot.Detector.Reset();
             bot.Driver.Reset();
             bot.Shield.Clear();
@@ -360,7 +401,8 @@ namespace CarRacer.Game.Bots
                     else
                     {
                         car.InputLocked = true;
-                        LineUp(bot);
+                        bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
+                        LineUp(bot, CurrentMode);
                     }
 
                     _bots[player.PlayerId] = bot;
