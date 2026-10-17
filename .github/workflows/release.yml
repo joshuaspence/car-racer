@@ -1,0 +1,59 @@
+name: Release
+
+# Pushing a tag like v0.1.0 builds a release-signed APK and publishes it to GitHub Releases.
+# Needs the Unity licence secrets and the Android keystore secrets (see docs/ci-setup.md).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Signed Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+
+      - uses: actions/cache@v4
+        with:
+          path: Unity/Library
+          key: Library-android-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}
+          restore-keys: Library-android-
+
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Unity
+          targetPlatform: Android
+          buildName: CarRacer
+          buildMethod: CarRacer.Editor.BuildScript.BuildFromCommandLine
+          androidExportType: androidPackage
+          versioning: Tag
+          androidKeystoreName: release.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+
+      - name: Name the APK after the tag
+        run: sudo mv build/Android/CarRacer.apk "build/Android/CarRacer-${GITHUB_REF_NAME}.apk"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: build/Android/CarRacer-${{ github.ref_name }}.apk
+          generate_release_notes: true
