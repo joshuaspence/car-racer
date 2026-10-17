@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using CarRacer.Core.Arena;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Track;
+using CarRacer.Game.Arenas;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
@@ -124,6 +126,7 @@ namespace CarRacer.Game.DriveTest
             else
             {
                 _session = startSession();
+                ArenaVenues.Build(transform, _session);
                 gameObject.AddComponent<NetworkedCars>().Initialise(this, _session);
             }
         }
@@ -144,12 +147,39 @@ namespace CarRacer.Game.DriveTest
         }
 
         /// <summary>Puts this phone's car back at rest on grid slot <paramref name="slot"/>, e.g. for a race start.</summary>
-        public void PlaceLocalCarOnGrid(int slot)
+        public void PlaceLocalCarOnGrid(int slot) => PlaceLocalCarAtStart(slot, GameMode.Race);
+
+        /// <summary>
+        /// Puts this phone's car at rest on its starting spot for <paramref name="mode"/>: grid slot
+        /// <paramref name="slot"/> on the track, or spot <paramref name="slot"/> round an arena, and
+        /// switches to the overhead camera in an arena (design doc §6).
+        /// </summary>
+        public void PlaceLocalCarAtStart(int slot, GameMode mode)
         {
-            var grid = Track.StartGrid(slot + 1)[slot];
-            Vector3 spawn = grid.Position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f);
-            Car.Place(spawn, Mathf.Atan2(grid.Forward.X, grid.Forward.Z));
+            PlaceAtStart(Car, slot, mode);
+            CameraRig.ArenaCentre = mode == GameMode.Race ? (Vector3?)null : ArenaLayout.CentreFor(mode).ToUnity();
             CameraRig.Snap();
+        }
+
+        /// <summary>Puts <paramref name="car"/> at rest on starting spot <paramref name="slot"/> for <paramref name="mode"/>.</summary>
+        public void PlaceAtStart(CarController car, int slot, GameMode mode)
+        {
+            Vec3 position;
+            Vec3 forward;
+            if (mode == GameMode.Race)
+            {
+                var grid = Track.StartGrid(slot + 1)[slot];
+                position = grid.Position;
+                forward = grid.Forward;
+            }
+            else
+            {
+                var spot = ArenaLayout.StartSlotFor(mode, slot);
+                position = spot.Position;
+                forward = spot.Forward;
+            }
+
+            car.Place(position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f), Mathf.Atan2(forward.X, forward.Z));
         }
 
         private void AddSurface(string name, MeshData data, Color colour)

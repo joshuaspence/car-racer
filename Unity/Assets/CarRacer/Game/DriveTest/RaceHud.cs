@@ -66,10 +66,16 @@ namespace CarRacer.Game.DriveTest
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
             float width = Screen.width / scale;
 
-            DrawMiniMap(new Rect(width - MapSize - 24f, 184f, MapSize, MapSize));
+            // The track's map and wrong-way warning mean nothing in an arena, which has the overhead camera instead.
+            bool inArena = _arena.CameraRig.ArenaCentre.HasValue;
+            if (!inArena)
+            {
+                DrawMiniMap(new Rect(width - MapSize - 24f, 184f, MapSize, MapSize));
+            }
+
             DrawDriftMeter(width);
 
-            if (_progress.IsWrongWay)
+            if (_progress.IsWrongWay && !inArena)
             {
                 _warning = _warning ?? new GUIStyle(GUI.skin.label) { fontSize = 56, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
                 var previous = GUI.contentColor;

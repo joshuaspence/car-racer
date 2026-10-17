@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Session;
 
 namespace CarRacer.Core.Arena
 {
@@ -189,8 +190,27 @@ namespace CarRacer.Core.Arena
     /// <summary>Where cars start in an arena and, in Battle, where the item boxes sit (design doc §13: generated, not hand-placed).</summary>
     public static class ArenaLayout
     {
-        /// <summary>Arenas are built round this point: the centre of the Sumo platform's top, or of the Battle bowl's floor.</summary>
-        public static readonly Vec3 Centre = Vec3.Zero;
+        /// <summary>
+        /// The Sumo platform's top centre: floating off the end of the track scene, clear of its
+        /// ground, so a car that falls off has nothing to land on until the catch floor below.
+        /// </summary>
+        public static readonly Vec3 SumoCentre = new Vec3(45f, 40f, -260f);
+
+        /// <summary>The Battle bowl's floor centre, off the other end of the track scene.</summary>
+        public static readonly Vec3 BattleCentre = new Vec3(45f, 0f, 300f);
+
+        /// <summary>The arena's centre in <paramref name="mode"/> (Sumo or Battle).</summary>
+        public static Vec3 CentreFor(GameMode mode) => mode == GameMode.Battle ? BattleCentre : SumoCentre;
+
+        /// <summary>The arena's radius at the start in <paramref name="mode"/> (Sumo or Battle).</summary>
+        public static float StartRadiusFor(GameMode mode) => mode == GameMode.Battle ? BattleRules.BowlRadius : SumoRules.StartRadius;
+
+        /// <summary>A player's starting spot: one of <see cref="LobbyRoster.MaxPlayers"/> spots round the ring, by player id.</summary>
+        public static ArenaSlot StartSlotFor(GameMode mode, int playerId)
+        {
+            var slots = StartSlots(CentreFor(mode), StartRadiusFor(mode), LobbyRoster.MaxPlayers);
+            return slots[((playerId % slots.Count) + slots.Count) % slots.Count];
+        }
 
         /// <summary>Starting spots are on a circle at this share of the arena's radius.</summary>
         public const float StartRingFraction = 0.7f;

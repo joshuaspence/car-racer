@@ -117,14 +117,14 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void InSumoACarOffThePlatformIsOutAndTheLastOneWins()
         {
-            _cars[HostId] = new Vec3(5f, 0.6f, 0f);
-            _cars[GuestId] = new Vec3(-5f, 0.6f, 0f);
+            _cars[HostId] = ArenaLayout.SumoCentre + new Vec3(5f, 0.6f, 0f);
+            _cars[GuestId] = ArenaLayout.SumoCentre + new Vec3(-5f, 0.6f, 0f);
             Start(GameMode.Sumo);
             _now += 10_000;
             Tick();
             Assert.Equal(RacePhase.Racing, _race.Phase);
 
-            _cars[GuestId] = new Vec3(SumoRules.StartRadius + 1f, 0.6f, 0f);
+            _cars[GuestId] = ArenaLayout.SumoCentre + new Vec3(SumoRules.StartRadius + 1f, 0.6f, 0f);
             Tick();
             Assert.Equal(RacePhase.Results, _race.Phase);
             Assert.Equal(RacePhase.Results, _guestRace.Phase);
@@ -137,8 +137,8 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void TheShrinkingPlatformCatchesACarThatStaysPut()
         {
-            _cars[HostId] = Vec3.Zero;
-            _cars[GuestId] = new Vec3(SumoRules.EndRadius + 5f, 0.6f, 0f);
+            _cars[HostId] = ArenaLayout.SumoCentre;
+            _cars[GuestId] = ArenaLayout.SumoCentre + new Vec3(SumoRules.EndRadius + 5f, 0.6f, 0f);
             Start(GameMode.Sumo);
             _now += (long)(SumoRules.GraceSeconds * 1000f);
             Tick();
@@ -152,10 +152,10 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void ACarThatFallsIsOut()
         {
-            _cars[HostId] = Vec3.Zero;
-            _cars[GuestId] = new Vec3(3f, 0.6f, 0f);
+            _cars[HostId] = ArenaLayout.SumoCentre;
+            _cars[GuestId] = ArenaLayout.SumoCentre + new Vec3(3f, 0.6f, 0f);
             Start(GameMode.Sumo);
-            _cars[GuestId] = new Vec3(3f, -SumoRules.FallDepth - 1f, 0f);
+            _cars[GuestId] = ArenaLayout.SumoCentre + new Vec3(3f, -SumoRules.FallDepth - 1f, 0f);
             Tick();
             Assert.Equal(RacePhase.Results, _race.Phase);
         }
@@ -199,8 +199,8 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void CheckpointsDoNotCountInArenas()
         {
-            _cars[HostId] = Vec3.Zero;
-            _cars[GuestId] = Vec3.Zero;
+            _cars[HostId] = ArenaLayout.SumoCentre;
+            _cars[GuestId] = ArenaLayout.SumoCentre;
             Start(GameMode.Sumo);
             _race.ReportOwnCheckpoint(0); // nothing to report to: no race tracker
             _host.OnMessage(GuestConnection, new CheckpointReachedMessage { PlayerId = GuestId, CheckpointIndex = 0 });

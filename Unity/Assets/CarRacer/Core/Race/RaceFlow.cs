@@ -222,7 +222,7 @@ namespace CarRacer.Core.Race
                 float radius = PlatformRadius;
                 foreach (int id in Arena.PlayerIds)
                 {
-                    if (!Arena.IsOut(id) && _carPositions((byte)id, out Vec3 position) && SumoRules.IsOut(position, ArenaLayout.Centre, radius))
+                    if (!Arena.IsOut(id) && _carPositions((byte)id, out Vec3 position) && SumoRules.IsOut(position, ArenaLayout.SumoCentre, radius))
                     {
                         Arena.Eliminate(id, elapsed);
                         SendStandingsNow();

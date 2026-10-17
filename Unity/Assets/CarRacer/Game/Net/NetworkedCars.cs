@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CarRacer.Core.Arena;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
@@ -19,6 +20,8 @@ namespace CarRacer.Game.Net
     /// the countdown, and reports the checkpoints it crosses. In a race it also picks up item boxes
     /// and uses the held item (design doc §8), applying Boost and Shield to its own car at once,
     /// and takes item hits from the host (a shield soaks one up; otherwise the car spins out).
+    /// In Sumo and Battle (§7.0) the cars start round the arena instead, a car that is out can't be
+    /// driven any more, and the host tells its <see cref="HostRace"/> whenever a car spins out.
     /// </summary>
     public sealed class NetworkedCars : MonoBehaviour
     {
@@ -30,6 +33,7 @@ namespace CarRacer.Game.Net
         private readonly BumpMonitor _bumpMonitor = new BumpMonitor();
         private readonly List<OtherCar> _others = new List<OtherCar>();
         private readonly List<Bump> _bumps = new List<Bump>();
+        private readonly HashSet<byte> _spunOut = new HashSet<byte>();
         private readonly Shield _shield = new Shield();
         private Transform _shieldRing;
         private BotCars _botCars;
@@ -39,6 +43,7 @@ namespace CarRacer.Game.Net
         private RacePhase _phase = RacePhase.Lobby;
         private Vector3 _lastPosition;
         private bool _spawned;
+        private bool _ownSpunOut;
         private byte _me;
         private uint _sequence;
         private float _sendTimer;
@@ -56,7 +61,10 @@ namespace CarRacer.Game.Net
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
-            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, arena.Track.ItemBoxPositions(), TryGetCarPosition);
+            // The track's boxes and the Battle bowl's share one list: they're far apart, so each event only reaches its own.
+            var boxes = new List<CarRacer.Core.Numerics.Vec3>(arena.Track.ItemBoxPositions());
+            boxes.AddRange(ArenaLayout.BattleItemBoxes(ArenaLayout.BattleCentre, BattleRules.BowlRadius));
+            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, boxes, TryGetCarPosition);
             gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
             gameObject.AddComponent<ItemEffectViews>().Initialise(_session.Items);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
@@ -78,6 +86,20 @@ namespace CarRacer.Game.Net
 
         private void OnCarState(CarStateMessage state)
         {
+            // The host referees Battle lives: a spin-out (an item hit) costs one, counted on the rising edge.
+            if (_session.Race is HostRace race && (state.Flags & CarStateFlags.BotControlled) == 0)
+            {
+                bool spun = (state.Flags & CarStateFlags.SpunOut) != 0;
+                if (spun && _spunOut.Add(state.PlayerId))
+                {
+                    race.ReportSpinOut(state.PlayerId);
+                }
+                else if (!spun)
+                {
+                    _spunOut.Remove(state.PlayerId);
+                }
+            }
+
             if (_remotes.TryGetValue(state.PlayerId, out var car))
             {
                 car.OnState(state, NetworkSession.NowMs, _session.LatencyMsFor(state.PlayerId));
@@ -101,7 +123,50 @@ namespace CarRacer.Game.Net
             }
 
             UseItems();
+            FollowOwnArenaState();
             SendOwnState(now);
+        }
+
+        /// <summary>On the host, reports this phone's own spin-outs; in an arena, takes the controls away once this phone's car is out.</summary>
+        private void FollowOwnArenaState()
+        {
+            var car = _arena.Car;
+            if (car == null)
+            {
+                return;
+            }
+
+            bool spun = car.State.SpunOut;
+            if (spun && !_ownSpunOut && _session.Race is HostRace race)
+            {
+                race.ReportSpinOut(_me);
+            }
+
+            _ownSpunOut = spun;
+            if (_phase == RacePhase.Racing && _session.Race.Mode != GameMode.Race)
+            {
+                car.InputLocked = IsOut(_session.Race, _me);
+            }
+        }
+
+        /// <summary>Whether <paramref name="playerId"/> is out of the arena event, from the latest standings.</summary>
+        public static bool IsOut(IRaceView race, byte playerId)
+        {
+            var standings = race.Standings;
+            if (race.Mode == GameMode.Race || standings == null)
+            {
+                return false;
+            }
+
+            foreach (var entry in standings.Order)
+            {
+                if (entry.PlayerId == playerId)
+                {
+                    return entry.FinishPosition > 0;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Uses the held item when the player presses Item, and keeps the Item button and shield ring up to date.</summary>
@@ -261,12 +326,18 @@ namespace CarRacer.Game.Net
                 return;
             }
 
-            // Line up on the grid for the countdown (or straight away if GO came before the countdown was seen).
+            // Line up for the countdown (or straight away if GO came before the countdown was seen),
+            // and come back to the track from an arena for the lobby.
             if (phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown))
             {
-                _arena.PlaceLocalCarOnGrid(_me);
+                _arena.PlaceLocalCarAtStart(_me, _session.Race.Mode);
                 _detector.Reset();
                 _shield.Clear();
+                _lastPosition = _arena.Car.BodyPosition;
+            }
+            else if (phase == RacePhase.Lobby && _arena.CameraRig.ArenaCentre.HasValue)
+            {
+                _arena.PlaceLocalCarOnGrid(_me);
                 _lastPosition = _arena.Car.BodyPosition;
             }
 
