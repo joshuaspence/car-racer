@@ -32,6 +32,7 @@ namespace CarRacer.Game.DriveTest
         private Texture2D _circle;
 
         public CarController Car { get; private set; }
+        public Color CarColour { get; private set; }
         public ChaseCamera CameraRig { get; private set; }
         public TrackLayout Track { get; private set; }
 
@@ -97,6 +98,7 @@ namespace CarRacer.Game.DriveTest
             cameraObject.transform.position = new Vector3(45f, 70f, -70f);
             cameraObject.transform.LookAt(new Vector3(45f, 0f, 30f));
 
+            gameObject.AddComponent<RaceHud>().Initialise(this);
             if (startSession == null)
             {
                 SpawnLocalCar(0, CarColours.ForIndex(0));
@@ -117,6 +119,7 @@ namespace CarRacer.Game.DriveTest
             }
 
             Car = CarFactory.Build("Car", colour, transform);
+            CarColour = colour;
             Car.InputSource = _inputSource;
             CameraRig.Target = Car;
             PlaceLocalCarOnGrid(slot);

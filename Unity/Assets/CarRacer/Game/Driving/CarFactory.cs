@@ -56,7 +56,7 @@ namespace CarRacer.Game.Driving
             BuildBody(visual, colour);
 
             var car = root.AddComponent<RemoteCar>();
-            car.Initialise(playerId, visual);
+            car.Initialise(playerId, colour, visual);
             return car;
         }
 
