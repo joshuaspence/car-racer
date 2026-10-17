@@ -11,7 +11,8 @@ namespace CarRacer.Game.Driving
     {
         private static PhysicsMaterial _frictionless;
 
-        public static CarController Build(string name, Color colour, Transform parent)
+        /// <param name="haptics">Whether bumps and boosts vibrate the phone: yes for this phone's own car, no for bots the host drives.</param>
+        public static CarController Build(string name, Color colour, Transform parent, bool haptics = true)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
@@ -36,7 +37,11 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
-            root.AddComponent<CarHaptics>();
+            if (haptics)
+            {
+                root.AddComponent<CarHaptics>();
+            }
+
             return car;
         }
 

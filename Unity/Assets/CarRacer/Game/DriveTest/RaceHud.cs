@@ -1,6 +1,7 @@
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Track;
+using CarRacer.Game.Bots;
 using CarRacer.Game.Net;
 using UnityEngine;
 
@@ -29,6 +30,7 @@ namespace CarRacer.Game.DriveTest
         private TrackProgress _progress;
         private MiniMap _map;
         private NetworkedCars _cars;
+        private BotCars _bots;
         private GUIStyle _warning;
 
         /// <summary>True while this phone's car has been facing backwards for a while.</summary>
@@ -121,6 +123,15 @@ namespace CarRacer.Game.DriveTest
                     {
                         Dot(area, _map.ToMap(remote.transform.position.ToCore()), 10f, remote.Colour);
                     }
+                }
+            }
+
+            _bots = _bots != null ? _bots : GetComponent<BotCars>();
+            if (_bots != null)
+            {
+                foreach (var (position, colour) in _bots.Dots)
+                {
+                    Dot(area, _map.ToMap(position.ToCore()), 10f, colour);
                 }
             }
 

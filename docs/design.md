@@ -270,6 +270,13 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   phone shows "(bot)". They leave again when the lobby reopens. The host reports their checkpoints
   (`HostRace.ReportBotCheckpoint`) and claims and uses their items (`HostItems.*ForBot`), and an
   item hit aimed at a bot stays on the host (`HostSession.BotHitReceived`).
+- **On the track** (`BotCars`, host only): each bot gets a real car, with physics and walls like
+  anyone's (no haptics), driven by its `BotDriver`. The host lines it up on its grid slot and holds
+  it through the countdown, reports its checkpoints, picks up and uses its items, bumps it off other
+  phones' cars with a `BumpMonitor` per bot (the host's own car and other bots collide physically),
+  applies item hits through its own `Shield`, and sends its state at 30 Hz with `BotControlled`.
+  Other phones see bots as ordinary remote cars. The lobby's **Bots** button cycles off / fill to 4
+  / fill to 6, with Easy / Normal / Hard beside it; both are remembered.
 - Behaviour: follow the racing line generated from track data, avoid walls, ram nearby
   rivals, use items opportunistically. In arenas, chase opponents and avoid edges.
 - Difficulty scales top speed, line accuracy and item timing, with optional catch-up.
