@@ -187,6 +187,21 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - Standings = finished racers by finishing position, then checkpoints passed + fraction towards
   the next checkpoint (from track geometry).
 
+### 7.2 Race flow (`HostRace`, `GuestRace`, `CheckpointDetector`)
+
+1. **Start:** the host taps Start. `RaceCountdown` gives a start time 3.5 s ahead in the host's
+   clock: 0.5 s for the message to arrive, then the 3-2-1. Each guest converts it with
+   `ClockSync`. Joining closes until the lobby reopens.
+2. **Racing:** each phone's `CheckpointDetector` watches its own car cross the next gate (forwards,
+   between the road edges plus 2 m) and reports it. The host's `RaceTracker` validates the order.
+   A guest's race time is capped at the time that has actually passed on the host. The host
+   broadcasts standings (order, laps, finish positions) twice a second, and announces each
+   finisher.
+3. **End:** when everyone has finished, or **30 s after the winner**, the host places the rest by
+   race order as DNF and sends `RaceResults`.
+4. **Rematch:** the host returns everyone to the same lobby (`ReturnToLobby`). Ready is cleared and
+   joining reopens.
+
 ## 8. Items
 
 Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile**,

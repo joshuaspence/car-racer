@@ -16,6 +16,9 @@ namespace CarRacer.Core.Net
         ClockPing = 9,
         ClockPong = 10,
         SetReady = 11,
+        Standings = 12,
+        RaceResults = 13,
+        ReturnToLobby = 14,
     }
 
     [Flags]
@@ -234,6 +237,15 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.SetReady:
                     message = SetReadyMessage.Read(reader);
+                    break;
+                case MessageType.Standings:
+                    message = StandingsMessage.Read(reader);
+                    break;
+                case MessageType.RaceResults:
+                    message = RaceResultsMessage.Read(reader);
+                    break;
+                case MessageType.ReturnToLobby:
+                    message = new ReturnToLobbyMessage();
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");
