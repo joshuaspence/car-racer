@@ -1,0 +1,53 @@
+# CLAUDE.md
+
+A LAN-multiplayer arcade kart racer for Android, built with Unity 6.3 LTS and Netcode for
+GameObjects. Read [`docs/design.md`](docs/design.md) before changing behaviour: it records the
+decisions already made (host-as-referee, owner-authoritative cars, sphere physics, items, bots…)
+and the milestone plan. Update it in the same PR when a decision changes.
+
+## Pull requests
+
+- **`master` is the default branch.** Branch from `origin/master` and open a PR; don't push to
+  `master`.
+- **Open PRs ready for review, not as drafts.** `claude.yaml` reviews every non-draft PR on each
+  push; a draft gets no review.
+- **Keep PRs small enough to review in full** — roughly under 1,500 changed lines and one
+  concern each. The automated reviewer reads only part of a larger PR and won't approve it.
+  Split big work into a stack of PRs, each based on the one before; when a lower one is
+  squash-merged, rebase the rest onto `master` so each diff shows only its own change.
+- **A PR is not done when it is opened.** Watch it: fix failing checks, and address each review
+  finding or reply with why not, then resolve the thread.
+- **Don't merge your own PRs** unless asked; the user decides.
+
+## Code layout
+
+- **`Unity/Assets/CarRacer/Core`** — engine-independent logic (`noEngineReferences`). Anything
+  that can be plain C# goes here: protocol, rules, scoring, track geometry, physics formulas, bot
+  decisions. It must have `dotnet test` coverage in `dotnet/CarRacer.Core.Tests`.
+- **`Unity/Assets/CarRacer/Game`** — thin Unity glue (MonoBehaviours, NGO, UI, platform code).
+- **`Unity/Assets/CarRacer/Editor`** — player settings (`ProjectConfigurator`), build script, Android
+  manifest post-processing. Player settings are applied from code, not hand-edited.
+- Core uses its own `Vec3`/`Vec2`; convert with `UnityConversions`.
+- C# 9 (Unity's compiler): no newer language features in `Core`, `Game` or `Editor`.
+
+## Before pushing
+
+```sh
+dotnet test dotnet/CarRacer.sln          # core unit tests
+python3 tools/generate_unity_meta.py     # create .meta files for any new Unity assets
+python3 tools/generate_unity_meta.py --check
+```
+
+- **Every file under `Unity/Assets` needs a `.meta` file.** Files written outside the editor get
+  one from `tools/generate_unity_meta.py` (deterministic GUIDs); CI fails if any are missing.
+- **Unity code can't be compiled outside CI here.** The `Unity` workflow compiles it, runs the
+  EditMode/PlayMode tests and builds a development APK on every PR; treat that check as the
+  compile check for `Game`, `Editor` and Unity tests.
+- **Bump `DiscoveryConstants.ProtocolVersion`** whenever any network message format changes.
+
+## Builds and devices
+
+- Development APKs are signed with the committed `Unity/Keystores/debug.keystore` so they
+  install over each other; release APKs are signed with the keystore in GitHub secrets
+  (`release.yml`, on `v*` tags). Never sign a release with the debug key.
+- Minimum Android 8.0 (API 26), ARM64. The Pixel 2 XL is the low-end performance baseline.
