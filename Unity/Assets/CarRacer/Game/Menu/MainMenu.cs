@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Session;
+using CarRacer.Game.Audio;
 using CarRacer.Game.Platform;
 using UnityEngine;
 
@@ -169,11 +170,20 @@ namespace CarRacer.Game.Menu
                 GoTo(Page.Name);
             }
 
-            // Automatic by default (design doc §14); tap to choose a level instead.
+            // Graphics is automatic by default (design doc §14); tap to choose a level instead.
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
             {
                 GraphicsQuality.Cycle();
             }
+
+            GUILayout.Space(12f);
+            if (GUILayout.Button(GameAudio.Label, UiStyle.Button))
+            {
+                GameAudio.CycleVolume();
+            }
+
+            GUILayout.EndHorizontal();
 
             GUILayout.EndArea();
         }

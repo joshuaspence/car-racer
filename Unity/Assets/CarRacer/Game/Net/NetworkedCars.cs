@@ -5,6 +5,7 @@ using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Track;
+using CarRacer.Game.Audio;
 using CarRacer.Game.Bots;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
@@ -329,7 +330,10 @@ namespace CarRacer.Game.Net
                 _session.Race.ReportOwnCheckpoint(crossed);
             }
 
-            _session.Items.ClaimTouchedBox(position.ToCore());
+            if (_session.Items.ClaimTouchedBox(position.ToCore()))
+            {
+                GameAudio.Play("item_box");
+            }
         }
 
         /// <summary>Pushes this phone's car off any car it touches and tells that car's phone, in case it missed the contact.</summary>

@@ -1,3 +1,4 @@
+using CarRacer.Game.Audio;
 using CarRacer.Game.Net;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace CarRacer.Game.Driving
     {
         private static PhysicsMaterial _frictionless;
 
-        /// <param name="haptics">Whether bumps and boosts vibrate the phone: yes for this phone's own car, no for bots the host drives.</param>
+        /// <param name="haptics">Whether bumps and boosts vibrate the phone and sound up close: yes for this phone's own car, no for bots the host drives.</param>
         public static CarController Build(string name, Color colour, Transform parent, bool haptics = true)
         {
             var root = new GameObject(name);
@@ -42,6 +43,7 @@ namespace CarRacer.Game.Driving
                 root.AddComponent<CarHaptics>();
             }
 
+            CarAudio.ForCar(car, own: haptics);
             return car;
         }
 
@@ -62,6 +64,7 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<RemoteCar>();
             car.Initialise(playerId, colour, visual);
+            CarAudio.ForRemote(car);
             return car;
         }
 

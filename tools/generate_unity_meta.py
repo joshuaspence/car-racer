@@ -58,6 +58,32 @@ TextScriptImporter:
   assetBundleVariant:
 """
 
+# Sound effects: decompressed on load (they're short and played often), mono, 3D-capable.
+AUDIO = """fileFormatVersion: 2
+guid: {guid}
+AudioImporter:
+  externalObjects: {{}}
+  serializedVersion: 8
+  defaultSettings:
+    serializedVersion: 2
+    loadType: 0
+    sampleRateSetting: 0
+    sampleRateOverride: 44100
+    compressionFormat: 1
+    quality: 0.7
+    conversionMode: 0
+    preloadAudioData: 1
+  platformSettingOverrides: {{}}
+  forceToMono: 1
+  normalize: 1
+  loadInBackground: 0
+  ambisonic: 0
+  3D: 1
+  userData:
+  assetBundleName:
+  assetBundleVariant:
+"""
+
 DEFAULT = """fileFormatVersion: 2
 guid: {guid}
 DefaultImporter:
@@ -73,6 +99,8 @@ TEMPLATES = {
     ".json": TEXT_SCRIPT,
     ".txt": TEXT_SCRIPT,
     ".md": TEXT_SCRIPT,
+    ".ogg": AUDIO,
+    ".wav": AUDIO,
 }
 
 

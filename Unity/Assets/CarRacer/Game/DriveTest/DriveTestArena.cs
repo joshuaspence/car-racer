@@ -113,6 +113,7 @@ namespace CarRacer.Game.DriveTest
             unityCamera.backgroundColor = new Color(0.55f, 0.75f, 0.95f);
             unityCamera.nearClipPlane = 0.3f;
             unityCamera.farClipPlane = 600f;
+            cameraObject.AddComponent<AudioListener>();
             CameraRig = cameraObject.AddComponent<ChaseCamera>();
 
             // Until this phone's car exists (a guest waiting to join), look over the track.
