@@ -227,11 +227,16 @@ namespace CarRacer.Core.Driving
                 return Math.Max(topSpeed, speed - t.OverSpeedDeceleration * dt);
             }
 
+            // Gas while rolling backwards (or brake while rolling forwards) first brakes to a stop, and
+            // may pull away in the same step. Stopping at exactly zero instead would leave a car that is
+            // pushed back a little every step, by a slope or a wall, stuck: braked to zero, pushed back,
+            // braked to zero again, never moving off.
             if (throttle > 0f)
             {
                 if (speed < 0f)
                 {
-                    return Math.Min(0f, speed + t.Braking * throttle * dt);
+                    float braked = speed + t.Braking * throttle * dt;
+                    return braked <= 0f ? braked : Math.Min(braked, t.Acceleration * throttle * dt);
                 }
 
                 return Math.Min(topSpeed, speed + t.Acceleration * throttle * dt);
@@ -241,7 +246,8 @@ namespace CarRacer.Core.Driving
             {
                 if (speed > 0f)
                 {
-                    return Math.Max(0f, speed + t.Braking * throttle * dt);
+                    float braked = speed + t.Braking * throttle * dt;
+                    return braked >= 0f ? braked : Math.Max(braked, t.ReverseAcceleration * throttle * dt);
                 }
 
                 return Math.Max(-t.MaxReverseSpeed, speed + t.ReverseAcceleration * throttle * dt);
