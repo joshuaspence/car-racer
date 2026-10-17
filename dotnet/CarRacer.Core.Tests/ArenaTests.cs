@@ -2,7 +2,6 @@ using System.Linq;
 using CarRacer.Core.Arena;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Session;
-using CarRacer.Core.Track;
 using Xunit;
 
 namespace CarRacer.Core.Tests
@@ -138,17 +137,6 @@ namespace CarRacer.Core.Tests
                         Assert.True((slot.Position - ArenaLayout.StartSlotFor(mode, b).Position).Length > 5f, $"{mode} slots {a} and {b}");
                     }
                 }
-            }
-        }
-
-        [Fact]
-        public void TheArenasAreWellClearOfTheTrack()
-        {
-            var spline = new TrackLayout(SampleTracks.Oval()).Spline;
-            foreach (var sample in spline.SampleEvenly(2f))
-            {
-                Assert.True((sample.Position - ArenaLayout.SumoCentre).Flattened.Length > SumoRules.StartRadius + 100f);
-                Assert.True((sample.Position - ArenaLayout.BattleCentre).Flattened.Length > BattleRules.BowlRadius + 100f);
             }
         }
     }

@@ -25,6 +25,9 @@ namespace CarRacer.Core.Race
         /// <summary>Race, Sumo or Battle; set by each countdown.</summary>
         GameMode Mode { get; }
 
+        /// <summary>Which track a race is on (an index into the game's track list); set by each countdown.</summary>
+        int TrackIndex { get; }
+
         /// <summary>When the race starts (or started), in this phone's clock.</summary>
         long StartAtLocalMs { get; }
 
@@ -66,7 +69,7 @@ namespace CarRacer.Core.Race
         public const long StandingsIntervalMs = 500;
 
         private readonly HostSession _session;
-        private readonly int _checkpointCount;
+        private readonly IReadOnlyList<int> _checkpointCounts;
         private readonly Func<long> _clockMs;
         private readonly Func<int, float> _fractionToNextCheckpoint;
         private readonly CarPositionLookup _carPositions;
@@ -77,9 +80,15 @@ namespace CarRacer.Core.Race
         /// <param name="fractionToNextCheckpoint">How far (0..1) a player's car is towards its next checkpoint, from track geometry.</param>
         /// <param name="carPositions">Where the host sees each car, for Sumo's platform edge; not needed for races.</param>
         public HostRace(HostSession session, int checkpointCount, Func<long> clockMs, Func<int, float> fractionToNextCheckpoint, CarPositionLookup carPositions = null)
+            : this(session, new[] { checkpointCount }, clockMs, fractionToNextCheckpoint, carPositions)
+        {
+        }
+
+        /// <param name="checkpointCounts">Each track's checkpoint count, by track index.</param>
+        public HostRace(HostSession session, IReadOnlyList<int> checkpointCounts, Func<long> clockMs, Func<int, float> fractionToNextCheckpoint, CarPositionLookup carPositions = null)
         {
             _session = session;
-            _checkpointCount = checkpointCount;
+            _checkpointCounts = checkpointCounts;
             _clockMs = clockMs;
             _fractionToNextCheckpoint = fractionToNextCheckpoint;
             _carPositions = carPositions;
@@ -92,6 +101,7 @@ namespace CarRacer.Core.Race
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
         public GameMode Mode { get; private set; }
+        public int TrackIndex { get; private set; }
 
         /// <summary>The race referee; null in arena modes.</summary>
         public RaceTracker Tracker { get; private set; }
@@ -99,10 +109,19 @@ namespace CarRacer.Core.Race
         /// <summary>The arena referee; null in races.</summary>
         public EliminationTracker Arena { get; private set; }
 
-        /// <summary>Starts the countdown for everyone in the roster, after filling the grid with bots. Returns false outside the lobby.</summary>
-        public bool Start(int laps, GameMode mode = GameMode.Race)
+        /// <summary>
+        /// Starts the countdown for everyone in the roster, after filling the grid with bots. A race
+        /// is on track <paramref name="trackIndex"/>. Returns false outside the lobby or for a track
+        /// that doesn't exist.
+        /// </summary>
+        public bool Start(int laps, GameMode mode = GameMode.Race, int trackIndex = 0)
         {
-            if (Phase != RacePhase.Lobby || laps < 1 || laps > byte.MaxValue)
+            if (mode != GameMode.Race)
+            {
+                trackIndex = 0;
+            }
+
+            if (Phase != RacePhase.Lobby || laps < 1 || laps > byte.MaxValue || trackIndex < 0 || trackIndex >= _checkpointCounts.Count)
             {
                 return false;
             }
@@ -118,7 +137,8 @@ namespace CarRacer.Core.Race
             }
 
             Mode = mode;
-            Tracker = mode == GameMode.Race ? new RaceTracker(_checkpointCount, laps, ids) : null;
+            TrackIndex = trackIndex;
+            Tracker = mode == GameMode.Race ? new RaceTracker(_checkpointCounts[trackIndex], laps, ids) : null;
             Arena = mode == GameMode.Race ? null : new EliminationTracker(ids, mode == GameMode.Battle ? BattleRules.StartingLives : 1);
             LapCount = laps;
             StartAtLocalMs = _clockMs() + StartLeadMs + CountdownMs;
@@ -128,7 +148,7 @@ namespace CarRacer.Core.Race
             _nextStandingsMs = StartAtLocalMs;
             _session.EventInProgress = true;
             Phase = RacePhase.Countdown;
-            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode }, reliable: true);
+            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex }, reliable: true);
             return true;
         }
 
@@ -359,6 +379,7 @@ namespace CarRacer.Core.Race
         public RacePhase Phase { get; private set; } = RacePhase.Lobby;
         public int LapCount { get; private set; }
         public GameMode Mode { get; private set; }
+        public int TrackIndex { get; private set; }
         public long StartAtLocalMs { get; private set; }
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
@@ -394,6 +415,7 @@ namespace CarRacer.Core.Race
                     Phase = RacePhase.Countdown;
                     LapCount = countdown.LapCount;
                     Mode = countdown.Mode;
+                    TrackIndex = countdown.TrackIndex;
                     StartAtLocalMs = _session.Clock.ToLocalTime(countdown.StartAtHostMs);
                     Standings = null;
                     Results = null;

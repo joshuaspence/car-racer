@@ -37,6 +37,9 @@ namespace CarRacer.Game.Bots
             public bool WasSpunOut;
             public BotSkill Skill;
             public CheckpointDetector Detector;
+
+            /// <summary>The track <see cref="Driver"/> and <see cref="Detector"/> were made for.</summary>
+            public int TrackIndex;
             public readonly Shield Shield = new Shield();
             public readonly BumpMonitor Bumps = new BumpMonitor();
             public Transform ShieldRing;
@@ -321,6 +324,11 @@ namespace CarRacer.Game.Bots
             }
 
             bool lineUp = phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown);
+            if (lineUp)
+            {
+                _arena.FollowEventTrack(_session.Race);
+            }
+
             foreach (var bot in _bots.Values)
             {
                 if (lineUp)
@@ -356,6 +364,13 @@ namespace CarRacer.Game.Bots
 
         private void LineUp(Bot bot, GameMode mode)
         {
+            if (bot.TrackIndex != _arena.TrackIndex)
+            {
+                bot.Driver = new BotDriver(_arena.Track.Spline, bot.Skill, bot.Car.Tuning, bot.PlayerId);
+                bot.Detector = new CheckpointDetector(_arena.Track.CheckpointGates());
+                bot.TrackIndex = _arena.TrackIndex;
+            }
+
             _arena.PlaceAtStart(bot.Car, bot.PlayerId, mode);
             bot.WasSpunOut = false;
             bot.Detector.Reset();
@@ -390,6 +405,7 @@ namespace CarRacer.Game.Bots
                         Skill = skill,
                         Driver = new BotDriver(_arena.Track.Spline, skill, car.Tuning, player.PlayerId),
                         Detector = new CheckpointDetector(_arena.Track.CheckpointGates()),
+                        TrackIndex = _arena.TrackIndex,
                         Owner = this,
                     };
                     bot.ShieldRing = ShieldRing.Build(car.transform);

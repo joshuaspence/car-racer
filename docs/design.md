@@ -376,6 +376,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
     hairpins, a chicane and a fast sweeper.
   - **Crossover Eight** (`figure-eight`, ~700 m): crosses the middle on the ground, climbs round
     the right-hand loop and crosses back on a bridge 8 m up.
+- **In the scene** (`TrackCatalog`): every track is built at once, each moved to its own patch
+  of grass clear of the others and of the arenas. The host picks the track in the lobby
+  (remembered); the countdown carries its index (protocol 10) and everyone lines up on that
+  track's grid. Each phone's checkpoint detector, its bots' drivers and the mini-map switch with
+  it. The item box list holds every track's boxes and the Battle bowl's; each event only reaches
+  its own.
 - **Track checks** (`TrackCatalogTests`): every track keeps its roads 4 m apart (or 6 m above
   each other), has no slope over 20% or bend under an 11 m radius, and bots lap it at every
   difficulty without leaving the road.

@@ -91,17 +91,18 @@ namespace CarRacer.Game.Net
         }
 
         /// <summary>
-        /// Sets up racing on a track with <paramref name="checkpointCount"/> checkpoints and item
-        /// boxes at <paramref name="itemBoxes"/>. The host needs <paramref name="fractionToNextCheckpoint"/>
-        /// (how far each player's car is towards its next checkpoint) for standings, and
-        /// <paramref name="carPositions"/> (where it sees each car) for item hits.
+        /// Sets up racing on tracks with <paramref name="checkpointCounts"/> checkpoints (by track
+        /// index) and item boxes at <paramref name="itemBoxes"/>. The host needs
+        /// <paramref name="fractionToNextCheckpoint"/> (how far each player's car is towards its next
+        /// checkpoint) for standings, and <paramref name="carPositions"/> (where it sees each car)
+        /// for item hits and Sumo's platform edge.
         /// </summary>
-        public void CreateRace(int checkpointCount, Func<int, float> fractionToNextCheckpoint, IReadOnlyList<Vec3> itemBoxes, CarPositionLookup carPositions)
+        public void CreateRace(IReadOnlyList<int> checkpointCounts, Func<int, float> fractionToNextCheckpoint, IReadOnlyList<Vec3> itemBoxes, CarPositionLookup carPositions)
         {
             if (IsHost)
             {
                 var random = new System.Random();
-                Race = new HostRace(HostSide, checkpointCount, () => NowMs, fractionToNextCheckpoint);
+                Race = new HostRace(HostSide, checkpointCounts, () => NowMs, fractionToNextCheckpoint, carPositions);
                 Items = new HostItems(HostSide, Race, itemBoxes, () => NowMs, random.NextDouble, carPositions);
             }
             else

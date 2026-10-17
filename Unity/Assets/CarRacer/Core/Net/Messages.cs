@@ -154,6 +154,9 @@ namespace CarRacer.Core.Net
         /// <summary>Race, Sumo or Battle (design doc §7).</summary>
         public CarRacer.Core.Arena.GameMode Mode;
 
+        /// <summary>Which of the built-in tracks a race is on (an index into <c>TrackCatalog</c>); 0 in arenas.</summary>
+        public byte TrackIndex;
+
         public MessageType Type => MessageType.RaceCountdown;
 
         public void Write(NetWriter w)
@@ -161,6 +164,7 @@ namespace CarRacer.Core.Net
             w.WriteLong(StartAtHostMs);
             w.WriteByte(LapCount);
             w.WriteByte((byte)Mode);
+            w.WriteByte(TrackIndex);
         }
 
         public static RaceCountdownMessage Read(NetReader r) => new RaceCountdownMessage
@@ -168,6 +172,7 @@ namespace CarRacer.Core.Net
             StartAtHostMs = r.ReadLong(),
             LapCount = r.ReadByte(),
             Mode = (CarRacer.Core.Arena.GameMode)r.ReadByte(),
+            TrackIndex = r.ReadByte(),
         };
     }
 

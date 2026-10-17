@@ -4,6 +4,7 @@ using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
+using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Menu;
 using UnityEngine;
@@ -12,8 +13,8 @@ namespace CarRacer.Game.Net
 {
     /// <summary>
     /// The session screens drawn over the track (design doc §6, §11): the lobby (players, Ready,
-    /// mode, laps and Start), the countdown, the race HUD (position and lap, or lives and who is
-    /// left in an arena) and the results with a rematch. Temporary IMGUI until the real UI.
+    /// mode, track, laps and Start), the countdown, the race HUD (position and lap, or lives and
+    /// who is left in an arena) and the results with a rematch. Temporary IMGUI until the real UI.
     /// </summary>
     public sealed class SessionOverlay : MonoBehaviour
     {
@@ -21,6 +22,7 @@ namespace CarRacer.Game.Net
         public const string BotFillKey = "botFill";
         public const string BotDifficultyKey = "botDifficulty";
         public const string ModeKey = "mode";
+        public const string TrackKey = "track";
 
         /// <summary>The bot fill choices (design doc §9): off, or fill the grid to 4 or 6 cars.</summary>
         private static readonly int[] BotFills = { 0, 4, 6 };
@@ -29,6 +31,7 @@ namespace CarRacer.Game.Net
         private NetworkedCars _cars;
         private int _laps = 3;
         private GameMode _mode = GameMode.Race;
+        private int _track;
         /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
         private const float AddressRefreshSeconds = 3f;
 
@@ -46,6 +49,7 @@ namespace CarRacer.Game.Net
                 session.HostSide.BotFill = PlayerPrefs.GetInt(BotFillKey, 0);
                 session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
                 _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
+                _track = TrackCatalog.Clamp(PlayerPrefs.GetInt(TrackKey, 0));
             }
         }
 
@@ -145,6 +149,16 @@ namespace CarRacer.Game.Net
                 }
 
                 GUILayout.EndHorizontal();
+                if (_mode == GameMode.Race)
+                {
+                    // The host picks the track (design doc §11); everyone moves to it at the countdown.
+                    if (GUILayout.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, UiStyle.Button))
+                    {
+                        _track = (_track + 1) % TrackCatalog.Count;
+                        PlayerPrefs.SetInt(TrackKey, _track);
+                    }
+                }
+
                 DrawBotSettings();
 
                 // The host decides (design doc §11); alone, it's a practice race.
@@ -152,7 +166,7 @@ namespace CarRacer.Game.Net
                 GUI.enabled = canStart;
                 if (GUILayout.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
                 {
-                    ((HostRace)_session.Race).Start(_laps, _mode);
+                    ((HostRace)_session.Race).Start(_laps, _mode, _track);
                 }
 
                 GUI.enabled = true;
