@@ -263,6 +263,13 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - The host chooses bot fill (**off / up to 4 / up to 6**) and **difficulty** in the lobby.
 - Bots run **on the host** as host-owned cars, using the same network path, bumping and items as
   players.
+- **In the roster** (`LobbyRoster.AddBot`, `HostSession.AddBotsForEvent`): when the host starts a
+  race, bots are added until there are as many cars as the bot fill (never past a full session), so
+  a bot never takes a place a friend could join into. They get the next free id and colour and a
+  name (Turbo, Sprocket, Nitro…), are always ready, and are marked `IsBot` in the roster so every
+  phone shows "(bot)". They leave again when the lobby reopens. The host reports their checkpoints
+  (`HostRace.ReportBotCheckpoint`) and claims and uses their items (`HostItems.*ForBot`), and an
+  item hit aimed at a bot stays on the host (`HostSession.BotHitReceived`).
 - Behaviour: follow the racing line generated from track data, avoid walls, ram nearby
   rivals, use items opportunistically. In arenas, chase opponents and avoid edges.
 - Difficulty scales top speed, line accuracy and item timing, with optional catch-up.

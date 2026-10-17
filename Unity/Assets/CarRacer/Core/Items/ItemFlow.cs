@@ -114,18 +114,29 @@ namespace CarRacer.Core.Items
             }
         }
 
-        public bool ClaimTouchedBox(Vec3 carPosition)
+        public bool ClaimTouchedBox(Vec3 carPosition) => ClaimFor(_session.HostPlayerId, carPosition);
+
+        public ItemKind UseHeld(Vec3 position, Vec3 velocity, float headingRadians) => UseFor(_session.HostPlayerId, position, velocity, headingRadians);
+
+        /// <summary>A bot's car (which the host drives) claims a box it is touching.</summary>
+        public bool ClaimTouchedBoxForBot(byte botId, Vec3 carPosition) => _session.IsBot(botId) && ClaimFor(botId, carPosition);
+
+        /// <summary>A bot uses the item it holds; see <see cref="UseHeld"/>.</summary>
+        public ItemKind UseHeldForBot(byte botId, Vec3 position, Vec3 velocity, float headingRadians) =>
+            _session.IsBot(botId) ? UseFor(botId, position, velocity, headingRadians) : ItemKind.None;
+
+        private bool ClaimFor(byte playerId, Vec3 carPosition)
         {
             int box = Boxes.FindTouched(carPosition, _clockMs());
-            return box >= 0 && Grant(_session.HostPlayerId, box);
+            return box >= 0 && Grant(playerId, box);
         }
 
-        public ItemKind UseHeld(Vec3 position, Vec3 velocity, float headingRadians)
+        private ItemKind UseFor(byte playerId, Vec3 position, Vec3 velocity, float headingRadians)
         {
             var used = new ItemUsedMessage
             {
-                PlayerId = _session.HostPlayerId,
-                Item = Held,
+                PlayerId = playerId,
+                Item = Slots.Held(playerId),
                 Position = position,
                 Velocity = velocity,
                 HeadingRadians = headingRadians,
