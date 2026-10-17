@@ -40,21 +40,14 @@ namespace CarRacer.Game.Driving
         }
 
         /// <summary>
-        /// Another phone's car: the same body on a kinematic sphere (placed by its
-        /// <see cref="RemoteCar"/>), so PhysX never pushes it around.
+        /// Another phone's car: just the body, placed by its <see cref="RemoteCar"/>. It has no
+        /// collider, so it is never a solid wall for this phone's car; contact with it is
+        /// resolved by <c>BumpMonitor</c> instead (design doc §2.2).
         /// </summary>
         public static RemoteCar BuildRemote(string name, byte playerId, Color colour, Transform parent)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
-
-            var body = root.AddComponent<Rigidbody>();
-            body.isKinematic = true;
-            body.interpolation = RigidbodyInterpolation.None;
-
-            var sphere = root.AddComponent<SphereCollider>();
-            sphere.radius = CarController.SphereRadius;
-            sphere.sharedMaterial = Frictionless();
 
             var visual = new GameObject("Body").transform;
             visual.SetParent(root.transform, false);

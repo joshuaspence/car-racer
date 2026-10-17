@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Net;
+using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
@@ -11,8 +12,8 @@ namespace CarRacer.Game.Net
     /// Puts everyone in a <see cref="NetworkSession"/> on the track (design doc §2) and runs this
     /// phone's part of a race (§7.2): spawns its car on its grid slot once it has a player id,
     /// sends its state at 30 Hz, shows every other player as a <see cref="RemoteCar"/> that
-    /// follows the roster, holds the car on the grid through the countdown, and reports the
-    /// checkpoints it crosses.
+    /// follows the roster, bumps its car off the others (§2.2), holds the car on the grid through
+    /// the countdown, and reports the checkpoints it crosses.
     /// </summary>
     public sealed class NetworkedCars : MonoBehaviour
     {
@@ -21,6 +22,9 @@ namespace CarRacer.Game.Net
         private readonly Dictionary<byte, RemoteCar> _remotes = new Dictionary<byte, RemoteCar>();
         private readonly HashSet<byte> _inRoster = new HashSet<byte>();
         private readonly List<byte> _gone = new List<byte>();
+        private readonly BumpMonitor _bumpMonitor = new BumpMonitor();
+        private readonly List<OtherCar> _others = new List<OtherCar>();
+        private readonly List<Bump> _bumps = new List<Bump>();
         private DriveTestArena _arena;
         private NetworkSession _session;
         private CheckpointDetector _detector;
@@ -39,6 +43,7 @@ namespace CarRacer.Game.Net
             _arena = arena;
             _session = session;
             _session.CarStateReceived += OnCarState;
+            _session.HitReceived += OnHit;
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
             _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
@@ -49,6 +54,7 @@ namespace CarRacer.Game.Net
             if (_session != null)
             {
                 _session.CarStateReceived -= OnCarState;
+                _session.HitReceived -= OnHit;
             }
         }
 
@@ -79,10 +85,25 @@ namespace CarRacer.Game.Net
             SendOwnState(now);
         }
 
+        private void OnHit(HitMessage hit)
+        {
+            var car = _arena.Car;
+            if (car != null && _bumpMonitor.OnHit(hit, _me, NetworkSession.NowMs, out var impulse))
+            {
+                car.AddImpulse(impulse.ToUnity());
+            }
+        }
+
         private void FixedUpdate()
         {
             var car = _arena.Car;
-            if (car == null || _phase != RacePhase.Racing)
+            if (car == null || _session.Ended)
+            {
+                return;
+            }
+
+            ResolveBumps(car);
+            if (_phase != RacePhase.Racing)
             {
                 return;
             }
@@ -93,6 +114,27 @@ namespace CarRacer.Game.Net
             if (crossed >= 0)
             {
                 _session.Race.ReportOwnCheckpoint(crossed);
+            }
+        }
+
+        /// <summary>Pushes this phone's car off any car it touches and tells that car's phone, in case it missed the contact.</summary>
+        private void ResolveBumps(CarController car)
+        {
+            _others.Clear();
+            foreach (var pair in _remotes)
+            {
+                if (pair.Value.HasState)
+                {
+                    _others.Add(new OtherCar(pair.Key, pair.Value.transform.position.ToCore(), pair.Value.Velocity.ToCore()));
+                }
+            }
+
+            _bumps.Clear();
+            _bumpMonitor.Step(_me, car.BodyPosition.ToCore(), car.BodyVelocity.ToCore(), _others, NetworkSession.NowMs, _bumps);
+            foreach (var bump in _bumps)
+            {
+                car.AddImpulse(bump.SelfImpulse.ToUnity());
+                _session.SendHit(bump.Fallback);
             }
         }
 
