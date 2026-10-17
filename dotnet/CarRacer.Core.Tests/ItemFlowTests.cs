@@ -53,7 +53,7 @@ namespace CarRacer.Core.Tests
 
     public class ItemFlowTests
     {
-        private const ushort Version = 9;
+        private const ushort Version = 10;
         private const ulong GuestConnection = 7;
         private const long GuestClockBehindMs = 1_000_000;
 

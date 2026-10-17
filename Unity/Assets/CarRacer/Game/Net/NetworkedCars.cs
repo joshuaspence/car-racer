@@ -4,6 +4,7 @@ using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
+using CarRacer.Core.Track;
 using CarRacer.Game.Bots;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
@@ -40,6 +41,7 @@ namespace CarRacer.Game.Net
         private DriveTestArena _arena;
         private NetworkSession _session;
         private CheckpointDetector _detector;
+        private int _detectorTrack;
         private RacePhase _phase = RacePhase.Lobby;
         private Vector3 _lastPosition;
         private bool _spawned;
@@ -61,10 +63,19 @@ namespace CarRacer.Game.Net
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
             _detector = new CheckpointDetector(arena.Track.CheckpointGates());
-            // The track's boxes and the Battle bowl's share one list: they're far apart, so each event only reaches its own.
-            var boxes = new List<CarRacer.Core.Numerics.Vec3>(arena.Track.ItemBoxPositions());
+            _detectorTrack = arena.TrackIndex;
+
+            // Every track's boxes and the Battle bowl's share one list: they're far apart, so each event only reaches its own.
+            var boxes = new List<CarRacer.Core.Numerics.Vec3>();
+            var checkpointCounts = new List<int>();
+            foreach (var track in TrackCatalog.Layouts)
+            {
+                boxes.AddRange(track.ItemBoxPositions());
+                checkpointCounts.Add(track.CheckpointCount);
+            }
+
             boxes.AddRange(ArenaLayout.BattleItemBoxes(ArenaLayout.BattleCentre, BattleRules.BowlRadius));
-            _session.CreateRace(arena.Track.CheckpointCount, FractionToNextCheckpoint, boxes, TryGetCarPosition);
+            _session.CreateRace(checkpointCounts, FractionToNextCheckpoint, boxes, TryGetCarPosition);
             gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
             gameObject.AddComponent<ItemEffectViews>().Initialise(_session.Items);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
@@ -330,6 +341,13 @@ namespace CarRacer.Game.Net
             // and come back to the track from an arena for the lobby.
             if (phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown))
             {
+                _arena.FollowEventTrack(_session.Race);
+                if (_detectorTrack != _arena.TrackIndex)
+                {
+                    _detector = new CheckpointDetector(_arena.Track.CheckpointGates());
+                    _detectorTrack = _arena.TrackIndex;
+                }
+
                 _arena.PlaceLocalCarAtStart(_me, _session.Race.Mode);
                 _detector.Reset();
                 _shield.Clear();

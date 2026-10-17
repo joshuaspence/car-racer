@@ -29,6 +29,7 @@ namespace CarRacer.Game.DriveTest
         private DriveTestArena _arena;
         private TrackProgress _progress;
         private MiniMap _map;
+        private TrackLayout _mapTrack;
         private NetworkedCars _cars;
         private BotCars _bots;
         private GUIStyle _warning;
@@ -39,12 +40,25 @@ namespace CarRacer.Game.DriveTest
         public void Initialise(DriveTestArena arena)
         {
             _arena = arena;
-            _progress = new TrackProgress(arena.Track.Spline);
-            _map = new MiniMap(arena.Track.Spline);
+            FollowTrack();
+        }
+
+        /// <summary>Rebuilds the wrong-way detector and mini-map when racing moves to another track.</summary>
+        private void FollowTrack()
+        {
+            if (_mapTrack == _arena.Track)
+            {
+                return;
+            }
+
+            _mapTrack = _arena.Track;
+            _progress = new TrackProgress(_mapTrack.Spline);
+            _map = new MiniMap(_mapTrack.Spline);
         }
 
         private void Update()
         {
+            FollowTrack();
             var car = _arena.Car;
             if (car == null)
             {

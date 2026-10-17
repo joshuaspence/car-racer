@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using CarRacer.Core.Arena;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Arenas;
 using CarRacer.Game.Driving;
@@ -12,8 +13,9 @@ using UnityEngine;
 namespace CarRacer.Game.DriveTest
 {
     /// <summary>
-    /// Temporary M1 screen for tuning the car on real phones: the sample oval with the chase camera,
-    /// touch/keyboard/gamepad controls and a small HUD. Alone it holds one car; given a
+    /// Temporary M1 screen for tuning the car on real phones: every built-in track (cars are on one
+    /// at a time, starting on the oval) with the chase camera, touch/keyboard/gamepad controls and a
+    /// small HUD. Alone it holds one car; given a
     /// <see cref="NetworkSession"/> it is a free drive with everyone in the session (see
     /// <see cref="NetworkedCars"/>). Everything is built from code under one root object, so
     /// destroying it cleans up the whole scene; it also destroys the session, which NGO needs on a
@@ -22,6 +24,9 @@ namespace CarRacer.Game.DriveTest
     public sealed class DriveTestArena : MonoBehaviour
     {
         private const float ReferenceHeight = 720f;
+
+        /// <summary>Each track's grass reaches this far beyond its road (and stays clear of the others; see <c>TrackCatalogPlacementTests</c>).</summary>
+        private const float GroundMargin = 60f;
 
         private static readonly Color RoadColour = new Color(0.32f, 0.33f, 0.36f);
         private static readonly Color WallColour = new Color(0.85f, 0.25f, 0.2f);
@@ -36,7 +41,11 @@ namespace CarRacer.Game.DriveTest
         public CarController Car { get; private set; }
         public Color CarColour { get; private set; }
         public ChaseCamera CameraRig { get; private set; }
-        public TrackLayout Track { get; private set; }
+
+        /// <summary>The track cars are on: one of <see cref="TrackCatalog.Layouts"/>, all of which are built.</summary>
+        public TrackLayout Track => TrackCatalog.Layouts[TrackIndex];
+
+        public int TrackIndex { get; private set; }
 
         /// <summary>The hosted or joined session, if any.</summary>
         public NetworkSession Session => _session;
@@ -81,18 +90,10 @@ namespace CarRacer.Game.DriveTest
             light.transform.SetParent(transform, false);
             light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ground.name = "Ground";
-            ground.transform.SetParent(transform, false);
-            ground.transform.localPosition = new Vector3(45f, -0.05f, 30f);
-            ground.transform.localScale = new Vector3(40f, 1f, 40f);
-            ground.GetComponent<Renderer>().sharedMaterial = SimpleMaterials.Get(GrassColour);
-
-            Track = new TrackLayout(SampleTracks.Oval());
-            var meshes = RoadMeshBuilder.Build(Track.Spline, Track.Definition.WallHeight);
-            AddSurface("Road", meshes.Road, RoadColour);
-            AddSurface("Left wall", meshes.LeftWall, WallColour);
-            AddSurface("Right wall", meshes.RightWall, WallColour);
+            foreach (var layout in TrackCatalog.Layouts)
+            {
+                BuildTrack(layout);
+            }
 
             if (inputOverride != null)
             {
@@ -128,6 +129,58 @@ namespace CarRacer.Game.DriveTest
                 _session = startSession();
                 ArenaVenues.Build(transform, _session);
                 gameObject.AddComponent<NetworkedCars>().Initialise(this, _session);
+            }
+        }
+
+        /// <summary>Builds a track's road, walls and its own patch of grass, reaching <see cref="GroundMargin"/> beyond the road.</summary>
+        private void BuildTrack(TrackLayout layout)
+        {
+            string name = layout.Definition.DisplayName;
+            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            foreach (var sample in layout.Spline.SampleEvenly(4f))
+            {
+                minX = Mathf.Min(minX, sample.Position.X);
+                maxX = Mathf.Max(maxX, sample.Position.X);
+                minZ = Mathf.Min(minZ, sample.Position.Z);
+                maxZ = Mathf.Max(maxZ, sample.Position.Z);
+            }
+
+            // Unity's plane is 10 m square.
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.name = name + " ground";
+            ground.transform.SetParent(transform, false);
+            ground.transform.localPosition = new Vector3((minX + maxX) / 2f, -0.05f, (minZ + maxZ) / 2f);
+            ground.transform.localScale = new Vector3((maxX - minX + 2f * GroundMargin) / 10f, 1f, (maxZ - minZ + 2f * GroundMargin) / 10f);
+            ground.GetComponent<Renderer>().sharedMaterial = SimpleMaterials.Get(GrassColour);
+
+            var meshes = RoadMeshBuilder.Build(layout.Spline, layout.Definition.WallHeight);
+            AddSurface(name + " road", meshes.Road, RoadColour);
+            AddSurface(name + " left wall", meshes.LeftWall, WallColour);
+            AddSurface(name + " right wall", meshes.RightWall, WallColour);
+        }
+
+        /// <summary>
+        /// Moves racing to track <paramref name="index"/> (clamped to the catalog). Cars aren't moved
+        /// here; they go to the new track's grid when they line up. Returns true if the track changed.
+        /// </summary>
+        public bool UseTrack(int index)
+        {
+            index = TrackCatalog.Clamp(index);
+            if (index == TrackIndex)
+            {
+                return false;
+            }
+
+            TrackIndex = index;
+            return true;
+        }
+
+        /// <summary>Switches to the track of the race under way, if any; called by everything that lines cars up, so whichever runs first wins.</summary>
+        public void FollowEventTrack(IRaceView race)
+        {
+            if (race != null && race.Phase != RacePhase.Lobby && race.Mode == GameMode.Race)
+            {
+                UseTrack(race.TrackIndex);
             }
         }
 
