@@ -45,6 +45,10 @@ namespace CarRacer.Game.Driving
         private float _visualLean;
 
         public CarState State => _state;
+
+        /// <summary>The physics sphere's centre and velocity, as sent to other phones.</summary>
+        public Vector3 BodyPosition => _body.position;
+        public Vector3 BodyVelocity => _body.linearVelocity;
         public bool Grounded { get; private set; }
         public CarInput LastInput { get; private set; }
 

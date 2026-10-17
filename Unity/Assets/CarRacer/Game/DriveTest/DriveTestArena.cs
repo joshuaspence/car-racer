@@ -1,16 +1,22 @@
 using System.Collections.Generic;
 using CarRacer.Core.Driving;
+using CarRacer.Core.Net;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Session;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Net;
 using UnityEngine;
 
 namespace CarRacer.Game.DriveTest
 {
     /// <summary>
-    /// Temporary M1 screen for tuning the car on real phones: one car on the sample oval with the
-    /// chase camera, touch/keyboard/gamepad controls and a small HUD. Everything is built from code
-    /// under one root object, so destroying it cleans up the whole scene. Replaced by the race flow later in M1.
+    /// Temporary M1 screen for tuning the car on real phones: the sample oval with the chase camera,
+    /// touch/keyboard/gamepad controls and a small HUD. Alone it holds one car; given a
+    /// <see cref="NetworkSession"/> it is a free drive with everyone in the session (see
+    /// <see cref="NetworkedCars"/>). Everything is built from code under one root object, so
+    /// destroying it cleans up the whole scene; it also destroys the session, which NGO needs on a
+    /// root object of its own. Replaced by the race flow later in M1.
     /// </summary>
     public sealed class DriveTestArena : MonoBehaviour
     {
@@ -19,25 +25,33 @@ namespace CarRacer.Game.DriveTest
         private static readonly Color RoadColour = new Color(0.32f, 0.33f, 0.36f);
         private static readonly Color WallColour = new Color(0.85f, 0.25f, 0.2f);
         private static readonly Color GrassColour = new Color(0.36f, 0.6f, 0.3f);
-        private static readonly Color CarColour = new Color(0.95f, 0.75f, 0.1f);
 
         private readonly List<Object> _owned = new List<Object>();
+        private ICarInputSource _inputSource;
         private PlayerCarInput _playerInput;
+        private NetworkSession _session;
         private Texture2D _circle;
 
         public CarController Car { get; private set; }
         public ChaseCamera CameraRig { get; private set; }
         public TrackLayout Track { get; private set; }
 
-        /// <summary>Builds the arena. Pass <paramref name="inputOverride"/> to drive the car from a test instead of the player's devices.</summary>
-        public static DriveTestArena Create(ICarInputSource inputOverride = null)
+        /// <summary>The hosted or joined session, if any.</summary>
+        public NetworkSession Session => _session;
+
+        /// <summary>
+        /// Builds the arena. Pass <paramref name="inputOverride"/> to drive the car from a test instead
+        /// of the player's devices, and <paramref name="startSession"/> to start a hosted or joined
+        /// session (destroyed with the arena).
+        /// </summary>
+        public static DriveTestArena Create(ICarInputSource inputOverride = null, System.Func<NetworkSession> startSession = null)
         {
             var arena = new GameObject("Drive test").AddComponent<DriveTestArena>();
-            arena.Build(inputOverride);
+            arena.Build(inputOverride, startSession);
             return arena;
         }
 
-        private void Build(ICarInputSource inputOverride)
+        private void Build(ICarInputSource inputOverride, System.Func<NetworkSession> startSession)
         {
             Time.fixedDeltaTime = 0.02f;
 
@@ -60,20 +74,15 @@ namespace CarRacer.Game.DriveTest
             AddSurface("Left wall", meshes.LeftWall, WallColour);
             AddSurface("Right wall", meshes.RightWall, WallColour);
 
-            Car = CarFactory.Build("Car", CarColour, transform);
             if (inputOverride != null)
             {
-                Car.InputSource = inputOverride;
+                _inputSource = inputOverride;
             }
             else
             {
                 _playerInput = gameObject.AddComponent<PlayerCarInput>();
-                Car.InputSource = _playerInput;
+                _inputSource = _playerInput;
             }
-
-            var slot = Track.StartGrid(1)[0];
-            Vector3 spawn = slot.Position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f);
-            Car.Place(spawn, Mathf.Atan2(slot.Forward.X, slot.Forward.Z));
 
             var cameraObject = new GameObject("Chase camera");
             cameraObject.transform.SetParent(transform, false);
@@ -84,6 +93,35 @@ namespace CarRacer.Game.DriveTest
             unityCamera.nearClipPlane = 0.3f;
             unityCamera.farClipPlane = 600f;
             CameraRig = cameraObject.AddComponent<ChaseCamera>();
+
+            // Until this phone's car exists (a guest waiting to join), look over the track.
+            cameraObject.transform.position = new Vector3(45f, 70f, -70f);
+            cameraObject.transform.LookAt(new Vector3(45f, 0f, 30f));
+
+            if (startSession == null)
+            {
+                SpawnLocalCar(0, CarColours.ForIndex(0));
+            }
+            else
+            {
+                _session = startSession();
+                gameObject.AddComponent<NetworkedCars>().Initialise(this, _session);
+            }
+        }
+
+        /// <summary>Creates this phone's car on grid slot <paramref name="slot"/> and points the camera at it.</summary>
+        public void SpawnLocalCar(int slot, Color colour)
+        {
+            if (Car != null)
+            {
+                Destroy(Car.gameObject);
+            }
+
+            Car = CarFactory.Build("Car", colour, transform);
+            Car.InputSource = _inputSource;
+            var grid = Track.StartGrid(slot + 1)[slot];
+            Vector3 spawn = grid.Position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f);
+            Car.Place(spawn, Mathf.Atan2(grid.Forward.X, grid.Forward.Z));
             CameraRig.Target = Car;
             CameraRig.Snap();
         }
@@ -110,6 +148,11 @@ namespace CarRacer.Game.DriveTest
             {
                 Destroy(_circle);
             }
+
+            if (_session != null)
+            {
+                Destroy(_session.gameObject);
+            }
         }
 
         private void OnGUI()
@@ -128,11 +171,19 @@ namespace CarRacer.Game.DriveTest
             GUI.skin.label.fontSize = 26;
             GUI.skin.button.fontSize = 22;
 
-            var state = Car.State;
-            int tier = state.DriftTier(Car.Tuning);
-            string drift = state.Drifting ? $"Drift {tier}/{Car.Tuning.DriftTierSeconds.Length}" : string.Empty;
-            string boost = state.BoostSecondsLeft > 0f ? $"BOOST +{state.BoostSpeed:0}" : string.Empty;
-            GUI.Label(new Rect(left, 20f, 600f, 40f), $"{Mathf.Abs(Car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}");
+            if (Car != null)
+            {
+                var state = Car.State;
+                int tier = state.DriftTier(Car.Tuning);
+                string drift = state.Drifting ? $"Drift {tier}/{Car.Tuning.DriftTierSeconds.Length}" : string.Empty;
+                string boost = state.BoostSecondsLeft > 0f ? $"BOOST +{state.BoostSpeed:0}" : string.Empty;
+                GUI.Label(new Rect(left, 20f, 600f, 40f), $"{Mathf.Abs(Car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}");
+            }
+
+            if (_session != null)
+            {
+                DrawSessionStatus(left);
+            }
 
             if (GUI.Button(new Rect(width - 160f, 20f, 136f, 52f), "Back"))
             {
@@ -146,6 +197,30 @@ namespace CarRacer.Game.DriveTest
                 {
                     _playerInput.AutoAccelerate = !_playerInput.AutoAccelerate;
                 }
+            }
+        }
+
+        private void DrawSessionStatus(float left)
+        {
+            var small = new GUIStyle(GUI.skin.label) { fontSize = 20 };
+            float y = 64f;
+            GUI.Label(new Rect(left, y, 700f, 30f), _session.Status, small);
+            if (_session.Ended)
+            {
+                return;
+            }
+
+            _session.TryGetLocalPlayerId(out byte me);
+            bool joined = _session.IsHost || _session.GuestSide.State == GuestState.Joined;
+            foreach (var player in joined ? _session.Players : new List<RosterEntry>())
+            {
+                y += 26f;
+                string tags = (player.IsHost ? " (host)" : string.Empty) + (player.PlayerId == me ? " (you)" : string.Empty);
+                var previous = GUI.color;
+                GUI.color = CarColours.ForIndex(player.ColourIndex);
+                GUI.DrawTexture(new Rect(left, y + 5f, 16f, 16f), Texture2D.whiteTexture);
+                GUI.color = previous;
+                GUI.Label(new Rect(left + 28f, y, 500f, 26f), player.Name + tags, small);
             }
         }
 

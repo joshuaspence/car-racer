@@ -16,6 +16,7 @@ temporary on-device screen tests LAN discovery between phones.
 
 **M1: core loop (in progress).** The arcade car handling, touch/gamepad/keyboard controls and
 chase camera are in. **Drive test** on the start screen puts one car on the sample oval for tuning.
+**Host game** and **Join** start a free drive on the oval with everyone in the session.
 
 ## Layout
 
@@ -40,11 +41,11 @@ dotnet test dotnet/CarRacer.sln
 To work in Unity, open `Unity/` with Unity **6000.3.26f1** (with Android Build Support) and follow
 [first-time setup](docs/ci-setup.md#5-first-time-unity-editor-setup-local).
 
-### Trying LAN discovery on phones
+### Trying multiplayer on phones
 
 Install the development APK (from a PR's **Unity** workflow artifacts, or built locally) on two
-or more phones on the same Wi-Fi. Tap **Host** on one; the others should list it within a
-couple of seconds.
+or more phones on the same Wi-Fi. Tap **Host game** on one; the others should list it within a
+couple of seconds. Tap **Join** to drive the oval together.
 
 Extract the APK from the artifact zip before tapping it; installing from inside the zip fails.
 Development builds are signed with a shared debug key (`Unity/Keystores/debug.keystore`), so
