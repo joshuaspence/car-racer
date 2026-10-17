@@ -1,5 +1,6 @@
 using CarRacer.Core.Platform;
 using UnityEngine;
+using QualityLevel = CarRacer.Core.Platform.QualityLevel;
 
 namespace CarRacer.Game.Platform
 {
