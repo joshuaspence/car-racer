@@ -28,6 +28,9 @@ namespace CarRacer.Core.Race
         /// <summary>Which track a race is on (an index into the game's track list); set by each countdown.</summary>
         int TrackIndex { get; }
 
+        /// <summary>The start slot (grid slot, or spot round an arena) of <paramref name="playerId"/> in the current event.</summary>
+        int GridSlotOf(byte playerId);
+
         /// <summary>When the race starts (or started), in this phone's clock.</summary>
         long StartAtLocalMs { get; }
 
@@ -74,6 +77,7 @@ namespace CarRacer.Core.Race
         private readonly Func<int, float> _fractionToNextCheckpoint;
         private readonly CarPositionLookup _carPositions;
         private readonly Dictionary<int, string> _names = new Dictionary<int, string>();
+        private readonly List<byte> _gridOrder = new List<byte>();
         private long _firstFinishMs = -1;
         private long _nextStandingsMs;
 
@@ -103,6 +107,11 @@ namespace CarRacer.Core.Race
         public GameMode Mode { get; private set; }
         public int TrackIndex { get; private set; }
 
+        /// <summary>Player ids from pole back, for the current event.</summary>
+        public IReadOnlyList<byte> GridOrder => _gridOrder;
+
+        public int GridSlotOf(byte playerId) => RaceGrid.SlotOf(_gridOrder, playerId);
+
         /// <summary>The race referee; null in arena modes.</summary>
         public RaceTracker Tracker { get; private set; }
 
@@ -111,10 +120,11 @@ namespace CarRacer.Core.Race
 
         /// <summary>
         /// Starts the countdown for everyone in the roster, after filling the grid with bots. A race
-        /// is on track <paramref name="trackIndex"/>. Returns false outside the lobby or for a track
-        /// that doesn't exist.
+        /// is on track <paramref name="trackIndex"/>. Players start in order of
+        /// <paramref name="gridRank"/> by name (lowest on pole; design doc §10's reverse grid), or by
+        /// player id without one. Returns false outside the lobby or for a track that doesn't exist.
         /// </summary>
-        public bool Start(int laps, GameMode mode = GameMode.Race, int trackIndex = 0)
+        public bool Start(int laps, GameMode mode = GameMode.Race, int trackIndex = 0, Func<string, int> gridRank = null)
         {
             if (mode != GameMode.Race)
             {
@@ -138,6 +148,33 @@ namespace CarRacer.Core.Race
 
             Mode = mode;
             TrackIndex = trackIndex;
+            _gridOrder.Clear();
+            foreach (var player in _session.Roster.Players)
+            {
+                _gridOrder.Add(player.PlayerId);
+            }
+
+            if (gridRank != null)
+            {
+                // A stable sort by rank, ties by player id.
+                var ranked = new List<(int Rank, byte Id)>();
+                foreach (var player in _session.Roster.Players)
+                {
+                    ranked.Add((gridRank(player.Name), player.PlayerId));
+                }
+
+                ranked.Sort((a, b) => a.Rank != b.Rank ? a.Rank.CompareTo(b.Rank) : a.Id.CompareTo(b.Id));
+                _gridOrder.Clear();
+                foreach (var (_, id) in ranked)
+                {
+                    _gridOrder.Add(id);
+                }
+            }
+            else
+            {
+                _gridOrder.Sort();
+            }
+
             Tracker = mode == GameMode.Race ? new RaceTracker(_checkpointCounts[trackIndex], laps, ids) : null;
             Arena = mode == GameMode.Race ? null : new EliminationTracker(ids, mode == GameMode.Battle ? BattleRules.StartingLives : 1);
             LapCount = laps;
@@ -148,7 +185,7 @@ namespace CarRacer.Core.Race
             _nextStandingsMs = StartAtLocalMs;
             _session.EventInProgress = true;
             Phase = RacePhase.Countdown;
-            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex }, reliable: true);
+            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex, GridOrder = new List<byte>(_gridOrder) }, reliable: true);
             return true;
         }
 
@@ -368,6 +405,7 @@ namespace CarRacer.Core.Race
     {
         private readonly GuestSession _session;
         private readonly Func<long> _clockMs;
+        private List<byte> _gridOrder = new List<byte>();
 
         public GuestRace(GuestSession session, Func<long> clockMs)
         {
@@ -383,6 +421,14 @@ namespace CarRacer.Core.Race
         public long StartAtLocalMs { get; private set; }
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
+
+        public int GridSlotOf(byte playerId) => RaceGrid.SlotOf(_gridOrder, playerId);
+
+        /// <summary>
+        /// The cup table after the latest event of a cup (design doc §10); cleared when everyone
+        /// goes back to the lobby or the next event counts down.
+        /// </summary>
+        public CupStandingsMessage CupStandings { get; private set; }
 
         public void Tick()
         {
@@ -416,6 +462,8 @@ namespace CarRacer.Core.Race
                     LapCount = countdown.LapCount;
                     Mode = countdown.Mode;
                     TrackIndex = countdown.TrackIndex;
+                    _gridOrder = countdown.GridOrder;
+                    CupStandings = null;
                     StartAtLocalMs = _session.Clock.ToLocalTime(countdown.StartAtHostMs);
                     Standings = null;
                     Results = null;
@@ -430,8 +478,34 @@ namespace CarRacer.Core.Race
                     break;
                 case ReturnToLobbyMessage _:
                     Phase = RacePhase.Lobby;
+                    CupStandings = null;
+                    break;
+                case CupStandingsMessage cup:
+                    CupStandings = cup;
                     break;
             }
+        }
+    }
+
+    /// <summary>Start slots from a countdown's grid order.</summary>
+    public static class RaceGrid
+    {
+        /// <summary>
+        /// <paramref name="playerId"/>'s place in <paramref name="gridOrder"/> (0 is pole). Someone
+        /// missing from it (it was empty, or they joined late) takes the slot after everyone listed,
+        /// offset by their id so two late joiners don't share a slot.
+        /// </summary>
+        public static int SlotOf(IReadOnlyList<byte> gridOrder, byte playerId)
+        {
+            for (int i = 0; i < gridOrder.Count; i++)
+            {
+                if (gridOrder[i] == playerId)
+                {
+                    return i;
+                }
+            }
+
+            return gridOrder.Count == 0 ? playerId : gridOrder.Count + playerId;
         }
     }
 }

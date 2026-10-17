@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CarRacer.Core.Numerics;
 
 namespace CarRacer.Core.Net
@@ -24,6 +25,7 @@ namespace CarRacer.Core.Net
         ItemUsed = 17,
         HazardGone = 18,
         Projectiles = 19,
+        CupStandings = 20,
     }
 
     [Flags]
@@ -157,6 +159,9 @@ namespace CarRacer.Core.Net
         /// <summary>Which of the built-in tracks a race is on (an index into <c>TrackCatalog</c>); 0 in arenas.</summary>
         public byte TrackIndex;
 
+        /// <summary>Player ids from pole back (design doc §10's reverse grid); anyone missing starts on the slot of their id.</summary>
+        public List<byte> GridOrder = new List<byte>();
+
         public MessageType Type => MessageType.RaceCountdown;
 
         public void Write(NetWriter w)
@@ -165,15 +170,30 @@ namespace CarRacer.Core.Net
             w.WriteByte(LapCount);
             w.WriteByte((byte)Mode);
             w.WriteByte(TrackIndex);
+            w.WriteByte((byte)GridOrder.Count);
+            foreach (byte id in GridOrder)
+            {
+                w.WriteByte(id);
+            }
         }
 
-        public static RaceCountdownMessage Read(NetReader r) => new RaceCountdownMessage
+        public static RaceCountdownMessage Read(NetReader r)
         {
-            StartAtHostMs = r.ReadLong(),
-            LapCount = r.ReadByte(),
-            Mode = (CarRacer.Core.Arena.GameMode)r.ReadByte(),
-            TrackIndex = r.ReadByte(),
-        };
+            var message = new RaceCountdownMessage
+            {
+                StartAtHostMs = r.ReadLong(),
+                LapCount = r.ReadByte(),
+                Mode = (CarRacer.Core.Arena.GameMode)r.ReadByte(),
+                TrackIndex = r.ReadByte(),
+            };
+            int count = r.ReadByte();
+            for (int i = 0; i < count; i++)
+            {
+                message.GridOrder.Add(r.ReadByte());
+            }
+
+            return message;
+        }
     }
 
     /// <summary>Host → all: a player crossed the finish line in the given position.</summary>
@@ -276,6 +296,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.Projectiles:
                     message = ProjectilesMessage.Read(reader);
+                    break;
+                case MessageType.CupStandings:
+                    message = CupStandingsMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");
