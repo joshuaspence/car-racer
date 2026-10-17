@@ -64,7 +64,9 @@ Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test
 NGO and Unity Transport carry the connection, but the game's own messages (`Core/Net`, framed by
 `MessageCodec`) travel as NGO custom messages rather than as NetworkVariables or RPCs. The
 formats stay engine-independent and testable, and nothing needs NGO prefab registration.
-NGO only lets guests talk to the host, so the host relays car states between guests.
+NGO only lets guests talk to the host, so the host relays car states between guests. `HostSession`
+and `GuestSession` (`Core/Session`) implement the protocol below against a small
+`ISessionTransport` interface, so it is unit tested without NGO.
 
 1. **Join:** the guest connects and sends `JoinRequest` (protocol version, name). The host
    replies with `JoinReply`: accepted with a player id, or refused because the session is full,
