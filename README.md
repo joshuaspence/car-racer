@@ -9,15 +9,15 @@ the empty slots. Built with Unity 6.3 LTS and Netcode for GameObjects.
 
 ## Status
 
-**PR 1: foundations.** The engine-independent core is implemented and tested: LAN discovery,
-network messages, race rules, car-to-car bump physics, remote-car prediction, spline tracks with
-generated road meshes, and championship scoring. The Unity project skeleton is in place, and a
-temporary on-device screen tests LAN discovery between phones.
-
-**M1: core loop (in progress).** The arcade car handling, touch/gamepad/keyboard controls and
-chase camera are in. **Drive test** on the start screen puts one car on the sample oval for tuning.
-**Host game** and **Join** put everyone in the session on the oval: drive around in the lobby,
-tap **Ready**, and the host starts a race with a synced countdown, laps, positions and results.
+**M1: core loop.** LAN multiplayer races on the sample oval for 2–6 phones:
+- The main menu asks for your name on first launch, then offers **Host game**, **Join game**
+  (games found on the Wi-Fi, or join by IP) and **Practice** (a free drive).
+- In a session everyone drives around in the lobby and taps **Ready**. The host then starts a
+  race with a synced countdown, laps, positions, car-to-car bumping and results, with a rematch.
+- Arcade drift-and-boost handling with touch, gamepad and keyboard controls, a chase camera, a
+  HUD with drift meter, mini-map and "Wrong way!" warning, and haptics.
+- The engine-independent core (protocol, race rules, physics, tracks, scoring) is unit tested
+  with `dotnet test`. Graphics are placeholders.
 
 ## Layout
 
@@ -45,8 +45,9 @@ To work in Unity, open `Unity/` with Unity **6000.3.26f1** (with Android Build S
 ### Trying multiplayer on phones
 
 Install the development APK (from a PR's **Unity** workflow artifacts, or built locally) on two
-or more phones on the same Wi-Fi. Tap **Host game** on one; the others should list it within a
-couple of seconds. Tap **Join** to drive the oval together.
+or more phones on the same Wi-Fi. Tap **Host game** on one; on the others tap **Join game**, and
+the host should be listed within a couple of seconds. If it isn't (some networks block
+discovery), type the address shown in the host's lobby.
 
 Extract the APK from the artifact zip before tapping it; installing from inside the zip fails.
 Development builds are signed with a shared debug key (`Unity/Keystores/debug.keystore`), so

@@ -39,7 +39,9 @@ bugs and differs between phone makers, and it can't be tested on desktop.
 - Android: the app holds a **`WifiManager.MulticastLock`** only while the lobby or join screen is
   open, and declares `CHANGE_WIFI_MULTICAST_STATE` (added by `AndroidManifestPostProcessor`).
 - Fallback for networks with client isolation: **join by IP**, or scan a **QR code** on the host
-  screen that contains `ip:port`.
+  screen that contains `ip:port`. Join by IP is in (`HostAddress`): the host's lobby lists its
+  IPv4 addresses, and a guest types one as `ip` or `ip:port`, with the port defaulting to 47778.
+  The QR code is still to come.
 
 Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test screen.
 
@@ -156,7 +158,9 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   steer wins and braking overrides accelerating (`DriverInput`).
 - With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. Each finger keeps
   the control it first landed on until it lifts (`TouchControls`).
-- **Haptics** on hits, boosts and item impacts.
+- **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
+  it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
+  scrape doesn't buzz. They can be turned off, and the choice is remembered.
 
 ## 6. Camera and HUD
 
@@ -240,6 +244,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 1. First launch: choose a display name (stored on the device; no accounts).
 2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**.
+   Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards + join by IP) and
+   Practice (a free drive). Garage and the QR code come later.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
@@ -251,7 +257,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 | Situation | Behaviour |
 |---|---|
-| Guest drops mid-race | A bot takes over the car; standings stay intact. |
+| Guest drops mid-race | A bot takes over the car; standings stay intact. *Until bots exist (M3):* the player is retired, placed last as DNF under the name they had, and the race ends as soon as everyone still racing has finished. |
 | Guest rejoins | Lobby only (no joining mid-race); reclaims their championship slot. |
 | App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. |
 | Host leaves | Session ends: "Host left". The host gets a confirmation before leaving. The screen is kept awake during sessions. |

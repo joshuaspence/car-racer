@@ -1,6 +1,8 @@
+using CarRacer.Core.Discovery;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Menu;
 using UnityEngine;
 
 namespace CarRacer.Game.Net
@@ -13,11 +15,15 @@ namespace CarRacer.Game.Net
     public sealed class SessionOverlay : MonoBehaviour
     {
         public const int MaxLaps = 9;
-        private const float ReferenceHeight = 720f;
 
         private NetworkSession _session;
         private NetworkedCars _cars;
         private int _laps = 3;
+        /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
+        private const float AddressRefreshSeconds = 3f;
+
+        private string _hostAddresses = string.Empty;
+        private float _nextAddressRefresh;
         private GUIStyle _small;
         private GUIStyle _big;
 
@@ -34,10 +40,9 @@ namespace CarRacer.Game.Net
                 return;
             }
 
-            float scale = Screen.height / ReferenceHeight;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            float width = Screen.width / scale;
-            float left = Screen.safeArea.x / scale + 24f;
+            UiStyle.Begin();
+            float width = UiStyle.Width;
+            float left = UiStyle.SafeArea.x + 24f;
             _small = _small ?? new GUIStyle(GUI.skin.label) { fontSize = 20 };
             _big = _big ?? new GUIStyle(GUI.skin.label) { fontSize = 96, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
@@ -66,36 +71,58 @@ namespace CarRacer.Game.Net
 
         private void DrawLobby(float left, byte me)
         {
-            float y = 96f;
+            GUILayout.BeginArea(new Rect(left, 100f, 540f, 600f));
+            GUILayout.BeginVertical(UiStyle.Panel);
+            GUILayout.Label("Lobby", UiStyle.Heading);
             foreach (var player in _session.Players)
             {
-                string tags = (player.IsHost ? " (host)" : player.Ready ? " - ready" : " - not ready") + (player.PlayerId == me ? " (you)" : string.Empty);
-                Swatch(left, y, player.ColourIndex);
-                GUI.Label(new Rect(left + 28f, y, 500f, 26f), player.Name + tags, _small);
-                y += 26f;
+                string state = player.IsHost ? "host" : player.Ready ? "ready" : "not ready";
+                string you = player.PlayerId == me ? " (you)" : string.Empty;
+                GUILayout.BeginHorizontal();
+                var swatch = GUILayoutUtility.GetRect(22f, 22f, GUILayout.Width(22f), GUILayout.Height(34f));
+                Swatch(swatch.x, swatch.y + 2f, player.ColourIndex);
+                GUILayout.Label(player.Name + you, UiStyle.Body);
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(state, UiStyle.Hint);
+                GUILayout.EndHorizontal();
             }
 
-            y += 12f;
+            GUILayout.Space(8f);
             if (_session.IsHost)
             {
-                var host = (HostRace)_session.Race;
-                GUI.Label(new Rect(left, y + 8f, 80f, 30f), $"Laps: {_laps}", _small);
-                if (GUI.Button(new Rect(left + 90f, y, 52f, 44f), "-"))
+                // For guests whose network blocks discovery (design doc §1.1).
+                if (Time.unscaledTime >= _nextAddressRefresh)
+                {
+                    var addresses = HostAddress.LocalIPv4Addresses();
+                    _hostAddresses = addresses.Count > 0 ? "Join by IP: " + string.Join(" or ", addresses) : string.Empty;
+                    _nextAddressRefresh = Time.unscaledTime + AddressRefreshSeconds;
+                }
+
+                if (_hostAddresses.Length > 0)
+                {
+                    GUILayout.Label(_hostAddresses, UiStyle.Hint);
+                }
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(150f));
+                if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
                 {
                     _laps = Mathf.Max(1, _laps - 1);
                 }
 
-                if (GUI.Button(new Rect(left + 148f, y, 52f, 44f), "+"))
+                if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
                 {
                     _laps = Mathf.Min(MaxLaps, _laps + 1);
                 }
 
+                GUILayout.EndHorizontal();
+
                 // The host decides (design doc §11); alone, it's a practice race.
                 bool canStart = _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
                 GUI.enabled = canStart;
-                if (GUI.Button(new Rect(left + 220f, y, 180f, 44f), canStart ? "Start race" : "Waiting for Ready"))
+                if (GUILayout.Button(canStart ? "Start race" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
                 {
-                    host.Start(_laps);
+                    ((HostRace)_session.Race).Start(_laps);
                 }
 
                 GUI.enabled = true;
@@ -103,11 +130,16 @@ namespace CarRacer.Game.Net
             else
             {
                 bool ready = _session.GuestSide.Ready;
-                if (GUI.Button(new Rect(left, y, 180f, 44f), ready ? "Not ready" : "Ready"))
+                if (GUILayout.Button(ready ? "Not ready" : "Ready", ready ? UiStyle.Button : UiStyle.PrimaryButton))
                 {
                     _session.GuestSide.SetReady(!ready);
                 }
+
+                GUILayout.Label(ready ? "Waiting for the host to start the race." : "Drive around, then tap Ready.", UiStyle.Hint);
             }
+
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
         }
 
         private void DrawRace(IRaceView race, float width, byte me)
@@ -161,11 +193,11 @@ namespace CarRacer.Game.Net
             y += 44f;
             foreach (var r in results.Results)
             {
-                var player = Find(r.PlayerId);
-                Swatch(x, y, player.ColourIndex);
+                bool stillHere = TryFind(r.PlayerId, out var player);
+                Swatch(x, y, stillHere ? player.ColourIndex : r.PlayerId);
                 string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
-                string you = r.PlayerId == me ? " (you)" : string.Empty;
-                GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {player.Name}{you}", _small);
+                string tag = r.PlayerId == me ? " (you)" : stillHere ? string.Empty : " (left)";
+                GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", _small);
                 GUI.Label(new Rect(x + 400f, y, 120f, 30f), time, _small);
                 y += 32f;
             }
@@ -184,18 +216,20 @@ namespace CarRacer.Game.Net
             }
         }
 
-        private RosterEntry Find(byte playerId)
+        /// <summary>False if the player has left the session since the race began.</summary>
+        private bool TryFind(byte playerId, out RosterEntry player)
         {
             foreach (var p in _session.Players)
             {
                 if (p.PlayerId == playerId)
                 {
-                    return p;
+                    player = p;
+                    return true;
                 }
             }
 
-            // Left the session since the race began.
-            return new RosterEntry { PlayerId = playerId, Name = "(left)", ColourIndex = playerId };
+            player = default;
+            return false;
         }
 
         private static void Swatch(float x, float y, int colourIndex)

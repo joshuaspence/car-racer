@@ -56,6 +56,12 @@ namespace CarRacer.Game.Driving
         public bool Grounded { get; private set; }
         public CarInput LastInput { get; private set; }
 
+        /// <summary>The car was pushed by <see cref="AddImpulse"/> (a bump or a hit).</summary>
+        public event System.Action<Vector3> Pushed;
+
+        /// <summary>A drift released a boost of this tier (1..3).</summary>
+        public event System.Action<int> BoostReleased;
+
         /// <summary>Speed along the car's heading in m/s; negative when reversing.</summary>
         public float ForwardSpeed => _body == null ? 0f : Vector3.Dot(_body.linearVelocity, _state.Forward.ToUnity());
 
@@ -80,6 +86,7 @@ namespace CarRacer.Game.Driving
         public void AddImpulse(Vector3 impulse)
         {
             _pendingImpulse += impulse;
+            Pushed?.Invoke(impulse);
         }
 
         private void Respawn()
@@ -102,7 +109,14 @@ namespace CarRacer.Game.Driving
             Vector3 velocity = _body.linearVelocity + _pendingImpulse / _body.mass;
             _pendingImpulse = Vector3.zero;
             _state.Velocity = velocity.ToCore();
+            var before = _state;
             _state = CarModel.Step(_state, LastInput, Grounded, Time.fixedDeltaTime, Tuning);
+            int boostTier = HapticPatterns.ReleasedBoostTier(before, _state, Time.fixedDeltaTime, Tuning);
+            if (boostTier > 0)
+            {
+                BoostReleased?.Invoke(boostTier);
+            }
+
             _body.linearVelocity = new Vector3(_state.Velocity.X, velocity.y, _state.Velocity.Z);
             _body.AddForce(Vector3.down * ExtraGravity, ForceMode.Acceleration);
 
