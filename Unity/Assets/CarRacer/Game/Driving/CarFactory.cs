@@ -1,3 +1,4 @@
+using CarRacer.Game.Net;
 using UnityEngine;
 
 namespace CarRacer.Game.Driving
@@ -35,6 +36,33 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
+            return car;
+        }
+
+        /// <summary>
+        /// Another phone's car: the same body on a kinematic sphere (placed by its
+        /// <see cref="RemoteCar"/>), so PhysX never pushes it around.
+        /// </summary>
+        public static RemoteCar BuildRemote(string name, byte playerId, Color colour, Transform parent)
+        {
+            var root = new GameObject(name);
+            root.transform.SetParent(parent, false);
+
+            var body = root.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.interpolation = RigidbodyInterpolation.None;
+
+            var sphere = root.AddComponent<SphereCollider>();
+            sphere.radius = CarController.SphereRadius;
+            sphere.sharedMaterial = Frictionless();
+
+            var visual = new GameObject("Body").transform;
+            visual.SetParent(root.transform, false);
+            visual.localPosition = new Vector3(0f, -CarController.SphereRadius, 0f);
+            BuildBody(visual, colour);
+
+            var car = root.AddComponent<RemoteCar>();
+            car.Initialise(playerId, visual);
             return car;
         }
 
