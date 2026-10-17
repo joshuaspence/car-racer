@@ -207,6 +207,33 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void LeavingMidRaceHandsTheCarToABot()
+        {
+            StartRacing();
+            var takenOver = new List<byte>();
+            var left = new List<byte>();
+            _host.PlayerTakenOver += takenOver.Add;
+            _host.PlayerLeft += (id, name) => left.Add(id);
+            _host.OnDisconnected(5);
+            Assert.Equal(new[] { _guest }, takenOver);
+            Assert.Empty(left);
+            var player = _host.Roster.Find(_guest);
+            Assert.True(player.IsBot);
+            Assert.Equal("Alice", player.Name);
+            Assert.True(_host.IsBot(_guest));
+        }
+
+        [Fact]
+        public void LeavingTheLobbyStillJustLeaves()
+        {
+            var left = new List<byte>();
+            _host.PlayerLeft += (id, name) => left.Add(id);
+            _host.OnDisconnected(5);
+            Assert.Equal(new[] { _guest }, left);
+            Assert.Null(_host.Roster.Find(_guest));
+        }
+
+        [Fact]
         public void DifficultyDefaultsToNormal()
         {
             Assert.Equal(BotDifficulty.Normal, _host.BotDifficulty);

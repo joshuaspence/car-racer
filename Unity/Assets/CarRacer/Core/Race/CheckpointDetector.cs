@@ -45,6 +45,13 @@ namespace CarRacer.Core.Race
             CrossingsCount = 0;
         }
 
+        /// <summary>Picks up partway through a race, after <paramref name="crossings"/> accepted crossings (a bot taking over a player's car).</summary>
+        public void Resume(int crossings)
+        {
+            CrossingsCount = Math.Max(0, crossings);
+            NextCheckpoint = CrossingsCount % _gates.Count;
+        }
+
         /// <summary>
         /// Call every physics step with the car's previous and current positions. Returns the index
         /// of the checkpoint crossed (to report to the host), or -1.

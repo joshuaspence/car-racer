@@ -62,6 +62,12 @@ namespace CarRacer.Core.Session
         /// <summary>A joined guest left (disconnected), with the name they had. Raised before the roster updates.</summary>
         public event Action<byte, string> PlayerLeft;
 
+        /// <summary>
+        /// A guest left mid-event and a bot took over their car (design doc §12): same id, name and
+        /// colour, now marked <see cref="LobbyPlayer.IsBot"/>. Raised instead of <see cref="PlayerLeft"/>.
+        /// </summary>
+        public event Action<byte> PlayerTakenOver;
+
         /// <summary>A guest's car bumped the host's car (fallback hit, see <c>BumpMonitor</c>).</summary>
         public event Action<HitMessage> HitReceived;
 
@@ -104,8 +110,20 @@ namespace CarRacer.Core.Session
             if (_playerByConnection.TryGetValue(connection, out byte playerId))
             {
                 _playerByConnection.Remove(connection);
-                PlayerLeft?.Invoke(playerId, Roster.Find(playerId)?.Name ?? string.Empty);
-                Roster.Remove(playerId);
+                var player = Roster.Find(playerId);
+                if (EventInProgress && player != null)
+                {
+                    // A bot takes the car over for the rest of the event, and leaves with the other bots.
+                    player.IsBot = true;
+                    player.Ready = true;
+                    PlayerTakenOver?.Invoke(playerId);
+                }
+                else
+                {
+                    PlayerLeft?.Invoke(playerId, player?.Name ?? string.Empty);
+                    Roster.Remove(playerId);
+                }
+
                 BroadcastRoster();
             }
         }

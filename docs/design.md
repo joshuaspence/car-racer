@@ -322,7 +322,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 | Situation | Behaviour |
 |---|---|
-| Guest drops mid-race | A bot takes over the car; standings stay intact. *Until bots exist (M3):* the player is retired, placed last as DNF under the name they had, and the race ends as soon as everyone still racing has finished. |
+| Guest drops mid-race | A bot takes over the car (`HostSession.PlayerTakenOver`): the same id, name, colour, race progress and held item, now marked as a bot. The host's `BotCars` carries on from where the car was last seen, at its speed, with its laps (`CheckpointDetector.Resume`). Other phones just see the car carry on. The bot leaves with the others when the lobby reopens. Leaving in the lobby is still just leaving. |
 | Guest rejoins | Lobby only (no joining mid-race); reclaims their championship slot. |
 | App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. |
 | Host leaves | Session ends: "Host left". The host gets a confirmation before leaving. The screen is kept awake during sessions. |
