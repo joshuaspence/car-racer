@@ -69,7 +69,6 @@ namespace CarRacer.Core.Race
             _clockMs = clockMs;
             _fractionToNextCheckpoint = fractionToNextCheckpoint;
             _session.CheckpointReceived += OnCheckpoint;
-            _session.PlayerLeft += OnPlayerLeft;
         }
 
         public RacePhase Phase { get; private set; } = RacePhase.Lobby;
@@ -161,18 +160,6 @@ namespace CarRacer.Core.Race
             _session.RemoveBots();
             _session.ResetReady();
             return true;
-        }
-
-        /// <summary>
-        /// A guest who leaves mid-event is retired (design doc §12; a bot takes over once bots
-        /// exist), so the race can end as soon as everyone still racing has finished.
-        /// </summary>
-        private void OnPlayerLeft(byte playerId, string name)
-        {
-            if (Phase == RacePhase.Countdown || Phase == RacePhase.Racing)
-            {
-                Tracker.Retire(playerId);
-            }
         }
 
         private void OnCheckpoint(CheckpointReachedMessage message)

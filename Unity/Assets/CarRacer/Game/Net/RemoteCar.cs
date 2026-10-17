@@ -28,6 +28,9 @@ namespace CarRacer.Game.Net
         /// <summary>The car's last reported velocity, for bumps.</summary>
         public Vector3 Velocity => _predictor.Velocity.ToUnity();
 
+        /// <summary>The car's last reported heading, in radians.</summary>
+        public float HeadingRadians => _predictor.Latest.HeadingRadians;
+
         public void Initialise(byte playerId, Color colour, Transform visual)
         {
             PlayerId = playerId;

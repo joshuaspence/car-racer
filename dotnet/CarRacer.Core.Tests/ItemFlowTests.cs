@@ -347,10 +347,20 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
-        public void APlayerWhoLeavesLosesTheirItem()
+        public void TheBotTakingOverAPlayerKeepsTheirItem()
         {
             StartRacing();
             Assert.True(_guestItems.ClaimTouchedBox(BoxPositions[0]));
+            var held = _hostItems.Slots.Held(GuestId);
+            _host.OnDisconnected(GuestConnection);
+            Assert.Equal(held, _hostItems.Slots.Held(GuestId));
+            Assert.Equal(held, _hostItems.UseHeldForBot(GuestId, Vec3.Zero, Vec3.Zero, 0f));
+        }
+
+        [Fact]
+        public void APlayerWhoLeavesTheLobbyLosesTheirSlot()
+        {
+            _hostItems.Slots.Give(GuestId, ItemKind.Bomb);
             _host.OnDisconnected(GuestConnection);
             Assert.Equal(ItemKind.None, _hostItems.Slots.Held(GuestId));
         }

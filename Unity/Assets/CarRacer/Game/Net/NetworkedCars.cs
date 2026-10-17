@@ -160,6 +160,28 @@ namespace CarRacer.Game.Net
             }
         }
 
+        /// <summary>
+        /// Host only, when a bot takes over a player who left mid-race (design doc §12): hands over
+        /// where that player's car was last seen, and removes the remote car so the bot's car replaces it.
+        /// </summary>
+        public bool TryTakeOverRemote(byte playerId, out Vector3 position, out float headingRadians, out Vector3 velocity)
+        {
+            if (!_remotes.TryGetValue(playerId, out var remote) || !remote.HasState)
+            {
+                position = default;
+                headingRadians = 0f;
+                velocity = default;
+                return false;
+            }
+
+            position = remote.transform.position;
+            headingRadians = remote.HeadingRadians;
+            velocity = remote.Velocity;
+            Destroy(remote.gameObject);
+            _remotes.Remove(playerId);
+            return true;
+        }
+
         /// <summary>Host only, for item hits: where this phone sees a player's car.</summary>
         private bool TryGetCarPosition(byte playerId, out CarRacer.Core.Numerics.Vec3 position)
         {

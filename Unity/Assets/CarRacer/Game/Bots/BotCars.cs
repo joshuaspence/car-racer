@@ -19,7 +19,9 @@ namespace CarRacer.Game.Bots
     /// physics and walls like anyone's, driven by a <see cref="BotDriver"/>. The host lines it up
     /// on the grid and holds it through the countdown, reports its checkpoints, picks up and uses
     /// its items, bumps it off other phones' cars, applies the item hits aimed at it, and sends its
-    /// state to everyone at 30 Hz with the <see cref="CarStateFlags.BotControlled"/> flag.
+    /// state to everyone at 30 Hz with the <see cref="CarStateFlags.BotControlled"/> flag. A bot
+    /// that takes over a player who left mid-race (design doc §12) carries on from where their car
+    /// was, at its speed and with its laps.
     /// </summary>
     public sealed class BotCars : MonoBehaviour
     {
@@ -300,6 +302,17 @@ namespace CarRacer.Game.Bots
             _phase = phase;
         }
 
+        /// <summary>Puts a bot in a departed player's car: where it was, moving as it was, with its race progress.</summary>
+        private void TakeOver(Bot bot, Vector3 position, float headingRadians, Vector3 velocity)
+        {
+            bot.Car.Place(position, headingRadians);
+            bot.Car.AddImpulse(velocity * bot.Car.GetComponent<Rigidbody>().mass);
+            bot.LastPosition = position;
+            var racer = (_session.Race as HostRace)?.Tracker?.Get(bot.PlayerId);
+            bot.Detector.Resume(racer != null ? racer.CheckpointsPassed : 0);
+            bot.Car.InputLocked = _session.Race.Phase != RacePhase.Racing;
+        }
+
         private void LineUp(Bot bot)
         {
             var grid = _arena.Track.StartGrid(bot.PlayerId + 1)[bot.PlayerId];
@@ -340,8 +353,16 @@ namespace CarRacer.Game.Bots
                     };
                     bot.ShieldRing = ShieldRing.Build(car.transform);
                     car.InputSource = bot;
-                    car.InputLocked = true;
-                    LineUp(bot);
+                    if (_cars.TryTakeOverRemote(player.PlayerId, out var at, out float heading, out var velocity))
+                    {
+                        TakeOver(bot, at, heading, velocity);
+                    }
+                    else
+                    {
+                        car.InputLocked = true;
+                        LineUp(bot);
+                    }
+
                     _bots[player.PlayerId] = bot;
                 }
             }

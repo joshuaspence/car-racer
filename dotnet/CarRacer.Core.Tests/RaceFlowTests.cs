@@ -61,6 +61,18 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void ADetectorCanPickUpPartwayThroughARace()
+        {
+            var detector = new CheckpointDetector(Oval.CheckpointGates());
+            detector.Resume(3);
+            Assert.Equal(3, detector.NextCheckpoint);
+            Assert.Equal(3, detector.CrossingsCount);
+            detector.Resume(Oval.CheckpointCount + 2);
+            Assert.Equal(2, detector.NextCheckpoint);
+            Assert.Equal(1, detector.LapsCompleted);
+        }
+
+        [Fact]
         public void ALapCrossesEveryGateInOrder()
         {
             var detector = new CheckpointDetector(Oval.CheckpointGates());
@@ -373,21 +385,36 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
-        public void AGuestWhoLeavesMidRaceIsRetiredAndTheRaceEndsWithoutWaiting()
+        public void ABotTakesOverAGuestWhoLeavesMidRace()
         {
             _race.Start(laps: 1);
             Advance(HostRace.StartLeadMs + HostRace.CountdownMs);
             Report(1, 0);
             _session.OnDisconnected(7);
-            Assert.True(_race.Tracker.Get(1).Retired);
 
+            // Same player, now a bot, still racing from where they were.
+            var player = _session.Roster.Find(1);
+            Assert.True(player.IsBot);
+            Assert.Equal("Guest", player.Name);
+            Assert.False(_race.Tracker.Get(1).Retired);
+            Assert.Equal(1, _race.Tracker.Get(1).NextCheckpoint);
+
+            // The host reports the bot's checkpoints for the rest of the lap.
+            for (int c = 1; c < Checkpoints; c++)
+            {
+                _race.ReportBotCheckpoint(1, c);
+            }
+
+            _race.ReportBotCheckpoint(1, 0);
+            Assert.Equal(1, _race.Tracker.Get(1).FinishPosition);
             Lap(0);
-            Advance(50); // no 30 s wait for the player who left
+            Advance(50);
             Assert.Equal(RacePhase.Results, _race.Phase);
-            var left = _race.Results.Results.Single(r => r.PlayerId == 1);
-            Assert.True(left.DidNotFinish);
-            Assert.Equal(2, left.Position);
-            Assert.Equal("Guest", left.Name);
+            Assert.Equal("Guest", _race.Results.Results[0].Name);
+
+            // Back in the lobby the bot leaves with the others.
+            Assert.True(_race.ReturnToLobby());
+            Assert.Null(_session.Roster.Find(1));
         }
 
         [Fact]
