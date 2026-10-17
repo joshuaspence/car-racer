@@ -1,0 +1,22 @@
+{
+    "name": "CarRacer.Tests.PlayMode",
+    "rootNamespace": "CarRacer.Tests",
+    "references": [
+        "UnityEngine.TestRunner",
+        "CarRacer.Core",
+        "CarRacer.Game"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -12,7 +12,10 @@ the empty slots. Built with Unity 6.3 LTS and Netcode for GameObjects.
 **PR 1: foundations.** The engine-independent core is implemented and tested: LAN discovery,
 network messages, race rules, car-to-car bump physics, remote-car prediction, spline tracks with
 generated road meshes, and championship scoring. The Unity project skeleton is in place, and a
-temporary on-device screen tests LAN discovery between phones. Driving comes in M1.
+temporary on-device screen tests LAN discovery between phones.
+
+**M1: core loop (in progress).** The arcade car handling, touch/gamepad/keyboard controls and
+chase camera are in. **Drive test** on the start screen puts one car on the sample oval for tuning.
 
 ## Layout
 
