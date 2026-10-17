@@ -187,6 +187,19 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 | **Championship** | A cup of races and arena events with points (§10). |
 | **Practice** | Offline: the host code runs alone with bots. Time trials. |
 
+### 7.0 Arena rules (`SumoRules`, `BattleRules`, `EliminationTracker`, host side)
+
+- **Sumo:** a circular platform, 30 m in radius at the start, holds its size for 20 s, then
+  shrinks steadily to a 10 m radius over 90 s and stays there. A car is out once its centre is past the edge or it
+  has dropped 3 m below the platform. The last car on it wins.
+- **Battle:** a walled bowl 35 m in radius. Everyone starts with 3 lives; each item hit that
+  lands (a Shield still soaks one up) costs a life, and bumps cost nothing. The last car with
+  lives left wins; after 3 minutes the most lives wins. Twelve item boxes: eight halfway out and
+  four round the centre.
+- **Placings:** survivors first (most lives first), then everyone else in reverse order of going
+  out, each with the time they lasted. An event with one player lasts until they are out.
+- **Start:** cars start evenly round a circle at 70% of the arena's radius, facing the centre.
+
 ### 7.1 Race rules (`RaceTracker`, host side)
 
 - Checkpoints are evenly spaced; **checkpoint 0 is the start/finish line** and the **grid sits
