@@ -4,12 +4,17 @@ using UnityEngine;
 namespace CarRacer.Game
 {
     /// <summary>
-    /// Flat-coloured materials and collider-free primitive parts for placeholder geometry. Colours
-    /// are copies of the default primitive material, so they work with whichever render pipeline
-    /// is active and need no shader lookups that a build could strip.
+    /// Flat-coloured materials and collider-free primitive parts for placeholder geometry.
     /// </summary>
     public static class SimpleMaterials
     {
+        /// <summary>
+        /// A cheap lit shader that is always in the build: <c>ProjectConfigurator</c> adds it to the
+        /// always-included shaders. A build only keeps shaders that some asset references, so the
+        /// default primitive material's Standard shader was stripped and everything rendered pink.
+        /// </summary>
+        public const string ShaderName = "Legacy Shaders/Diffuse";
+
         private static readonly Dictionary<Color, Material> Cache = new Dictionary<Color, Material>();
         private static Material _template;
 
@@ -22,9 +27,18 @@ namespace CarRacer.Game
 
             if (_template == null)
             {
-                var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                _template = probe.GetComponent<Renderer>().sharedMaterial;
-                Object.DestroyImmediate(probe);
+                var shader = Shader.Find(ShaderName);
+                if (shader != null)
+                {
+                    _template = new Material(shader);
+                }
+                else
+                {
+                    Debug.LogError($"Shader '{ShaderName}' is missing from the build; falling back to the default material.");
+                    var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    _template = probe.GetComponent<Renderer>().sharedMaterial;
+                    Object.DestroyImmediate(probe);
+                }
             }
 
             material = new Material(_template) { name = "Colour " + ColorUtility.ToHtmlStringRGB(colour), color = colour };
@@ -36,7 +50,14 @@ namespace CarRacer.Game
         public static Transform Part(PrimitiveType type, Transform parent, Vector3 localPosition, Vector3 localScale, Material material)
         {
             var part = GameObject.CreatePrimitive(type);
-            Object.DestroyImmediate(part.GetComponent<Collider>());
+
+            // The collider can be missing if a build strips its class (see link.xml); there's nothing to remove then.
+            var collider = part.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Object.DestroyImmediate(collider);
+            }
+
             part.transform.SetParent(parent, false);
             part.transform.localPosition = localPosition;
             part.transform.localScale = localScale;
