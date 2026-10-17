@@ -293,6 +293,7 @@ namespace CarRacer.Core.Session
                 case ItemBoxTakenMessage _:
                 case ItemUsedMessage _:
                 case HazardGoneMessage _:
+                case ProjectilesMessage _:
                     if (State == GuestState.Joined)
                     {
                         ItemMessageReceived?.Invoke(message);

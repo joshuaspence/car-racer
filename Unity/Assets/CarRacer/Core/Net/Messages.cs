@@ -23,6 +23,7 @@ namespace CarRacer.Core.Net
         ItemBoxTaken = 16,
         ItemUsed = 17,
         HazardGone = 18,
+        Projectiles = 19,
     }
 
     [Flags]
@@ -262,6 +263,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.HazardGone:
                     message = HazardGoneMessage.Read(reader);
+                    break;
+                case MessageType.Projectiles:
+                    message = ProjectilesMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");
