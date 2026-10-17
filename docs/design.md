@@ -41,7 +41,12 @@ bugs and differs between phone makers, and it can't be tested on desktop.
 - Fallback for networks with client isolation: **join by IP**, or scan a **QR code** on the host
   screen that contains `ip:port`. Join by IP is in (`HostAddress`): the host's lobby lists its
   IPv4 addresses, and a guest types one as `ip` or `ip:port`, with the port defaulting to 47778.
-  The QR code is still to come.
+  The QR code is in too (`QrCode`, `JoinLink`). The host's lobby shows a QR code of
+  `carracer://join?host=<first address>&port=<port>` beside the addresses. A guest scans it with
+  the phone's own camera app, which opens the link. The game's Android intent filter (added by
+  `AndroidManifestPostProcessor`) launches or switches to the game, which joins straight away;
+  on a first launch it asks for a name first. The game itself needs no QR scanner. The encoder
+  is byte mode, versions 1–10, and is checked module for module against python-qrcode.
 
 Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test screen.
 
@@ -356,7 +361,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 1. First launch: choose a display name (stored on the device; no accounts).
 2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**.
    Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards + join by IP) and
-   Practice (a free drive). Garage and the QR code come later.
+   Practice (a free drive), and joining from the host's QR code. The garage comes later.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and

@@ -37,6 +37,8 @@ namespace CarRacer.Game.Net
         private const float AddressRefreshSeconds = 3f;
 
         private string _hostAddresses = string.Empty;
+        private string _joinLink;
+        private Texture2D _joinQr;
         private float _nextAddressRefresh;
         private GUIStyle _small;
         private GUIStyle _big;
@@ -126,6 +128,7 @@ namespace CarRacer.Game.Net
                     var addresses = HostAddress.LocalIPv4Addresses();
                     _hostAddresses = addresses.Count > 0 ? "Join by IP: " + string.Join(" or ", addresses) : string.Empty;
                     _nextAddressRefresh = Time.unscaledTime + AddressRefreshSeconds;
+                    UpdateJoinQr(addresses.Count > 0 ? JoinLink.Make(addresses[0], _session.Port) : null);
                 }
 
                 if (_hostAddresses.Length > 0)
@@ -171,6 +174,14 @@ namespace CarRacer.Game.Net
 
             GUILayout.EndVertical();
             GUILayout.EndArea();
+
+            // Scanned with a guest's camera app, the code opens the game straight into joining (design doc §1.1).
+            if (_session.IsHost && _joinQr != null)
+            {
+                var area = new Rect(left + 560f, 100f, 200f, 200f);
+                GUI.DrawTexture(area, _joinQr);
+                GUI.Label(new Rect(area.x, area.yMax + 4f, 240f, 30f), "Scan to join", UiStyle.Hint);
+            }
         }
 
         /// <summary>The host's settings for a single event: mode, laps and track.</summary>
@@ -210,6 +221,34 @@ namespace CarRacer.Game.Net
                     _track = (_track + 1) % TrackCatalog.Count;
                     PlayerPrefs.SetInt(TrackKey, _track);
                 }
+            }
+        }
+
+        private void UpdateJoinQr(string link)
+        {
+            if (link == _joinLink)
+            {
+                return;
+            }
+
+            _joinLink = link;
+            if (_joinQr != null)
+            {
+                Destroy(_joinQr);
+                _joinQr = null;
+            }
+
+            if (link != null)
+            {
+                _joinQr = QrTexture.Build(link);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_joinQr != null)
+            {
+                Destroy(_joinQr);
             }
         }
 

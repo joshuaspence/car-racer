@@ -6,8 +6,9 @@ using UnityEditor.Android;
 namespace CarRacer.Editor
 {
     /// <summary>
-    /// Adds the permissions LAN play needs to the generated Android manifest, so the project
-    /// doesn't need a hand-maintained custom AndroidManifest.xml.
+    /// Adds the permissions LAN play needs to the generated Android manifest, and a filter so
+    /// <c>carracer://join</c> links (the host's QR code, design doc §1.1) open the game, so the
+    /// project doesn't need a hand-maintained custom AndroidManifest.xml.
     /// </summary>
     public sealed class AndroidManifestPostProcessor : IPostGenerateGradleAndroidProject
     {
@@ -46,7 +47,64 @@ namespace CarRacer.Editor
                 manifest.PrependChild(element);
             }
 
+            AddJoinLinkFilter(document);
             document.Save(manifestPath);
+        }
+
+        /// <summary>Lets the launcher activity open <c>carracer://join?…</c> links from the camera app or a browser.</summary>
+        private static void AddJoinLinkFilter(XmlDocument document)
+        {
+            foreach (XmlNode node in document.GetElementsByTagName("activity"))
+            {
+                if (!(node is XmlElement activity) || !HasChild(activity, "category", "android.intent.category.LAUNCHER"))
+                {
+                    continue;
+                }
+
+                if (HasChild(activity, "action", "android.intent.action.VIEW"))
+                {
+                    return;
+                }
+
+                XmlElement filter = document.CreateElement("intent-filter");
+                filter.AppendChild(Named(document, "action", "android.intent.action.VIEW"));
+                filter.AppendChild(Named(document, "category", "android.intent.category.DEFAULT"));
+                filter.AppendChild(Named(document, "category", "android.intent.category.BROWSABLE"));
+                XmlElement data = document.CreateElement("data");
+                SetAndroidAttribute(document, data, "scheme", "carracer");
+                SetAndroidAttribute(document, data, "host", "join");
+                filter.AppendChild(data);
+                activity.AppendChild(filter);
+                return;
+            }
+        }
+
+        private static XmlElement Named(XmlDocument document, string tag, string name)
+        {
+            XmlElement element = document.CreateElement(tag);
+            SetAndroidAttribute(document, element, "name", name);
+            return element;
+        }
+
+        private static void SetAndroidAttribute(XmlDocument document, XmlElement element, string localName, string value)
+        {
+            XmlAttribute attribute = document.CreateAttribute("android", localName, AndroidNamespace);
+            attribute.Value = value;
+            element.Attributes.Append(attribute);
+        }
+
+        /// <summary>Whether <paramref name="activity"/> has an intent filter with a <paramref name="tag"/> named <paramref name="name"/>.</summary>
+        private static bool HasChild(XmlElement activity, string tag, string name)
+        {
+            foreach (XmlNode node in activity.GetElementsByTagName(tag))
+            {
+                if (node is XmlElement e && e.GetAttribute("name", AndroidNamespace) == name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasPermission(XmlElement manifest, string permission)

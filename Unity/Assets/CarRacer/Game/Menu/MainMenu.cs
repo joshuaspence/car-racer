@@ -34,6 +34,9 @@ namespace CarRacer.Game.Menu
         private string _joinMessage = string.Empty;
         private Vector2 _scroll;
 
+        /// <summary>A join link that arrived before the player had a name; joined once they choose one.</summary>
+        public static (string Address, ushort Port)? PendingJoin { get; set; }
+
         private static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
         private void OnEnable()
@@ -125,7 +128,16 @@ namespace CarRacer.Game.Menu
             {
                 _name = LobbyRoster.CleanName(_nameDraft);
                 PlayerPrefs.SetString(NameKey, _name);
-                GoTo(Page.Main);
+                if (PendingJoin.HasValue)
+                {
+                    var join = PendingJoin.Value;
+                    PendingJoin = null;
+                    Bootstrap.JoinGame(_name, join.Address, join.Port);
+                }
+                else
+                {
+                    GoTo(Page.Main);
+                }
             }
 
             GUI.enabled = true;

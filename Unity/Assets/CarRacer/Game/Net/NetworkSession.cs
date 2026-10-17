@@ -49,6 +49,9 @@ namespace CarRacer.Game.Net
         /// <summary>True once the session can't continue (failed to start, refused, or lost the host).</summary>
         public bool Ended { get; private set; }
 
+        /// <summary>The port the host listens on (for the join link in its QR code); 0 for a guest.</summary>
+        public ushort Port { get; private set; }
+
         public event Action<CarStateMessage> CarStateReceived;
 
         /// <summary>A hit addressed to this phone's car: another car's fallback bump, or an item hit from the host.</summary>
@@ -145,6 +148,7 @@ namespace CarRacer.Game.Net
             session.HostSide.CarStateReceived += session.RaiseCarState;
             session.HostSide.HitReceived += session.RaiseHit;
 
+            session.Port = port;
             var transport = session.GetComponent<UnityTransport>();
             transport.SetConnectionData("127.0.0.1", port, "0.0.0.0");
             if (!session._network.StartHost())
