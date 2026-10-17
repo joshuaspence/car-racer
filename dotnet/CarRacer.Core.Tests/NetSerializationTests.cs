@@ -57,7 +57,7 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
-        public void CarStateRoundTripsAndIsCompact()
+        public void CarStateRoundTripsAndIs43Bytes()
         {
             var original = new CarStateMessage
             {
@@ -71,7 +71,8 @@ namespace CarRacer.Core.Tests
             };
 
             byte[] bytes = MessageCodec.Encode(original);
-            Assert.True(bytes.Length <= 48, $"CarState is {bytes.Length} bytes");
+            // type(1) + player(1) + sequence(4) + sentAt(8) + position(12) + velocity(12) + heading(4) + flags(1).
+            Assert.Equal(43, bytes.Length);
 
             var decoded = Assert.IsType<CarStateMessage>(MessageCodec.Decode(bytes));
             Assert.Equal(original.PlayerId, decoded.PlayerId);

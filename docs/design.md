@@ -48,7 +48,7 @@ Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test
 **Each phone controls its own car, and the host is the referee.**
 
 - **Owner-authoritative cars.** Each phone simulates its own car locally with no input lag, and
-  sends `CarStateMessage` (position, velocity, heading, flags, sequence, timestamp; ~34 bytes) at
+  sends `CarStateMessage` (position, velocity, heading, flags, sequence, timestamp; 43 bytes) at
   **30 Hz**. Bots are owned and simulated by the host.
 - **Host-authoritative race state.** The host decides countdown and start time, checkpoint and
   lap validation, finish order, results, item boxes, item rolls, item hits and championship points.
@@ -242,7 +242,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   manual override.
 - Worst-case benchmark: **Pixel 2 XL hosting 6 cars with items**, plus a 20-minute session for
   thermal throttling.
-- Network: 30 Hz × ~34 bytes × 6 cars is under 10 KB/s per phone.
+- Network: 30 Hz × 43 bytes × 6 cars is about 7.7 KB/s per phone, before transport overhead.
 
 ## 15. CI, builds and distribution
 
