@@ -2,7 +2,8 @@
     "name": "CarRacer.Game",
     "rootNamespace": "CarRacer.Game",
     "references": [
-        "CarRacer.Core"
+        "CarRacer.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

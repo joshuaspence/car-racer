@@ -8,8 +8,8 @@ namespace CarRacer.Game.Discovery
 {
     /// <summary>
     /// Temporary PR 1 screen for checking LAN discovery on real phones: one phone taps
-    /// "Host", the others should see it listed within a second or two. Replaced by the real
-    /// lobby UI in M1.
+    /// "Host", the others should see it listed within a second or two. "Drive test" opens the
+    /// car tuning arena. Replaced by the real lobby UI in M1.
     /// </summary>
     public sealed class DiscoveryTestScreen : MonoBehaviour
     {
@@ -110,6 +110,11 @@ namespace CarRacer.Game.Discovery
             {
                 StopHosting();
                 _status = "Stopped hosting";
+            }
+
+            if (GUILayout.Button("Drive test", GUILayout.Width(180f), GUILayout.Height(44f)))
+            {
+                Bootstrap.ShowDriveTest();
             }
 
             GUILayout.EndHorizontal();
