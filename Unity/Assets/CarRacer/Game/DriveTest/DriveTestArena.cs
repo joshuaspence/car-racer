@@ -4,6 +4,7 @@ using CarRacer.Core.Numerics;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.DriveTest
@@ -195,6 +196,11 @@ namespace CarRacer.Game.DriveTest
                 if (GUI.Button(new Rect(width - 420f, 20f, 248f, 52f), label))
                 {
                     _playerInput.AutoAccelerate = !_playerInput.AutoAccelerate;
+                }
+
+                if (GUI.Button(new Rect(width - 600f, 20f, 168f, 52f), Vibration.Enabled ? "Haptics: on" : "Haptics: off"))
+                {
+                    Vibration.Enabled = !Vibration.Enabled;
                 }
             }
         }

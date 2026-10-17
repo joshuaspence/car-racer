@@ -156,7 +156,9 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   steer wins and braking overrides accelerating (`DriverInput`).
 - With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. Each finger keeps
   the control it first landed on until it lifts (`TouchControls`).
-- **Haptics** on hits, boosts and item impacts.
+- **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
+  it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
+  scrape doesn't buzz. They can be turned off, and the choice is remembered.
 
 ## 6. Camera and HUD
 

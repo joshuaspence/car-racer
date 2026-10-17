@@ -36,6 +36,7 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
+            root.AddComponent<CarHaptics>();
             return car;
         }
 
