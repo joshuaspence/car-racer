@@ -1,5 +1,7 @@
+using CarRacer.Game;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace CarRacer.Editor
@@ -42,7 +44,63 @@ namespace CarRacer.Editor
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan, GraphicsDeviceType.OpenGLES3 });
 
             EditorUserBuildSettings.buildAppBundle = false;
+            EnsureAlwaysIncludedShader(SimpleMaterials.ShaderName);
             AssetDatabase.SaveAssets();
+        }
+
+        public const string GraphicsSettingsPath = "ProjectSettings/GraphicsSettings.asset";
+
+        /// <summary>
+        /// Adds a shader to Graphics Settings' always-included shaders. A build keeps only shaders
+        /// that some asset references, so a shader that only code asks for (via Shader.Find) must be
+        /// listed here or it renders pink on the phone.
+        /// </summary>
+        public static void EnsureAlwaysIncludedShader(string shaderName)
+        {
+            if (!TryFindAlwaysIncluded(shaderName, out var settings, out var shaders, out var shader, out int index))
+            {
+                Debug.LogError($"Couldn't add shader '{shaderName}' to the always-included shaders.");
+                return;
+            }
+
+            if (index >= 0)
+            {
+                return;
+            }
+
+            shaders.InsertArrayElementAtIndex(shaders.arraySize);
+            shaders.GetArrayElementAtIndex(shaders.arraySize - 1).objectReferenceValue = shader;
+            settings.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        public static bool IsAlwaysIncluded(string shaderName) =>
+            TryFindAlwaysIncluded(shaderName, out _, out _, out _, out int index) && index >= 0;
+
+        /// <summary>Finds the shader and the always-included list; <paramref name="index"/> is its position in the list, or -1.</summary>
+        private static bool TryFindAlwaysIncluded(string shaderName, out SerializedObject settings, out SerializedProperty shaders, out Shader shader, out int index)
+        {
+            settings = null;
+            shaders = null;
+            index = -1;
+            shader = Shader.Find(shaderName);
+            var assets = AssetDatabase.LoadAllAssetsAtPath(GraphicsSettingsPath);
+            if (shader == null || assets.Length == 0)
+            {
+                return false;
+            }
+
+            settings = new SerializedObject(assets[0]);
+            shaders = settings.FindProperty("m_AlwaysIncludedShaders");
+            for (int i = 0; i < shaders.arraySize; i++)
+            {
+                if (shaders.GetArrayElementAtIndex(i).objectReferenceValue == shader)
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            return true;
         }
     }
 }

@@ -5,7 +5,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "CarRacer.Core",
-        "CarRacer.Game"
+        "CarRacer.Game",
+        "CarRacer.Editor"
     ],
     "includePlatforms": [
         "Editor"
