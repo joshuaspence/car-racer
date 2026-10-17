@@ -184,7 +184,6 @@ namespace CarRacer.Game.DriveTest
                 GUI.Label(new Rect(left, 20f, 600f, 40f), $"{Mathf.Abs(Car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}");
             }
 
-
             if (GUI.Button(new Rect(width - 160f, 20f, 136f, 52f), "Back"))
             {
                 Bootstrap.ShowDiscoveryScreen();
