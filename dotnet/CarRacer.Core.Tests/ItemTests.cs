@@ -155,6 +155,16 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void BoxesAreUpWhateverTheClockReads()
+        {
+            var field = Field();
+            Assert.True(field.IsUp(0, -1_000_000));
+            Assert.Equal(0, field.FindTouched(field.Position(0), long.MinValue + 1));
+            Assert.True(field.TryTake(0, -5000, out long respawnAt));
+            Assert.Equal(-5000 + ItemBoxField.RespawnMs, respawnAt);
+        }
+
+        [Fact]
         public void ResetPutsEveryBoxBack()
         {
             var field = Field();

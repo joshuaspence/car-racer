@@ -17,6 +17,9 @@ namespace CarRacer.Core.Items
 
         public const long RespawnMs = 3000;
 
+        /// <summary>The respawn time of a box that is up: earlier than any clock reading, since clocks may start anywhere.</summary>
+        private const long Up = long.MinValue;
+
         private readonly Vec3[] _positions;
         private readonly long[] _respawnAtMs;
 
@@ -29,6 +32,7 @@ namespace CarRacer.Core.Items
             }
 
             _respawnAtMs = new long[_positions.Length];
+            Reset();
         }
 
         public int Count => _positions.Length;
@@ -88,7 +92,7 @@ namespace CarRacer.Core.Items
         {
             for (int i = 0; i < _respawnAtMs.Length; i++)
             {
-                _respawnAtMs[i] = 0;
+                _respawnAtMs[i] = Up;
             }
         }
     }
