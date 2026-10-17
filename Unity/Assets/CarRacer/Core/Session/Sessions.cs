@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CarRacer.Core.Bots;
 using CarRacer.Core.Net;
 
 namespace CarRacer.Core.Session
@@ -41,6 +42,14 @@ namespace CarRacer.Core.Session
         /// <summary>While true, new guests are refused (no joining mid-event, design doc §12).</summary>
         public bool EventInProgress { get; set; }
 
+        /// <summary>The host's bot fill (design doc §9): bots are added at the start of an event until there are this many cars; 0 for none.</summary>
+        public int BotFill { get; set; }
+
+        public BotDifficulty BotDifficulty { get; set; } = BotDifficulty.Normal;
+
+        /// <summary>An item hit aimed at a bot, which the host drives (see <see cref="SendHit"/>).</summary>
+        public event Action<HitMessage> BotHitReceived;
+
         /// <summary>Raised after anyone joins, leaves or changes Ready.</summary>
         public event Action RosterChanged;
 
@@ -62,6 +71,33 @@ namespace CarRacer.Core.Session
         public IEnumerable<ulong> GuestConnections => _playerByConnection.Keys;
 
         public bool TryGetPlayerId(ulong connection, out byte playerId) => _playerByConnection.TryGetValue(connection, out playerId);
+
+        public bool IsBot(byte playerId) => Roster.Find(playerId)?.IsBot ?? false;
+
+        /// <summary>Adds bots until there are <see cref="BotFill"/> cars (or the session is full), and tells everyone.</summary>
+        public void AddBotsForEvent()
+        {
+            int target = Math.Min(BotFill, LobbyRoster.MaxPlayers);
+            bool added = false;
+            while (Roster.Count < target && Roster.AddBot() != null)
+            {
+                added = true;
+            }
+
+            if (added)
+            {
+                BroadcastRoster();
+            }
+        }
+
+        /// <summary>Removes the bots when the lobby reopens, freeing their places for people.</summary>
+        public void RemoveBots()
+        {
+            if (Roster.RemoveBots() > 0)
+            {
+                BroadcastRoster();
+            }
+        }
 
         public void OnDisconnected(ulong connection)
         {
@@ -158,12 +194,18 @@ namespace CarRacer.Core.Session
             RosterChanged?.Invoke();
         }
 
-        /// <summary>Delivers a hit to its target: the host's own car, or the guest that owns the target car.</summary>
+        /// <summary>Delivers a hit to its target: the host's own car, a bot the host drives, or the guest that owns the target car.</summary>
         public void SendHit(HitMessage hit)
         {
             if (hit.TargetId == HostPlayerId)
             {
                 HitReceived?.Invoke(hit);
+                return;
+            }
+
+            if (IsBot(hit.TargetId))
+            {
+                BotHitReceived?.Invoke(hit);
                 return;
             }
 

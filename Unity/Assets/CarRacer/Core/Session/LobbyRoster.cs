@@ -12,12 +12,13 @@ namespace CarRacer.Core.Session
         public byte ColourIndex;
         public bool Ready;
         public bool IsHost;
+        public bool IsBot;
     }
 
     /// <summary>
     /// The host's list of players (design doc §11). Hands out the lowest free player id, which is
     /// also the grid slot until race rules decide otherwise, and the lowest free car colour, so
-    /// no two players share one. The host is always ready; guests tap Ready.
+    /// no two players share one. The host and bots are always ready; guests tap Ready.
     /// </summary>
     public sealed class LobbyRoster
     {
@@ -33,7 +34,10 @@ namespace CarRacer.Core.Session
         public int Count => _players.Count;
         public bool IsFull => _players.Count >= MaxPlayers;
 
-        /// <summary>True when there is at least one guest and every guest is ready.</summary>
+        /// <summary>Bot names, handed out in order.</summary>
+        public static readonly string[] BotNames = { "Turbo", "Sprocket", "Nitro", "Gizmo", "Blitz", "Zippy" };
+
+        /// <summary>True when there is at least one guest and every guest is ready. Bots don't count.</summary>
         public bool EveryoneReady
         {
             get
@@ -41,7 +45,7 @@ namespace CarRacer.Core.Session
                 bool anyGuest = false;
                 foreach (var p in _players)
                 {
-                    if (!p.IsHost)
+                    if (!p.IsHost && !p.IsBot)
                     {
                         anyGuest = true;
                         if (!p.Ready)
@@ -93,6 +97,24 @@ namespace CarRacer.Core.Session
             return player;
         }
 
+        /// <summary>Adds a bot with the next free bot name, or returns null if the session is full.</summary>
+        public LobbyPlayer AddBot()
+        {
+            var bot = Add(NextBotName());
+            if (bot != null)
+            {
+                bot.IsBot = true;
+                bot.Ready = true;
+            }
+
+            return bot;
+        }
+
+        /// <summary>Removes every bot, returning how many there were.</summary>
+        public int RemoveBots() => _players.RemoveAll(p => p.IsBot);
+
+        public int HumanCount => _players.FindAll(p => !p.IsBot).Count;
+
         public bool Remove(byte playerId) => _players.RemoveAll(p => p.PlayerId == playerId) > 0;
 
         public LobbyPlayer Find(byte playerId) => _players.Find(p => p.PlayerId == playerId);
@@ -100,7 +122,7 @@ namespace CarRacer.Core.Session
         public bool SetReady(byte playerId, bool ready)
         {
             var player = Find(playerId);
-            if (player == null || player.IsHost)
+            if (player == null || player.IsHost || player.IsBot)
             {
                 return false;
             }
@@ -114,7 +136,7 @@ namespace CarRacer.Core.Session
         {
             foreach (var p in _players)
             {
-                p.Ready = p.IsHost;
+                p.Ready = p.IsHost || p.IsBot;
             }
         }
 
@@ -130,6 +152,7 @@ namespace CarRacer.Core.Session
                     ColourIndex = p.ColourIndex,
                     Ready = p.Ready,
                     IsHost = p.IsHost,
+                    IsBot = p.IsBot,
                 });
             }
 
@@ -146,6 +169,19 @@ namespace CarRacer.Core.Session
             }
 
             return trimmed.Length > MaxNameChars ? trimmed.Substring(0, MaxNameChars).TrimEnd() : trimmed;
+        }
+
+        private string NextBotName()
+        {
+            foreach (string name in BotNames)
+            {
+                if (!_players.Exists(p => p.IsBot && p.Name == name))
+                {
+                    return name;
+                }
+            }
+
+            return "Bot";
         }
 
         private byte LowestFree(Func<LobbyPlayer, byte> taken)

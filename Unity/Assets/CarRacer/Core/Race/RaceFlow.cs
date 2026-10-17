@@ -79,7 +79,7 @@ namespace CarRacer.Core.Race
         public RaceResultsMessage Results { get; private set; }
         public RaceTracker Tracker { get; private set; }
 
-        /// <summary>Starts the countdown for everyone in the roster. Returns false outside the lobby.</summary>
+        /// <summary>Starts the countdown for everyone in the roster, after filling the grid with bots. Returns false outside the lobby.</summary>
         public bool Start(int laps)
         {
             if (Phase != RacePhase.Lobby || laps < 1 || laps > byte.MaxValue)
@@ -87,6 +87,7 @@ namespace CarRacer.Core.Race
                 return false;
             }
 
+            _session.AddBotsForEvent();
             var ids = new int[_session.Roster.Count];
             _names.Clear();
             for (int i = 0; i < ids.Length; i++)
@@ -137,6 +138,15 @@ namespace CarRacer.Core.Race
 
         public void ReportOwnCheckpoint(int index) => Report(_session.HostPlayerId, index, _clockMs() - StartAtLocalMs);
 
+        /// <summary>A bot's car (which the host drives) crossed checkpoint <paramref name="index"/>.</summary>
+        public void ReportBotCheckpoint(byte botId, int index)
+        {
+            if (_session.IsBot(botId))
+            {
+                Report(botId, index, _clockMs() - StartAtLocalMs);
+            }
+        }
+
         /// <summary>From the results screen: everyone back to the lobby, Ready cleared, joining reopened.</summary>
         public bool ReturnToLobby()
         {
@@ -148,6 +158,7 @@ namespace CarRacer.Core.Race
             Phase = RacePhase.Lobby;
             _session.EventInProgress = false;
             _session.Broadcast(new ReturnToLobbyMessage(), reliable: true);
+            _session.RemoveBots();
             _session.ResetReady();
             return true;
         }

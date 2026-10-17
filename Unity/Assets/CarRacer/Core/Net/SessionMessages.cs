@@ -59,6 +59,9 @@ namespace CarRacer.Core.Net
         public byte ColourIndex;
         public bool Ready;
         public bool IsHost;
+
+        /// <summary>A car the host drives (design doc §9), shown as "(bot)".</summary>
+        public bool IsBot;
     }
 
     /// <summary>Host → all, whenever anyone joins, leaves or changes: the full player list.</summary>
@@ -78,6 +81,7 @@ namespace CarRacer.Core.Net
                 w.WriteByte(p.ColourIndex);
                 w.WriteBool(p.Ready);
                 w.WriteBool(p.IsHost);
+                w.WriteBool(p.IsBot);
             }
         }
 
@@ -94,6 +98,7 @@ namespace CarRacer.Core.Net
                     ColourIndex = r.ReadByte(),
                     Ready = r.ReadBool(),
                     IsHost = r.ReadBool(),
+                    IsBot = r.ReadBool(),
                 });
             }
 
