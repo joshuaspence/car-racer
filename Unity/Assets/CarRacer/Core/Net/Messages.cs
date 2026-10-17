@@ -10,6 +10,12 @@ namespace CarRacer.Core.Net
         CheckpointReached = 3,
         RaceCountdown = 4,
         PlayerFinished = 5,
+        JoinRequest = 6,
+        JoinReply = 7,
+        Roster = 8,
+        ClockPing = 9,
+        ClockPong = 10,
+        SetReady = 11,
     }
 
     [Flags]
@@ -210,6 +216,24 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.PlayerFinished:
                     message = PlayerFinishedMessage.Read(reader);
+                    break;
+                case MessageType.JoinRequest:
+                    message = JoinRequestMessage.Read(reader);
+                    break;
+                case MessageType.JoinReply:
+                    message = JoinReplyMessage.Read(reader);
+                    break;
+                case MessageType.Roster:
+                    message = RosterMessage.Read(reader);
+                    break;
+                case MessageType.ClockPing:
+                    message = ClockPingMessage.Read(reader);
+                    break;
+                case MessageType.ClockPong:
+                    message = ClockPongMessage.Read(reader);
+                    break;
+                case MessageType.SetReady:
+                    message = SetReadyMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");

@@ -59,7 +59,26 @@ Implemented in `Core/Discovery`. PR 1 ships a temporary on-device discovery test
 - **Race start sync:** the host sends `RaceCountdownMessage` with a start time in its own clock;
   each phone converts it using its estimated clock offset, so "GO" lands at the same moment everywhere.
 
-### 2.1 Car-to-car contact (central to the game)
+### 2.1 Session protocol
+
+NGO and Unity Transport carry the connection, but the game's own messages (`Core/Net`, framed by
+`MessageCodec`) travel as NGO custom messages rather than as NetworkVariables or RPCs. The
+formats stay engine-independent and testable, and nothing needs NGO prefab registration.
+NGO only lets guests talk to the host, so the host relays car states between guests. `HostSession`
+and `GuestSession` (`Core/Session`) implement the protocol below against a small
+`ISessionTransport` interface, so it is unit tested without NGO.
+
+1. **Join:** the guest connects and sends `JoinRequest` (protocol version, name). The host
+   replies with `JoinReply`: accepted with a player id, or refused because the session is full,
+   the version doesn't match, or an event is in progress. A refused guest is then disconnected.
+2. **Roster:** the host keeps a `LobbyRoster` (lowest free player id and colour, and Ready flags)
+   and sends the whole `Roster` to everyone whenever it changes. Guests send `SetReady`.
+3. **Clock:** each guest sends `ClockPing` about once a second, and the host answers with
+   `ClockPong`. `ClockSync` takes the offset from the fastest of the last 16 samples (NTP-style),
+   which converts the host's countdown start time. Half that round trip is the one-way latency
+   that `RemoteCarPredictor` uses.
+
+### 2.2 Car-to-car contact (central to the game)
 
 Contact must feel instant and fair for both drivers, even though no single machine sees both
 cars exactly.
