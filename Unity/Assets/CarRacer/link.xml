@@ -1,0 +1,16 @@
+<!--
+  Keeps engine classes that the code only creates indirectly. GameObject.CreatePrimitive adds a
+  collider matching the shape (BoxCollider for cubes, CapsuleCollider for cylinders and capsules,
+  SphereCollider, MeshCollider for planes), but the build's engine code stripping can't see that,
+  so on Android those classes were stripped and CreatePrimitive logged
+  "Can't add component ... because class CapsuleCollider doesn't exist!".
+  Preserving the managed type also keeps its native class.
+-->
+<linker>
+  <assembly fullname="UnityEngine.PhysicsModule">
+    <type fullname="UnityEngine.BoxCollider" preserve="all" />
+    <type fullname="UnityEngine.CapsuleCollider" preserve="all" />
+    <type fullname="UnityEngine.SphereCollider" preserve="all" />
+    <type fullname="UnityEngine.MeshCollider" preserve="all" />
+  </assembly>
+</linker>

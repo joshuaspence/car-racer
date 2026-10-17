@@ -36,7 +36,14 @@ namespace CarRacer.Game
         public static Transform Part(PrimitiveType type, Transform parent, Vector3 localPosition, Vector3 localScale, Material material)
         {
             var part = GameObject.CreatePrimitive(type);
-            Object.DestroyImmediate(part.GetComponent<Collider>());
+
+            // The collider can be missing if a build strips its class (see link.xml); there's nothing to remove then.
+            var collider = part.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Object.DestroyImmediate(collider);
+            }
+
             part.transform.SetParent(parent, false);
             part.transform.localPosition = localPosition;
             part.transform.localScale = localScale;
