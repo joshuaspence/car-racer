@@ -199,6 +199,11 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - **Placings:** survivors first (most lives first), then everyone else in reverse order of going
   out, each with the time they lasted. An event with one player lasts until they are out.
 - **Start:** cars start evenly round a circle at 70% of the arena's radius, facing the centre.
+- **Referee** (`HostRace` in Sumo or Battle mode): the countdown carries the mode. In Sumo the host
+  checks every car it can see against the platform each tick; in Battle the game reports each
+  spin-out (`ReportSpinOut`), which costs a life, so a hit the Shield soaks up costs nothing.
+  Standings reuse the race message: `LapsCompleted` carries lives and `FinishPosition` a place
+  once out. Results carry how long each player lasted as the race time.
 
 ### 7.1 Race rules (`RaceTracker`, host side)
 

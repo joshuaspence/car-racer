@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using CarRacer.Core.Arena;
+using CarRacer.Core.Items;
 using CarRacer.Core.Net;
+using CarRacer.Core.Numerics;
 using CarRacer.Core.Session;
 
 namespace CarRacer.Core.Race
@@ -18,6 +21,9 @@ namespace CarRacer.Core.Race
     {
         RacePhase Phase { get; }
         int LapCount { get; }
+
+        /// <summary>Race, Sumo or Battle; set by each countdown.</summary>
+        GameMode Mode { get; }
 
         /// <summary>When the race starts (or started), in this phone's clock.</summary>
         long StartAtLocalMs { get; }
@@ -39,6 +45,12 @@ namespace CarRacer.Core.Race
     /// The host's race referee (design doc §2, §7.1): starts a synced countdown, validates every
     /// player's checkpoints with a <see cref="RaceTracker"/>, announces finishers, broadcasts
     /// standings, ends the race when everyone is home or 30 s after the winner, and reopens the lobby.
+    /// In Sumo and Battle (§7.0) it referees with an <see cref="EliminationTracker"/> instead: in
+    /// Sumo it puts out any car off the shrinking platform, in Battle each spin-out costs a life,
+    /// and the event ends when at most one car is left (or Battle's time runs out). Arena standings
+    /// carry each player's lives in <see cref="StandingsEntry.LapsCompleted"/> and, once they are
+    /// out, their place in <see cref="StandingsEntry.FinishPosition"/>; results carry how long each
+    /// lasted as the race time.
     /// </summary>
     public sealed class HostRace : IRaceView
     {
@@ -57,17 +69,20 @@ namespace CarRacer.Core.Race
         private readonly int _checkpointCount;
         private readonly Func<long> _clockMs;
         private readonly Func<int, float> _fractionToNextCheckpoint;
+        private readonly CarPositionLookup _carPositions;
         private readonly Dictionary<int, string> _names = new Dictionary<int, string>();
         private long _firstFinishMs = -1;
         private long _nextStandingsMs;
 
         /// <param name="fractionToNextCheckpoint">How far (0..1) a player's car is towards its next checkpoint, from track geometry.</param>
-        public HostRace(HostSession session, int checkpointCount, Func<long> clockMs, Func<int, float> fractionToNextCheckpoint)
+        /// <param name="carPositions">Where the host sees each car, for Sumo's platform edge; not needed for races.</param>
+        public HostRace(HostSession session, int checkpointCount, Func<long> clockMs, Func<int, float> fractionToNextCheckpoint, CarPositionLookup carPositions = null)
         {
             _session = session;
             _checkpointCount = checkpointCount;
             _clockMs = clockMs;
             _fractionToNextCheckpoint = fractionToNextCheckpoint;
+            _carPositions = carPositions;
             _session.CheckpointReceived += OnCheckpoint;
         }
 
@@ -76,10 +91,16 @@ namespace CarRacer.Core.Race
         public long StartAtLocalMs { get; private set; }
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
+        public GameMode Mode { get; private set; }
+
+        /// <summary>The race referee; null in arena modes.</summary>
         public RaceTracker Tracker { get; private set; }
 
+        /// <summary>The arena referee; null in races.</summary>
+        public EliminationTracker Arena { get; private set; }
+
         /// <summary>Starts the countdown for everyone in the roster, after filling the grid with bots. Returns false outside the lobby.</summary>
-        public bool Start(int laps)
+        public bool Start(int laps, GameMode mode = GameMode.Race)
         {
             if (Phase != RacePhase.Lobby || laps < 1 || laps > byte.MaxValue)
             {
@@ -96,7 +117,9 @@ namespace CarRacer.Core.Race
                 _names[player.PlayerId] = player.Name;
             }
 
-            Tracker = new RaceTracker(_checkpointCount, laps, ids);
+            Mode = mode;
+            Tracker = mode == GameMode.Race ? new RaceTracker(_checkpointCount, laps, ids) : null;
+            Arena = mode == GameMode.Race ? null : new EliminationTracker(ids, mode == GameMode.Battle ? BattleRules.StartingLives : 1);
             LapCount = laps;
             StartAtLocalMs = _clockMs() + StartLeadMs + CountdownMs;
             Standings = null;
@@ -105,7 +128,7 @@ namespace CarRacer.Core.Race
             _nextStandingsMs = StartAtLocalMs;
             _session.EventInProgress = true;
             Phase = RacePhase.Countdown;
-            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps }, reliable: true);
+            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode }, reliable: true);
             return true;
         }
 
@@ -119,6 +142,12 @@ namespace CarRacer.Core.Race
 
             if (Phase != RacePhase.Racing)
             {
+                return;
+            }
+
+            if (Mode != GameMode.Race)
+            {
+                TickArena(now);
                 return;
             }
 
@@ -136,6 +165,21 @@ namespace CarRacer.Core.Race
         }
 
         public void ReportOwnCheckpoint(int index) => Report(_session.HostPlayerId, index, _clockMs() - StartAtLocalMs);
+
+        /// <summary>Battle: a player's car spun out (an item hit that a shield didn't stop), which costs a life.</summary>
+        public void ReportSpinOut(byte playerId)
+        {
+            if (Phase != RacePhase.Racing || Mode != GameMode.Battle)
+            {
+                return;
+            }
+
+            Arena.LoseLife(playerId, _clockMs() - StartAtLocalMs);
+            SendStandingsNow();
+        }
+
+        /// <summary>Sumo's platform radius now (design doc §7.0).</summary>
+        public float PlatformRadius => SumoRules.PlatformRadius(Math.Max(0, _clockMs() - StartAtLocalMs) / 1000f);
 
         /// <summary>A bot's car (which the host drives) crossed checkpoint <paramref name="index"/>.</summary>
         public void ReportBotCheckpoint(byte botId, int index)
@@ -155,6 +199,7 @@ namespace CarRacer.Core.Race
             }
 
             Phase = RacePhase.Lobby;
+            Arena = null;
             _session.EventInProgress = false;
             _session.Broadcast(new ReturnToLobbyMessage(), reliable: true);
             _session.RemoveBots();
@@ -169,9 +214,62 @@ namespace CarRacer.Core.Race
             Report(message.PlayerId, message.CheckpointIndex, Math.Max(0, Math.Min(message.RaceTimeMs, elapsed)));
         }
 
+        private void TickArena(long now)
+        {
+            long elapsed = now - StartAtLocalMs;
+            if (Mode == GameMode.Sumo && _carPositions != null)
+            {
+                float radius = PlatformRadius;
+                foreach (int id in Arena.PlayerIds)
+                {
+                    if (!Arena.IsOut(id) && _carPositions((byte)id, out Vec3 position) && SumoRules.IsOut(position, ArenaLayout.Centre, radius))
+                    {
+                        Arena.Eliminate(id, elapsed);
+                        SendStandingsNow();
+                    }
+                }
+            }
+
+            if (now >= _nextStandingsMs)
+            {
+                SendStandingsNow();
+            }
+
+            if (Arena.IsOver || (Mode == GameMode.Battle && elapsed >= BattleRules.TimeLimitMs))
+            {
+                EndArena(elapsed);
+            }
+        }
+
+        private void SendStandingsNow()
+        {
+            _nextStandingsMs = _clockMs() + StandingsIntervalMs;
+            Standings = BuildStandings();
+            _session.Broadcast(Standings, reliable: false);
+        }
+
+        private void EndArena(long elapsed)
+        {
+            Results = new RaceResultsMessage();
+            foreach (var placing in Arena.Placings(elapsed))
+            {
+                Results.Results.Add(new RaceResultEntry
+                {
+                    PlayerId = (byte)placing.PlayerId,
+                    Name = _names.TryGetValue(placing.PlayerId, out string name) ? name : string.Empty,
+                    Position = (byte)placing.Position,
+                    RaceTimeMs = placing.SurvivedMs,
+                });
+            }
+
+            Standings = BuildStandings();
+            Phase = RacePhase.Results;
+            _session.Broadcast(Results, reliable: true);
+        }
+
         private void Report(byte playerId, int index, long raceTimeMs)
         {
-            if (Phase != RacePhase.Racing)
+            if (Phase != RacePhase.Racing || Mode != GameMode.Race)
             {
                 return;
             }
@@ -215,6 +313,21 @@ namespace CarRacer.Core.Race
         private StandingsMessage BuildStandings()
         {
             var message = new StandingsMessage();
+            if (Arena != null)
+            {
+                foreach (var placing in Arena.Placings(_clockMs() - StartAtLocalMs))
+                {
+                    message.Order.Add(new StandingsEntry
+                    {
+                        PlayerId = (byte)placing.PlayerId,
+                        LapsCompleted = (byte)Arena.Lives(placing.PlayerId),
+                        FinishPosition = Arena.IsOut(placing.PlayerId) ? (byte)placing.Position : (byte)0,
+                    });
+                }
+
+                return message;
+            }
+
             foreach (int id in Tracker.ComputeStandings(_fractionToNextCheckpoint))
             {
                 var racer = Tracker.Get(id);
@@ -245,6 +358,7 @@ namespace CarRacer.Core.Race
 
         public RacePhase Phase { get; private set; } = RacePhase.Lobby;
         public int LapCount { get; private set; }
+        public GameMode Mode { get; private set; }
         public long StartAtLocalMs { get; private set; }
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
@@ -279,6 +393,7 @@ namespace CarRacer.Core.Race
                 case RaceCountdownMessage countdown:
                     Phase = RacePhase.Countdown;
                     LapCount = countdown.LapCount;
+                    Mode = countdown.Mode;
                     StartAtLocalMs = _session.Clock.ToLocalTime(countdown.StartAtHostMs);
                     Standings = null;
                     Results = null;
