@@ -19,6 +19,8 @@ namespace CarRacer.Game.Discovery
         private readonly AndroidMulticastLock _multicastLock = new AndroidMulticastLock();
         private DiscoveryListener _listener;
         private string _playerName;
+        private string _joinAddress = string.Empty;
+        private string _joinError = string.Empty;
         private string _status = string.Empty;
         private Vector2 _scroll;
 
@@ -27,6 +29,7 @@ namespace CarRacer.Game.Discovery
         private void OnEnable()
         {
             _playerName = PlayerPrefs.GetString("playerName", SystemInfo.deviceModel);
+            _joinAddress = PlayerPrefs.GetString("joinAddress", string.Empty);
             _multicastLock.Acquire();
             try
             {
@@ -87,6 +90,28 @@ namespace CarRacer.Game.Discovery
             }
 
             GUILayout.EndHorizontal();
+
+            // For networks that block discovery: type the address shown in the host's lobby.
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Join by IP:", GUILayout.Width(130f));
+            _joinAddress = GUILayout.TextField(_joinAddress ?? string.Empty, 21, GUILayout.Width(280f), GUILayout.Height(44f));
+            if (GUILayout.Button("Join", GUILayout.Width(120f), GUILayout.Height(44f)))
+            {
+                if (HostAddress.TryParse(_joinAddress, out string address, out ushort port))
+                {
+                    SaveName();
+                    PlayerPrefs.SetString("joinAddress", _joinAddress.Trim());
+                    Bootstrap.JoinGame(_playerName, address, port);
+                }
+                else
+                {
+                    _joinError = "Type the address shown on the host's screen, like 192.168.1.23";
+                }
+            }
+
+            GUILayout.Label(_joinError);
+            GUILayout.EndHorizontal();
+
             GUILayout.Space(16f);
             GUILayout.Label($"Games found: {_hosts.Hosts.Count}");
 

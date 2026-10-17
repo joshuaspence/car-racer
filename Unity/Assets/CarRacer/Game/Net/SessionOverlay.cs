@@ -1,3 +1,4 @@
+using CarRacer.Core.Discovery;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Game.Driving;
@@ -18,6 +19,7 @@ namespace CarRacer.Game.Net
         private NetworkSession _session;
         private NetworkedCars _cars;
         private int _laps = 3;
+        private string _hostAddresses;
         private GUIStyle _small;
         private GUIStyle _big;
 
@@ -78,6 +80,16 @@ namespace CarRacer.Game.Net
             y += 12f;
             if (_session.IsHost)
             {
+                // For guests whose network blocks discovery (design doc §1.1).
+                if (_hostAddresses == null)
+                {
+                    var addresses = HostAddress.LocalIPv4Addresses();
+                    _hostAddresses = addresses.Count > 0 ? "Join by IP: " + string.Join(" or ", addresses) : string.Empty;
+                }
+
+                GUI.Label(new Rect(left, y, 700f, 26f), _hostAddresses, _small);
+                y += 34f;
+
                 var host = (HostRace)_session.Race;
                 GUI.Label(new Rect(left, y + 8f, 80f, 30f), $"Laps: {_laps}", _small);
                 if (GUI.Button(new Rect(left + 90f, y, 52f, 44f), "-"))
