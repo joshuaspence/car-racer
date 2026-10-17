@@ -18,6 +18,9 @@ namespace CarRacer.Core.Driving
 
         /// <summary>The use-item control was pressed this frame (a fresh tap or key press, not a hold).</summary>
         public bool UseItem;
+
+        /// <summary>The rear-view glance is held (design doc §6).</summary>
+        public bool LookBack;
     }
 
     /// <summary>Merges every device's controls into the single <see cref="CarInput"/> the car model takes.</summary>

@@ -159,7 +159,7 @@ namespace CarRacer.Game.DriveTest
             }
 
             var car = _arena.Car;
-            HudIndicators.Rivals(car.BodyPosition.ToCore(), car.State.Heading, _rivalPositions, _arrows);
+            HudIndicators.Rivals(car.BodyPosition.ToCore(), ViewHeading(), _rivalPositions, _arrows);
             foreach (var arrow in _arrows)
             {
                 DrawArrow(arrow.Bearing, Mathf.Lerp(ArrowMin, ArrowMax, arrow.Closeness), _rivalColours[arrow.Index], width);
@@ -183,12 +183,15 @@ namespace CarRacer.Game.DriveTest
             }
 
             bool lit = Mathf.Repeat(Time.unscaledTime * 4f, 1f) < 0.6f;
-            DrawArrow(HudIndicators.Bearing(position, car.State.Heading, missile.Position), ArrowMax, MissileColour, width);
+            DrawArrow(HudIndicators.Bearing(position, ViewHeading(), missile.Position), ArrowMax, MissileColour, width);
             if (lit)
             {
                 Warn(new Rect(0f, 140f, width, 80f), "Missile!", MissileColour);
             }
         }
+
+        /// <summary>The way the camera faces: the car's heading, or the opposite during the rear-view glance, so arrows match the screen.</summary>
+        private float ViewHeading() => _arena.Car.State.Heading + (_arena.CameraRig.LookingBack ? Mathf.PI : 0f);
 
         private void DrawArrow(float bearing, float size, Color colour, float width)
         {

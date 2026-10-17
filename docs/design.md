@@ -158,8 +158,9 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - **Auto-accelerate on by default** (settings toggle).
 - **Tilt steering** is optional in settings.
 - **Gamepad support** through the Input System: left stick steers, A or the right trigger
-  accelerates, B or the left trigger brakes, either shoulder drifts, Y or X uses the item. The
-  keyboard (arrows/WASD, Space to drift, E to use the item) works too, for testing in the editor.
+  accelerates, B or the left trigger brakes, either shoulder drifts, Y or X uses the item, and
+  clicking the left stick looks back. The keyboard (arrows/WASD, Space to drift, E to use the
+  item, Q to look back) works too, for testing in the editor.
   All devices work at once; the strongest steer wins and braking overrides accelerating
   (`DriverInput`).
 - With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. A steering thumb
@@ -168,6 +169,8 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   button, so slipping off doesn't let go (`TouchControls`).
 - In a race an **Item** button, labelled with the item held, sits above Brake. Only a finger that
   lands on it uses the item, once per tap; a finger sliding across it never does.
+- On a track a **Look back** button sits in the top-left corner, below the HUD's text. Like Item,
+  only a finger that lands on it presses it, and it holds until that finger lifts.
 - **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.
@@ -180,7 +183,9 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
     off straight ahead, growing to full size at 4 m. Hidden in arenas, whose camera shows everyone.
   - An **incoming-missile warning**: a flashing "Missile!" and a red arrow towards it while a
     Missile chasing you is within 80 m. The host's projectile updates say whom each Missile chases.
-  - A **rear-view glance** button.
+  - A **rear-view glance**: while Look back is held, the camera cuts to the chase framing turned
+    round, in front of the car looking back past it (`ChaseCameraRig.RearView`), and cuts back on
+    release. The edge arrows follow the way the camera faces.
 - **Arenas:** high angled overhead camera following your car, so everyone is visible
   (`OverheadCameraRig`: 30 m up and 20 m back, never turning, its focus pulled a third of the way
   towards the arena's centre). The arena HUD shows your lives (Battle) or your place once out,

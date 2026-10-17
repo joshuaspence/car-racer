@@ -78,6 +78,21 @@ namespace CarRacer.Core.Driving
             return state;
         }
 
+        /// <summary>
+        /// The rear-view glance (design doc §6): <paramref name="chase"/>'s framing turned round, in
+        /// front of the car and looking back past it, square to the car rather than trailing it. It
+        /// isn't smoothed, so the view cuts there and back; keep stepping the chase camera meanwhile.
+        /// </summary>
+        public static ChaseCameraState RearView(ChaseCameraState chase, Vec3 target, float targetHeading, float speed, ChaseCameraSettings settings)
+        {
+            float t = settings.TopSpeed > 0f ? Math.Max(0f, Math.Min(1f, Math.Abs(speed) / settings.TopSpeed)) : 0f;
+            var forward = new Vec3(MathF.Sin(targetHeading), 0f, MathF.Cos(targetHeading));
+            chase.Position = target + forward * Lerp(settings.Distance, settings.DistanceAtTopSpeed, t) + Vec3.Up * Lerp(settings.Height, settings.HeightAtTopSpeed, t);
+            chase.LookAt = target - forward * settings.LookAhead + Vec3.Up * settings.LookHeight;
+            chase.Heading = WrapAngle(targetHeading + MathF.PI);
+            return chase;
+        }
+
         /// <summary>Fraction of the remaining gap closed in <paramref name="dt"/> seconds.</summary>
         private static float Blend(float sharpness, float dt) => 1f - MathF.Exp(-sharpness * dt);
 

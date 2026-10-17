@@ -26,6 +26,12 @@ namespace CarRacer.Game.Driving
 
         /// <summary>Whether the Item button is on screen (in a race); while it isn't, its spot takes no fingers.</summary>
         public bool ShowItem { get; set; }
+
+        /// <summary>Whether the Look back button is on screen (with the chase camera); while it isn't, its spot takes no fingers.</summary>
+        public bool ShowLookBack { get; set; }
+
+        /// <summary>The rear-view glance is held: the Look back button, Q, or a gamepad's left stick click.</summary>
+        public bool LookingBack { get; private set; }
         public TouchControlLayout Layout { get; private set; }
 
         public bool AutoAccelerate
@@ -62,10 +68,11 @@ namespace CarRacer.Game.Driving
             }
 
             ReadTouches(_touches);
-            var touch = _touchControls.Update(_touches, Layout, showGas: !_autoAccelerate, showItem: ShowItem);
+            var touch = _touchControls.Update(_touches, Layout, showGas: !_autoAccelerate, showItem: ShowItem, showLookBack: ShowLookBack);
             var devices = ReadDevices();
             _current = DriverInput.Combine(touch, devices, _autoAccelerate);
             _itemPressed |= touch.UseItem || devices.UseItem;
+            LookingBack = touch.LookBack || devices.LookBack;
         }
 
 #if ENABLE_INPUT_SYSTEM
@@ -107,9 +114,11 @@ namespace CarRacer.Game.Driving
                 controls.Brake = keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed ? 1f : 0f;
                 controls.Drift = keyboard.spaceKey.isPressed || keyboard.leftShiftKey.isPressed;
                 controls.UseItem = keyboard.eKey.wasPressedThisFrame || keyboard.leftCtrlKey.wasPressedThisFrame;
+                controls.LookBack = keyboard.qKey.isPressed;
             }
 
-            // Left stick steers; A or the right trigger accelerates; B or the left trigger brakes; either shoulder drifts; Y or X uses the item.
+            // Left stick steers; A or the right trigger accelerates; B or the left trigger brakes; either shoulder drifts; Y or X uses the item;
+            // clicking the left stick looks back.
             var pad = Gamepad.current;
             if (pad != null)
             {
@@ -123,6 +132,7 @@ namespace CarRacer.Game.Driving
                 controls.Brake = Mathf.Max(controls.Brake, Mathf.Max(pad.leftTrigger.ReadValue(), pad.buttonEast.isPressed ? 1f : 0f));
                 controls.Drift |= pad.rightShoulder.isPressed || pad.leftShoulder.isPressed;
                 controls.UseItem |= pad.buttonNorth.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame;
+                controls.LookBack |= pad.leftStickButton.isPressed;
             }
 
             return controls;
@@ -151,6 +161,7 @@ namespace CarRacer.Game.Driving
                 Brake = Mathf.Max(0f, -Input.GetAxisRaw("Vertical")),
                 Drift = Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.JoystickButton5) || Input.GetKey(KeyCode.JoystickButton4),
                 UseItem = Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.JoystickButton3) || Input.GetKeyDown(KeyCode.JoystickButton2),
+                LookBack = Input.GetKey(KeyCode.Q) || Input.GetKey(KeyCode.JoystickButton8),
             };
         }
 #endif
