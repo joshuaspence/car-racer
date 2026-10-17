@@ -56,7 +56,8 @@ namespace CarRacer.Core.Physics
             Vec3 normal = (self.Position - other.Position).Flattened;
             if (normal.LengthSquared < 1e-8f)
             {
-                // Coincident centres: push apart along the relative velocity, or a fixed axis.
+                // Coincident centres: push apart along the relative velocity. If that is also zero
+                // there is no contact direction both phones would agree on, so apply nothing.
                 normal = (self.Velocity - other.Velocity).Flattened;
                 if (normal.LengthSquared < 1e-8f)
                 {
