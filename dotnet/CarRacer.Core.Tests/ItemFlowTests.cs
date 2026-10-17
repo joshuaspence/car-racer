@@ -43,17 +43,18 @@ namespace CarRacer.Core.Tests
 
             var flying = new ProjectilesMessage();
             flying.Projectiles.Add(new ProjectileSnapshot { EffectId = 5, Kind = ItemKind.Bomb, Position = new Vec3(1f, 2f, 3f) });
-            flying.Projectiles.Add(new ProjectileSnapshot { EffectId = 6, Kind = ItemKind.Missile, Position = new Vec3(-1f, 0f, 9f) });
+            flying.Projectiles.Add(new ProjectileSnapshot { EffectId = 6, Kind = ItemKind.Missile, Position = new Vec3(-1f, 0f, 9f), TargetId = 3 });
             var decoded = Assert.IsType<ProjectilesMessage>(MessageCodec.Decode(MessageCodec.Encode(flying)));
             Assert.Equal(2, decoded.Projectiles.Count);
             Assert.Equal(ItemKind.Bomb, decoded.Projectiles[0].Kind);
             Assert.Equal(new Vec3(-1f, 0f, 9f), decoded.Projectiles[1].Position);
+            Assert.Equal(3, decoded.Projectiles[1].TargetId);
         }
     }
 
     public class ItemFlowTests
     {
-        private const ushort Version = 12;
+        private const ushort Version = 13;
         private const ulong GuestConnection = 7;
         private const long GuestClockBehindMs = 1_000_000;
 
@@ -537,6 +538,10 @@ namespace CarRacer.Core.Tests
             _cars[leader] = new Vec3(10f, 0.6f, 30f);
             GiveAndUse(second, ItemKind.Missile, _cars[second]);
             Assert.Single(_hostItems.Projectiles);
+
+            // The guest learns whom it chases, for the target's warning.
+            Advance(100);
+            Assert.Equal(leader, Assert.Single(_guestItems.Projectiles).TargetId);
 
             Advance(2000);
             var hits = leader == _host.HostPlayerId ? _hostHits : _guestHits;
