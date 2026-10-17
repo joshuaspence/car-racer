@@ -1,0 +1,102 @@
+using System;
+using CarRacer.Core.Numerics;
+
+namespace CarRacer.Core.Driving
+{
+    /// <summary>Chase camera framing (design doc §6). Distances in metres, field of view in degrees.</summary>
+    [Serializable]
+    public sealed class ChaseCameraSettings
+    {
+        public float Distance = 6.5f;
+        public float DistanceAtTopSpeed = 8f;
+        public float Height = 2.6f;
+        public float HeightAtTopSpeed = 3.2f;
+
+        /// <summary>The camera looks at a point this high above the car, this far ahead of it.</summary>
+        public float LookHeight = 1f;
+        public float LookAhead = 3f;
+
+        public float FieldOfView = 60f;
+        public float FieldOfViewAtTopSpeed = 72f;
+
+        /// <summary>Speed at which the "at top speed" values apply fully; boosting goes no further.</summary>
+        public float TopSpeed = 26f;
+
+        /// <summary>How quickly the camera swings round behind the car (per second). Higher is stiffer.</summary>
+        public float HeadingSharpness = 5f;
+
+        /// <summary>How quickly the camera catches up with where it should be (per second).</summary>
+        public float PositionSharpness = 10f;
+
+        public float FieldOfViewSharpness = 3f;
+    }
+
+    public struct ChaseCameraState
+    {
+        public Vec3 Position;
+        public Vec3 LookAt;
+        public float FieldOfView;
+
+        /// <summary>The direction the camera is chasing, which trails the car's heading in corners.</summary>
+        public float Heading;
+
+        public bool Initialised;
+    }
+
+    /// <summary>
+    /// A camera that sits behind the car, swings round after it in corners, and rises, pulls back
+    /// and widens its field of view as the car speeds up. All smoothing is exponential, so it
+    /// behaves the same at 30 and 120 fps.
+    /// </summary>
+    public static class ChaseCameraRig
+    {
+        public static ChaseCameraState Step(ChaseCameraState state, Vec3 target, float targetHeading, float speed, float deltaSeconds, ChaseCameraSettings settings)
+        {
+            float t = settings.TopSpeed > 0f ? Math.Max(0f, Math.Min(1f, Math.Abs(speed) / settings.TopSpeed)) : 0f;
+            float distance = Lerp(settings.Distance, settings.DistanceAtTopSpeed, t);
+            float height = Lerp(settings.Height, settings.HeightAtTopSpeed, t);
+            float fov = Lerp(settings.FieldOfView, settings.FieldOfViewAtTopSpeed, t);
+
+            if (!state.Initialised)
+            {
+                state.Heading = targetHeading;
+                state.FieldOfView = fov;
+            }
+            else
+            {
+                state.Heading = WrapAngle(state.Heading + WrapAngle(targetHeading - state.Heading) * Blend(settings.HeadingSharpness, deltaSeconds));
+                state.FieldOfView = Lerp(state.FieldOfView, fov, Blend(settings.FieldOfViewSharpness, deltaSeconds));
+            }
+
+            var forward = new Vec3(MathF.Sin(state.Heading), 0f, MathF.Cos(state.Heading));
+            Vec3 desired = target - forward * distance + Vec3.Up * height;
+            state.Position = state.Initialised
+                ? Vec3.Lerp(state.Position, desired, Blend(settings.PositionSharpness, deltaSeconds))
+                : desired;
+            state.LookAt = target + forward * settings.LookAhead + Vec3.Up * settings.LookHeight;
+            state.Initialised = true;
+            return state;
+        }
+
+        /// <summary>Fraction of the remaining gap closed in <paramref name="dt"/> seconds.</summary>
+        private static float Blend(float sharpness, float dt) => 1f - MathF.Exp(-sharpness * dt);
+
+        private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+        private static float WrapAngle(float radians)
+        {
+            const float twoPi = 2f * MathF.PI;
+            radians %= twoPi;
+            if (radians > MathF.PI)
+            {
+                radians -= twoPi;
+            }
+            else if (radians < -MathF.PI)
+            {
+                radians += twoPi;
+            }
+
+            return radians;
+        }
+    }
+}
