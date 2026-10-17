@@ -34,7 +34,8 @@ namespace CarRacer.Game
             ShowMainMenu();
         }
 
-        public static void ShowMainMenu()
+        /// <summary>Shows the main menu, with <paramref name="notice"/> (e.g. why a session ended) under the title.</summary>
+        public static void ShowMainMenu(string notice = null)
         {
             var root = new GameObject(nameof(MainMenu));
             var camera = new GameObject("Main Camera").AddComponent<Camera>();
@@ -42,7 +43,7 @@ namespace CarRacer.Game
             camera.tag = "MainCamera";
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = UiStyle.Background;
-            root.AddComponent<MainMenu>();
+            root.AddComponent<MainMenu>().Notice = notice;
             Show(root);
         }
 
