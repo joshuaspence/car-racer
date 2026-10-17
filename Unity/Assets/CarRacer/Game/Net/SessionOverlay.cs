@@ -55,8 +55,17 @@ namespace CarRacer.Game.Net
             }
         }
 
+        /// <summary>A session that has ended (host gone, connection lost) shows why, then goes back to the menu after this long.</summary>
+        public const float EndedReturnSeconds = 4f;
+
         private void Update()
         {
+            if (_session != null && _session.Ended && Time.realtimeSinceStartup - _session.EndedAt >= EndedReturnSeconds)
+            {
+                Bootstrap.ShowMainMenu(_session.Status);
+                return;
+            }
+
             if (_session != null && !_session.Ended && _session.Race != null)
             {
                 _cup.Tick();
@@ -77,6 +86,13 @@ namespace CarRacer.Game.Net
             _big = _big ?? new GUIStyle(GUI.skin.label) { fontSize = 96, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
             GUI.Label(new Rect(left, 64f, 700f, 30f), _session.Status, _small);
+            if (_session.Ended || _session.Reconnecting)
+            {
+                // Design doc §12: "Reconnecting…" while the host is quiet; why it ended, before going back to the menu.
+                var banner = new GUIStyle(_big) { fontSize = 56 };
+                GUI.Label(new Rect(0f, 260f, width, 80f), _session.Ended ? _session.Status : "Reconnecting…", banner);
+            }
+
             bool joined = _session.TryGetLocalPlayerId(out byte me);
             if (_session.Ended || !joined || _session.Race == null)
             {

@@ -274,6 +274,16 @@ namespace CarRacer.Core.Session
         private readonly ushort _protocolVersion;
         private long _nextPingMs;
         private int _pingsSent;
+        private long _lastHeardMs;
+
+        /// <summary>
+        /// Once joined, the host is heard from many times a second (its car, clock replies). After
+        /// this long without a word the guest shows "Reconnecting…" (design doc §12)…
+        /// </summary>
+        public const long ReconnectingAfterMs = 1500;
+
+        /// <summary>…and after this long it gives up and goes back to the menu.</summary>
+        public const long GiveUpAfterMs = 10_000;
 
         public GuestSession(ISessionTransport transport, string playerName, ushort protocolVersion, Func<long> clockMs)
         {
@@ -305,11 +315,22 @@ namespace CarRacer.Core.Session
         /// <summary>Call once the transport has connected to the host.</summary>
         public void OnConnected()
         {
+            _lastHeardMs = _clockMs();
             _transport.Send(HostConnection, new JoinRequestMessage { ProtocolVersion = _protocolVersion, PlayerName = LobbyRoster.CleanName(_playerName) }, reliable: true);
         }
 
+        /// <summary>Joined, but nothing from the host for <see cref="ReconnectingAfterMs"/>: the Wi-Fi may have dropped.</summary>
+        public bool HostQuiet => State == GuestState.Joined && _clockMs() - _lastHeardMs >= ReconnectingAfterMs;
+
+        /// <summary>Joined, but nothing from the host for <see cref="GiveUpAfterMs"/>: time to give up.</summary>
+        public bool HostLost => State == GuestState.Joined && _clockMs() - _lastHeardMs >= GiveUpAfterMs;
+
+        /// <summary>The app is back from the background: time spent there doesn't count as the host going quiet.</summary>
+        public void ForgiveSilence() => _lastHeardMs = _clockMs();
+
         public void OnMessage(IGameMessage message)
         {
+            _lastHeardMs = _clockMs();
             switch (message)
             {
                 case JoinReplyMessage reply when State == GuestState.Connecting:
