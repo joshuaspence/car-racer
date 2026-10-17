@@ -143,10 +143,6 @@ namespace CarRacer.Core.Race
         }
 
         /// <summary>
-        /// Ends the race (e.g. when the post-finish timer expires): everyone still running is
-        /// given the next finishing positions in their current race order and marked DNF.
-        /// </summary>
-        /// <summary>
         /// Takes a racer out of the race (they left the session). Returns false if they had already
         /// finished or retired, or aren't in this race.
         /// </summary>
@@ -161,6 +157,10 @@ namespace CarRacer.Core.Race
             return true;
         }
 
+        /// <summary>
+        /// Ends the race (e.g. when the post-finish timer expires): everyone still running is
+        /// given the next finishing positions in their current race order and marked DNF.
+        /// </summary>
         public void FinishRemaining(Func<int, float> fractionToNextCheckpoint, long raceTimeMs)
         {
             foreach (int id in ComputeStandings(fractionToNextCheckpoint))
