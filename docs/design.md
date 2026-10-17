@@ -297,6 +297,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   / fill to 6, with Easy / Normal / Hard beside it; both are remembered.
 - Behaviour: follow the racing line generated from track data, avoid walls, ram nearby
   rivals, use items opportunistically. In arenas, chase opponents and avoid edges.
+- **Arena driving** (`ArenaBotDriver`): a bot hunts the nearest rival (in Sumo it aims 1.5 m past
+  them on the side away from the centre, so the hit pushes them out) or, alone, circles the
+  middle. Within 3 m plus 0.5 s of travel of the edge it turns for the centre, lifting off if
+  heading outwards.
+  Its top speed is capped at 0.6 m/s per metre of arena radius, so it slows as the platform shrinks.
 - Difficulty scales top speed, line accuracy and item timing, with optional catch-up.
 - A guest who disconnects mid-race is **taken over by a bot** (shown as "(bot)").
 - **Driving** (`BotDriver`): a bot chases a point on the track 6 m plus 0.45 s of travel ahead,
