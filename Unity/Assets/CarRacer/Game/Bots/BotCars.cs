@@ -346,7 +346,6 @@ namespace CarRacer.Game.Bots
             _phase = phase;
         }
 
-        /// <summary>Puts a bot in a departed player's car: where it was, moving as it was, with its race progress.</summary>
         /// <summary>
         /// A guest whose car a bot drove while their app was away is back (design doc §12): the bot
         /// goes, and the guest is told where the car got to and how many checkpoints it has crossed.
@@ -371,6 +370,7 @@ namespace CarRacer.Game.Bots
             _bots.Remove(playerId);
         }
 
+        /// <summary>Puts a bot in a departed player's car: where it was, moving as it was, with its race progress.</summary>
         private void TakeOver(Bot bot, Vector3 position, float headingRadians, Vector3 velocity)
         {
             bot.Car.Place(position, headingRadians);
