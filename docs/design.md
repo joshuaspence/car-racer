@@ -221,6 +221,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | Victim phone | Applies spin-out and knock-back when the host's hit arrives (`HitMessage` with `IsItemHit`), through the same force path as bumps. |
 | Self-only items | Boost and Shield apply **locally at once**; the host is told afterwards. |
 
+- **Messages** (`HostItems`, `GuestItems`): the owner sends `ItemBoxClaim` and hides the box at once;
+  the host answers everyone with `ItemBoxTaken` (who, which item, respawn time in the host's clock).
+  The owner sends `ItemUsed` and shows the effect at once; the host checks the player held that
+  item, stamps the time and relays it to everyone. A claim the host never answers stops blocking
+  new claims after 1 s. A new race puts every box back and empties every slot.
 - **One item slot.** A player holding an item drives through boxes without taking them, leaving them
   for others (`ItemSlots`).
 - **Boxes** (`ItemBoxField`): rows from the track definition, four across the road. A car's owner
