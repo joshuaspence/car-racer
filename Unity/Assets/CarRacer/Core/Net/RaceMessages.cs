@@ -45,6 +45,9 @@ namespace CarRacer.Core.Net
     public struct RaceResultEntry
     {
         public byte PlayerId;
+
+        /// <summary>The name at the start of the race, so a player who has since left still shows by name.</summary>
+        public string Name;
         public byte Position;
         public long RaceTimeMs;
         public bool DidNotFinish;
@@ -63,6 +66,7 @@ namespace CarRacer.Core.Net
             foreach (var e in Results)
             {
                 w.WriteByte(e.PlayerId);
+                w.WriteString(e.Name);
                 w.WriteByte(e.Position);
                 w.WriteLong(e.RaceTimeMs);
                 w.WriteBool(e.DidNotFinish);
@@ -78,6 +82,7 @@ namespace CarRacer.Core.Net
                 message.Results.Add(new RaceResultEntry
                 {
                     PlayerId = r.ReadByte(),
+                    Name = r.ReadString(),
                     Position = r.ReadByte(),
                     RaceTimeMs = r.ReadLong(),
                     DidNotFinish = r.ReadBool(),

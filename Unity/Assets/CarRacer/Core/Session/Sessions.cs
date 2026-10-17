@@ -50,6 +50,9 @@ namespace CarRacer.Core.Session
         /// <summary>A joined guest reported a checkpoint for its own car (see <c>HostRace</c>).</summary>
         public event Action<CheckpointReachedMessage> CheckpointReceived;
 
+        /// <summary>A joined guest left (disconnected), with the name they had. Raised before the roster updates.</summary>
+        public event Action<byte, string> PlayerLeft;
+
         /// <summary>A guest's car bumped the host's car (fallback hit, see <c>BumpMonitor</c>).</summary>
         public event Action<HitMessage> HitReceived;
 
@@ -62,6 +65,7 @@ namespace CarRacer.Core.Session
             if (_playerByConnection.TryGetValue(connection, out byte playerId))
             {
                 _playerByConnection.Remove(connection);
+                PlayerLeft?.Invoke(playerId, Roster.Find(playerId)?.Name ?? string.Empty);
                 Roster.Remove(playerId);
                 BroadcastRoster();
             }
