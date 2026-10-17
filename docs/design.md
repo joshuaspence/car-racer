@@ -372,7 +372,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | Guest rejoins | Lobby only (no joining mid-race); reclaims their championship slot. |
 | App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. |
 | Host leaves | Session ends: "Host left". The host gets a confirmation before leaving. The screen is kept awake during sessions. |
-| Wi-Fi drops | "Reconnecting…" until the NGO timeout (~5–10 s), then back to the menu. |
+| Wi-Fi drops | "Reconnecting…" until the NGO timeout (~5–10 s), then back to the menu. Built: a guest that hasn't heard from the host for 1.5 s shows "Reconnecting…" (`GuestSession.HostQuiet`). After 10 s it gives up (`HostLost`), shows why, and is back at the main menu 4 s later with the reason under the title. The transport's own timeout stays long so a guest can come back from the background (row above), and time in the background doesn't count as silence. The same 4 s return applies whenever a session ends ("The host left"). |
 
 ## 13. Tracks, arenas and art
 
