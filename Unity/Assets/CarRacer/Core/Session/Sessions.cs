@@ -23,6 +23,8 @@ namespace CarRacer.Core.Session
     /// </summary>
     public sealed class HostSession
     {
+        private readonly Dictionary<byte, long> _lastHeardMs = new Dictionary<byte, long>();
+        private readonly HashSet<byte> _away = new HashSet<byte>();
         private readonly ISessionTransport _transport;
         private readonly Func<long> _clockMs;
         private readonly ushort _protocolVersion;
@@ -68,6 +70,16 @@ namespace CarRacer.Core.Session
         /// </summary>
         public event Action<byte> PlayerTakenOver;
 
+        /// <summary>
+        /// A guest whose car a bot took over while they were away (their app in the background,
+        /// design doc §12) is back: they're a player again and get their car back. The game sends
+        /// them where it got to with <see cref="SendControlReturned"/>.
+        /// </summary>
+        public event Action<byte> PlayerReturned;
+
+        /// <summary>A guest silent this long during an event (app in the background) is taken over by a bot until they're heard from again.</summary>
+        public const long AwayAfterMs = 10_000;
+
         /// <summary>A guest's car bumped the host's car (fallback hit, see <c>BumpMonitor</c>).</summary>
         public event Action<HitMessage> HitReceived;
 
@@ -99,9 +111,68 @@ namespace CarRacer.Core.Session
         /// <summary>Removes the bots when the lobby reopens, freeing their places for people.</summary>
         public void RemoveBots()
         {
+            // A guest still away when the event ends is a player again in the lobby, not one of the bots.
+            foreach (byte playerId in _away)
+            {
+                var player = Roster.Find(playerId);
+                if (player != null)
+                {
+                    player.IsBot = false;
+                    player.Ready = false;
+                }
+            }
+
+            _away.Clear();
             if (Roster.RemoveBots() > 0)
             {
                 BroadcastRoster();
+            }
+        }
+
+        /// <summary>Call every frame on the host: a guest silent for <see cref="AwayAfterMs"/> during an event is taken over by a bot.</summary>
+        public void Tick()
+        {
+            if (!EventInProgress)
+            {
+                return;
+            }
+
+            long now = _clockMs();
+            bool changed = false;
+            foreach (byte playerId in _playerByConnection.Values)
+            {
+                var player = Roster.Find(playerId);
+                if (player == null || player.IsBot || _away.Contains(playerId) || !_lastHeardMs.TryGetValue(playerId, out long heard) || now - heard < AwayAfterMs)
+                {
+                    continue;
+                }
+
+                // The car carries on under a bot until the guest is back (OnMessage), like a takeover.
+                _away.Add(playerId);
+                player.IsBot = true;
+                PlayerTakenOver?.Invoke(playerId);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                BroadcastRoster();
+            }
+        }
+
+        /// <summary>Whether <paramref name="playerId"/> is a guest away from the game, their car driven by a bot.</summary>
+        public bool IsAway(byte playerId) => _away.Contains(playerId);
+
+        /// <summary>Tells a returning guest where their car got to under the bot, so they carry on from there.</summary>
+        public void SendControlReturned(ControlReturnedMessage message)
+        {
+            foreach (var pair in _playerByConnection)
+            {
+                if (pair.Value == message.PlayerId)
+                {
+                    _transport.Send(pair.Key, message, reliable: true);
+                    return;
+                }
             }
         }
 
@@ -110,13 +181,20 @@ namespace CarRacer.Core.Session
             if (_playerByConnection.TryGetValue(connection, out byte playerId))
             {
                 _playerByConnection.Remove(connection);
+                _lastHeardMs.Remove(playerId);
+
+                // Gone for good: an away player's bot keeps the car for the rest of the event.
+                bool wasAway = _away.Remove(playerId);
                 var player = Roster.Find(playerId);
                 if (EventInProgress && player != null)
                 {
                     // A bot takes the car over for the rest of the event, and leaves with the other bots.
                     player.IsBot = true;
                     player.Ready = true;
-                    PlayerTakenOver?.Invoke(playerId);
+                    if (!wasAway)
+                    {
+                        PlayerTakenOver?.Invoke(playerId);
+                    }
                 }
                 else
                 {
@@ -131,6 +209,15 @@ namespace CarRacer.Core.Session
         public void OnMessage(ulong connection, IGameMessage message)
         {
             bool joined = _playerByConnection.TryGetValue(connection, out byte playerId);
+            if (joined)
+            {
+                _lastHeardMs[playerId] = _clockMs();
+                if (_away.Remove(playerId))
+                {
+                    Return(playerId);
+                }
+            }
+
             switch (message)
             {
                 case JoinRequestMessage join when !joined:
@@ -202,7 +289,21 @@ namespace CarRacer.Core.Session
 
             var player = Roster.Add(join.PlayerName);
             _playerByConnection[connection] = player.PlayerId;
+            _lastHeardMs[player.PlayerId] = _clockMs();
             _transport.Send(connection, new JoinReplyMessage { Result = JoinResult.Accepted, PlayerId = player.PlayerId }, reliable: true);
+            BroadcastRoster();
+        }
+
+        private void Return(byte playerId)
+        {
+            var player = Roster.Find(playerId);
+            if (player == null)
+            {
+                return;
+            }
+
+            player.IsBot = false;
+            PlayerReturned?.Invoke(playerId);
             BroadcastRoster();
         }
 
@@ -302,6 +403,9 @@ namespace CarRacer.Core.Session
         /// <summary>Item boxes taken and items used, from the host (see <c>GuestItems</c>).</summary>
         public event Action<IGameMessage> ItemMessageReceived;
 
+        /// <summary>The host has handed this phone's car back after a bot drove it while the app was away (design doc §12).</summary>
+        public event Action<ControlReturnedMessage> ControlReturned;
+
         /// <summary>Call once the transport has connected to the host.</summary>
         public void OnConnected()
         {
@@ -338,6 +442,9 @@ namespace CarRacer.Core.Session
                     break;
                 case HitMessage hit when State == GuestState.Joined && hit.TargetId == PlayerId:
                     HitReceived?.Invoke(hit);
+                    break;
+                case ControlReturnedMessage returned when State == GuestState.Joined && returned.PlayerId == PlayerId:
+                    ControlReturned?.Invoke(returned);
                     break;
                 case RaceCountdownMessage _:
                 case StandingsMessage _:

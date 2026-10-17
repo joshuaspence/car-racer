@@ -11,7 +11,7 @@ namespace CarRacer.Core.Tests
 {
     public class CupRunTests
     {
-        private const ushort Version = 11;
+        private const ushort Version = 12;
         private const ulong GuestConnection = 7;
 
         /// <summary>Three Battles: quick to end, by spinning the guest out three times.</summary>

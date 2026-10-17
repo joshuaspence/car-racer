@@ -79,6 +79,7 @@ namespace CarRacer.Game.Bots
             _session = session;
             _cars = cars;
             _session.HostSide.BotHitReceived += OnBotHit;
+            _session.HostSide.PlayerReturned += OnPlayerReturned;
         }
 
         private void OnDestroy()
@@ -86,6 +87,7 @@ namespace CarRacer.Game.Bots
             if (_session != null && _session.HostSide != null)
             {
                 _session.HostSide.BotHitReceived -= OnBotHit;
+                _session.HostSide.PlayerReturned -= OnPlayerReturned;
             }
         }
 
@@ -345,6 +347,30 @@ namespace CarRacer.Game.Bots
         }
 
         /// <summary>Puts a bot in a departed player's car: where it was, moving as it was, with its race progress.</summary>
+        /// <summary>
+        /// A guest whose car a bot drove while their app was away is back (design doc §12): the bot
+        /// goes, and the guest is told where the car got to and how many checkpoints it has crossed.
+        /// </summary>
+        private void OnPlayerReturned(byte playerId)
+        {
+            if (!_bots.TryGetValue(playerId, out var bot))
+            {
+                return;
+            }
+
+            var racer = (_session.Race as HostRace)?.Tracker?.Get(playerId);
+            _session.HostSide.SendControlReturned(new ControlReturnedMessage
+            {
+                PlayerId = playerId,
+                Position = bot.Car.BodyPosition.ToCore(),
+                Velocity = bot.Car.BodyVelocity.ToCore(),
+                HeadingRadians = bot.Car.State.Heading,
+                CheckpointsPassed = (ushort)(racer != null ? racer.CheckpointsPassed : 0),
+            });
+            Destroy(bot.Car.gameObject);
+            _bots.Remove(playerId);
+        }
+
         private void TakeOver(Bot bot, Vector3 position, float headingRadians, Vector3 velocity)
         {
             bot.Car.Place(position, headingRadians);

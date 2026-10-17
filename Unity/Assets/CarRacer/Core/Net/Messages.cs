@@ -26,6 +26,7 @@ namespace CarRacer.Core.Net
         HazardGone = 18,
         Projectiles = 19,
         CupStandings = 20,
+        ControlReturned = 21,
     }
 
     [Flags]
@@ -299,6 +300,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.CupStandings:
                     message = CupStandingsMessage.Read(reader);
+                    break;
+                case MessageType.ControlReturned:
+                    message = ControlReturnedMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");

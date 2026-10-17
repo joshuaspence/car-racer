@@ -304,6 +304,7 @@ namespace CarRacer.Game.Net
         {
             long now = NowMs;
             GuestSide?.Tick();
+            HostSide?.Tick();
             if (!Ended)
             {
                 Race?.Tick();
