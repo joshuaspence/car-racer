@@ -73,11 +73,21 @@ namespace CarRacer.Tests
             yield return new WaitForSeconds(1.5f);
             Assert.That(Car.ForwardSpeed, Is.GreaterThan(10f));
 
+            // Hold the brake until the car stops (holding it longer would start reversing).
+            float startSpeed = Car.ForwardSpeed;
+            float startTime = Time.fixedTime;
             _input.Input = new CarInput(0f, -1f);
-            yield return new WaitForSeconds(0.5f);
+            while (Car.ForwardSpeed > 0.5f && Time.fixedTime - startTime < 3f)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+
             _input.Input = default;
-            yield return new WaitForSeconds(0.5f);
-            Assert.That(Car.ForwardSpeed, Is.EqualTo(0f).Within(1f));
+            float expected = startSpeed / Car.Tuning.Braking;
+            Assert.That(Time.fixedTime - startTime, Is.LessThan(expected + 0.2f), $"braking from {startSpeed:0.0} m/s");
+
+            yield return new WaitForSeconds(0.3f);
+            Assert.That(Car.ForwardSpeed, Is.EqualTo(0f).Within(0.5f));
         }
 
         [UnityTest]
