@@ -221,6 +221,15 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | Victim phone | Applies spin-out and knock-back when the host's hit arrives (`HitMessage` with `IsItemHit`), through the same force path as bumps. |
 | Self-only items | Boost and Shield apply **locally at once**; the host is told afterwards. |
 
+- **One item slot.** A player holding an item drives through boxes without taking them, leaving them
+  for others (`ItemSlots`).
+- **Boxes** (`ItemBoxField`): rows from the track definition, four across the road. A car's owner
+  notices it has touched a box (centres within 1.6 m) and claims it; the host grants the first
+  claim on a box that is still up and tells everyone. A taken box comes back after 3 s.
+- **Catch-up rolls** (`ItemRoll`): the odds are interpolated between a leader's table (mostly
+  Shield and Oil slick, never a Missile) and last place's (mostly Boost, Missile and Shockwave,
+  never Oil) by how far back the player is. A lone racer rolls from the mid-pack odds.
+
 ## 9. Bots
 
 - The host chooses bot fill (**off / up to 4 / up to 6**) and **difficulty** in the lobby.
