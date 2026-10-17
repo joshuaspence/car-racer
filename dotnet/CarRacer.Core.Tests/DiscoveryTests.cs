@@ -166,3 +166,30 @@ namespace CarRacer.Core.Tests
         }
     }
 }
+
+namespace CarRacer.Core.Tests
+{
+    public class HostStatusTests
+    {
+        private static DiscoveredHost Host(ushort version = DiscoveryConstants.ProtocolVersion, byte players = 1, HostSessionState state = HostSessionState.Lobby) => new DiscoveredHost
+        {
+            Announcement = new DiscoveryAnnouncement { ProtocolVersion = version, PlayerCount = players, MaxPlayers = 6, State = state },
+        };
+
+        [Fact]
+        public void StatusExplainsWhyAGameCantBeJoined()
+        {
+            Assert.Equal("Open", Host().StatusText);
+            Assert.Equal("Full", Host(players: 6).StatusText);
+            Assert.Equal("Racing", Host(state: HostSessionState.InEvent).StatusText);
+            Assert.Equal("Update this app to join", Host(version: DiscoveryConstants.ProtocolVersion + 1).StatusText);
+            Assert.Equal("Host needs updating", Host(version: DiscoveryConstants.ProtocolVersion - 1).StatusText);
+        }
+
+        [Fact]
+        public void VersionTrumpsTheOtherReasons()
+        {
+            Assert.Equal("Update this app to join", Host(version: DiscoveryConstants.ProtocolVersion + 1, players: 6, state: HostSessionState.InEvent).StatusText);
+        }
+    }
+}
