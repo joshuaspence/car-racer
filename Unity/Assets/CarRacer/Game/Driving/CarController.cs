@@ -89,6 +89,12 @@ namespace CarRacer.Game.Driving
             Pushed?.Invoke(impulse);
         }
 
+        /// <summary>Starts a boost (the Boost item) of <paramref name="speed"/> extra top speed for <paramref name="seconds"/>.</summary>
+        public void Boost(float speed, float seconds)
+        {
+            _state = CarModel.Boost(_state, speed, seconds);
+        }
+
         private void Respawn()
         {
             _pendingImpulse = Vector3.zero;

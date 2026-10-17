@@ -1,5 +1,6 @@
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
+using CarRacer.Game.Items;
 using UnityEngine;
 
 namespace CarRacer.Game.Net
@@ -18,6 +19,7 @@ namespace CarRacer.Game.Net
         private Transform _visual;
         private float _headingDegrees;
         private float _driftYaw;
+        private Transform _shieldRing;
 
         public byte PlayerId { get; private set; }
         public Color Colour { get; private set; }
@@ -32,6 +34,7 @@ namespace CarRacer.Game.Net
             Colour = colour;
             _visual = visual;
             _visual.gameObject.SetActive(false);
+            _shieldRing = ShieldRing.Build(transform);
         }
 
         public void OnState(CarStateMessage state, long nowMs, float latencyMs)
@@ -66,6 +69,7 @@ namespace CarRacer.Game.Net
                 targetDrift = -Mathf.Sign(Vector3.Dot(latest.Velocity.ToUnity(), right)) * DriftVisualYawDegrees;
             }
 
+            ShieldRing.Show(_shieldRing, (latest.Flags & CarStateFlags.Shielded) != 0);
             _driftYaw = Mathf.Lerp(_driftYaw, targetDrift, blend);
             _visual.rotation = Quaternion.Euler(0f, _headingDegrees + _driftYaw, 0f);
         }

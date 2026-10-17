@@ -153,13 +153,16 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - **Auto-accelerate on by default** (settings toggle).
 - **Tilt steering** is optional in settings.
 - **Gamepad support** through the Input System: left stick steers, A or the right trigger
-  accelerates, B or the left trigger brakes, either shoulder drifts. The keyboard (arrows/WASD,
-  Space to drift) works too, for testing in the editor. All devices work at once; the strongest
-  steer wins and braking overrides accelerating (`DriverInput`).
+  accelerates, B or the left trigger brakes, either shoulder drifts, Y or X uses the item. The
+  keyboard (arrows/WASD, Space to drift, E to use the item) works too, for testing in the editor.
+  All devices work at once; the strongest steer wins and braking overrides accelerating
+  (`DriverInput`).
 - With auto-accelerate off, a **Gas** button joins Drift and Brake on the right. A steering thumb
   keeps steering until it lifts. Any other finger presses whichever button it is over (the nearest,
   where reaches overlap), so a thumb can rock from Brake to Gas; over empty screen it keeps its last
   button, so slipping off doesn't let go (`TouchControls`).
+- In a race an **Item** button, labelled with the item held, sits above Brake. Only a finger that
+  lands on it uses the item, once per tap; a finger sliding across it never does.
 - **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.
@@ -226,6 +229,9 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   The owner sends `ItemUsed` and shows the effect at once; the host checks the player held that
   item, stamps the time and relays it to everyone. A claim the host never answers stops blocking
   new claims after 1 s. A new race puts every box back and empties every slot.
+- **Boost** adds 12 m/s of top speed for 1.8 s, a little more than a top-tier drift boost, through
+  the same path (`CarModel.Boost`). **Shield** lasts 8 s and soaks up the first item hit (`Shield`);
+  other phones see it from the `Shielded` car-state flag, as a cyan ring.
 - **One item slot.** A player holding an item drives through boxes without taking them, leaving them
   for others (`ItemSlots`).
 - **Boxes** (`ItemBoxField`): rows from the track definition, four across the road. A car's owner

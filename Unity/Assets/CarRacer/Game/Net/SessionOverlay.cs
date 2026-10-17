@@ -1,4 +1,5 @@
 using CarRacer.Core.Discovery;
+using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Game.Driving;
@@ -181,6 +182,14 @@ namespace CarRacer.Game.Net
             var style = new GUIStyle(_small) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
             GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), position, style);
             GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), $"Lap {lap} / {race.LapCount}", style);
+
+            // The item slot, top centre (design doc §6).
+            var held = _session.Items?.Held ?? ItemKind.None;
+            var slot = new Rect(width / 2f - 110f, 16f, 220f, 56f);
+            GUI.Box(slot, GUIContent.none, UiStyle.Panel);
+            var slotStyle = new GUIStyle(style) { alignment = TextAnchor.MiddleCenter };
+            slotStyle.normal.textColor = held == ItemKind.None ? UiStyle.Muted : UiStyle.Accent;
+            GUI.Label(slot, held == ItemKind.None ? "—" : ItemNames.Label(held), slotStyle);
         }
 
         private void DrawResults(IRaceView race, float width, byte me)
