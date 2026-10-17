@@ -3,6 +3,7 @@ using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
+using CarRacer.Game.Bots;
 using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Items;
@@ -31,6 +32,7 @@ namespace CarRacer.Game.Net
         private readonly List<Bump> _bumps = new List<Bump>();
         private readonly Shield _shield = new Shield();
         private Transform _shieldRing;
+        private BotCars _botCars;
         private DriveTestArena _arena;
         private NetworkSession _session;
         private CheckpointDetector _detector;
@@ -58,6 +60,11 @@ namespace CarRacer.Game.Net
             gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
             gameObject.AddComponent<ItemEffectViews>().Initialise(_session.Items);
             gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
+            if (session.IsHost)
+            {
+                _botCars = gameObject.AddComponent<BotCars>();
+                _botCars.Initialise(arena, session, this);
+            }
         }
 
         private void OnDestroy()
@@ -165,6 +172,12 @@ namespace CarRacer.Game.Net
             if (_remotes.TryGetValue(playerId, out var remote) && remote.HasState)
             {
                 position = remote.transform.position.ToCore();
+                return true;
+            }
+
+            if (_botCars != null && _botCars.TryGetPosition(playerId, out var bot))
+            {
+                position = bot.ToCore();
                 return true;
             }
 
@@ -300,7 +313,7 @@ namespace CarRacer.Game.Net
             {
                 position = remote.transform.position;
             }
-            else
+            else if (_botCars == null || !_botCars.TryGetPosition((byte)playerId, out position))
             {
                 return 0f;
             }
@@ -329,6 +342,10 @@ namespace CarRacer.Game.Net
                         _arena.SpawnLocalCar(player.PlayerId, CarColours.ForIndex(player.ColourIndex));
                         _spawned = true;
                     }
+                }
+                else if (_session.IsHost && player.IsBot)
+                {
+                    // The host drives its bots itself (BotCars); they aren't remote cars here.
                 }
                 else if (!_remotes.ContainsKey(player.PlayerId))
                 {

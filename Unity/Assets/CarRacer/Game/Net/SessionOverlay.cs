@@ -1,3 +1,4 @@
+using CarRacer.Core.Bots;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
@@ -16,6 +17,11 @@ namespace CarRacer.Game.Net
     public sealed class SessionOverlay : MonoBehaviour
     {
         public const int MaxLaps = 9;
+        public const string BotFillKey = "botFill";
+        public const string BotDifficultyKey = "botDifficulty";
+
+        /// <summary>The bot fill choices (design doc §9): off, or fill the grid to 4 or 6 cars.</summary>
+        private static readonly int[] BotFills = { 0, 4, 6 };
 
         private NetworkSession _session;
         private NetworkedCars _cars;
@@ -32,6 +38,11 @@ namespace CarRacer.Game.Net
         {
             _session = session;
             _cars = cars;
+            if (session.IsHost)
+            {
+                session.HostSide.BotFill = PlayerPrefs.GetInt(BotFillKey, 0);
+                session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
+            }
         }
 
         private void OnGUI()
@@ -77,7 +88,7 @@ namespace CarRacer.Game.Net
             GUILayout.Label("Lobby", UiStyle.Heading);
             foreach (var player in _session.Players)
             {
-                string state = player.IsHost ? "host" : player.Ready ? "ready" : "not ready";
+                string state = player.IsHost ? "host" : player.IsBot ? "bot" : player.Ready ? "ready" : "not ready";
                 string you = player.PlayerId == me ? " (you)" : string.Empty;
                 GUILayout.BeginHorizontal();
                 var swatch = GUILayoutUtility.GetRect(22f, 22f, GUILayout.Width(22f), GUILayout.Height(34f));
@@ -117,6 +128,7 @@ namespace CarRacer.Game.Net
                 }
 
                 GUILayout.EndHorizontal();
+                DrawBotSettings();
 
                 // The host decides (design doc §11); alone, it's a practice race.
                 bool canStart = _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
@@ -141,6 +153,30 @@ namespace CarRacer.Game.Net
 
             GUILayout.EndVertical();
             GUILayout.EndArea();
+        }
+
+        /// <summary>The host's bot fill and difficulty (design doc §9), remembered between sessions.</summary>
+        private void DrawBotSettings()
+        {
+            var host = _session.HostSide;
+            GUILayout.BeginHorizontal();
+            string fill = host.BotFill == 0 ? "Bots: off" : $"Bots: fill to {host.BotFill}";
+            if (GUILayout.Button(fill, UiStyle.Button, GUILayout.Width(250f)))
+            {
+                int next = (System.Array.IndexOf(BotFills, host.BotFill) + 1) % BotFills.Length;
+                host.BotFill = BotFills[next];
+                PlayerPrefs.SetInt(BotFillKey, host.BotFill);
+            }
+
+            GUI.enabled = host.BotFill > 0;
+            if (GUILayout.Button(host.BotDifficulty.ToString(), UiStyle.Button))
+            {
+                host.BotDifficulty = (BotDifficulty)(((int)host.BotDifficulty + 1) % 3);
+                PlayerPrefs.SetInt(BotDifficultyKey, (int)host.BotDifficulty);
+            }
+
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
         }
 
         private void DrawRace(IRaceView race, float width, byte me)
@@ -205,7 +241,7 @@ namespace CarRacer.Game.Net
                 bool stillHere = TryFind(r.PlayerId, out var player);
                 Swatch(x, y, stillHere ? player.ColourIndex : r.PlayerId);
                 string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
-                string tag = r.PlayerId == me ? " (you)" : stillHere ? string.Empty : " (left)";
+                string tag = r.PlayerId == me ? " (you)" : !stillHere ? " (left)" : player.IsBot ? " (bot)" : string.Empty;
                 GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", _small);
                 GUI.Label(new Rect(x + 400f, y, 120f, 30f), time, _small);
                 y += 32f;
