@@ -161,11 +161,11 @@ namespace CarRacer.Game.Net
             y += 44f;
             foreach (var r in results.Results)
             {
-                var player = Find(r.PlayerId);
-                Swatch(x, y, player.ColourIndex);
+                bool stillHere = TryFind(r.PlayerId, out var player);
+                Swatch(x, y, stillHere ? player.ColourIndex : r.PlayerId);
                 string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
-                string you = r.PlayerId == me ? " (you)" : string.Empty;
-                GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {player.Name}{you}", _small);
+                string tag = r.PlayerId == me ? " (you)" : stillHere ? string.Empty : " (left)";
+                GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", _small);
                 GUI.Label(new Rect(x + 400f, y, 120f, 30f), time, _small);
                 y += 32f;
             }
@@ -184,18 +184,20 @@ namespace CarRacer.Game.Net
             }
         }
 
-        private RosterEntry Find(byte playerId)
+        /// <summary>False if the player has left the session since the race began.</summary>
+        private bool TryFind(byte playerId, out RosterEntry player)
         {
             foreach (var p in _session.Players)
             {
                 if (p.PlayerId == playerId)
                 {
-                    return p;
+                    player = p;
+                    return true;
                 }
             }
 
-            // Left the session since the race began.
-            return new RosterEntry { PlayerId = playerId, Name = "(left)", ColourIndex = playerId };
+            player = default;
+            return false;
         }
 
         private static void Swatch(float x, float y, int colourIndex)

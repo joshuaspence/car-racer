@@ -251,7 +251,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 | Situation | Behaviour |
 |---|---|
-| Guest drops mid-race | A bot takes over the car; standings stay intact. |
+| Guest drops mid-race | A bot takes over the car; standings stay intact. *Until bots exist (M3):* the player is retired, placed last as DNF under the name they had, and the race ends as soon as everyone still racing has finished. |
 | Guest rejoins | Lobby only (no joining mid-race); reclaims their championship slot. |
 | App goes to the background | 10 s grace with the car coasting, then a bot takes over; control returns if the race is still running. |
 | Host leaves | Session ends: "Host left". The host gets a confirmation before leaving. The screen is kept awake during sessions. |

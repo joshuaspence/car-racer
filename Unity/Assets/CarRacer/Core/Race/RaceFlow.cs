@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CarRacer.Core.Net;
 using CarRacer.Core.Session;
 
@@ -56,6 +57,7 @@ namespace CarRacer.Core.Race
         private readonly int _checkpointCount;
         private readonly Func<long> _clockMs;
         private readonly Func<int, float> _fractionToNextCheckpoint;
+        private readonly Dictionary<int, string> _names = new Dictionary<int, string>();
         private long _firstFinishMs = -1;
         private long _nextStandingsMs;
 
@@ -67,6 +69,7 @@ namespace CarRacer.Core.Race
             _clockMs = clockMs;
             _fractionToNextCheckpoint = fractionToNextCheckpoint;
             _session.CheckpointReceived += OnCheckpoint;
+            _session.PlayerLeft += OnPlayerLeft;
         }
 
         public RacePhase Phase { get; private set; } = RacePhase.Lobby;
@@ -85,9 +88,12 @@ namespace CarRacer.Core.Race
             }
 
             var ids = new int[_session.Roster.Count];
+            _names.Clear();
             for (int i = 0; i < ids.Length; i++)
             {
-                ids[i] = _session.Roster.Players[i].PlayerId;
+                var player = _session.Roster.Players[i];
+                ids[i] = player.PlayerId;
+                _names[player.PlayerId] = player.Name;
             }
 
             Tracker = new RaceTracker(_checkpointCount, laps, ids);
@@ -146,6 +152,18 @@ namespace CarRacer.Core.Race
             return true;
         }
 
+        /// <summary>
+        /// A guest who leaves mid-event is retired (design doc §12; a bot takes over once bots
+        /// exist), so the race can end as soon as everyone still racing has finished.
+        /// </summary>
+        private void OnPlayerLeft(byte playerId, string name)
+        {
+            if (Phase == RacePhase.Countdown || Phase == RacePhase.Racing)
+            {
+                Tracker.Retire(playerId);
+            }
+        }
+
         private void OnCheckpoint(CheckpointReachedMessage message)
         {
             // Trust the guest's race time only within what has actually elapsed on the host.
@@ -185,6 +203,7 @@ namespace CarRacer.Core.Race
                 Results.Results.Add(new RaceResultEntry
                 {
                     PlayerId = (byte)id,
+                    Name = _names.TryGetValue(id, out string name) ? name : string.Empty,
                     Position = (byte)racer.FinishPosition,
                     RaceTimeMs = racer.FinishTimeMs,
                     DidNotFinish = racer.DidNotFinish,
