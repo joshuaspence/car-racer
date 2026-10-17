@@ -93,7 +93,7 @@ namespace CarRacer.Editor
             element.Attributes.Append(attribute);
         }
 
-        /// <summary>Whether <paramref name="activity"/> has an intent filter with a <paramref name="tag"/> named <paramref name="name"/>.</summary>
+        /// <summary>Whether <paramref name="activity"/> has a descendant <paramref name="tag"/> element whose <c>android:name</c> is <paramref name="name"/>.</summary>
         private static bool HasChild(XmlElement activity, string tag, string name)
         {
             foreach (XmlNode node in activity.GetElementsByTagName(tag))
