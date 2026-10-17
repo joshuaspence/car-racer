@@ -196,6 +196,18 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void RoadTextureRunsForwardWhereWidthChanges()
+        {
+            // The oval's width changes between 14 m and 16 m, which must not make V run backwards.
+            var road = RoadMeshBuilder.Build(Oval.Spline, wallHeight: 1.2f, spacing: 2f).Road;
+            for (int i = 2; i < road.Uvs.Count; i += 2)
+            {
+                Assert.True(road.Uvs[i].Y > road.Uvs[i - 2].Y, $"V decreases at ring {i / 2}: {road.Uvs[i - 2].Y} -> {road.Uvs[i].Y}");
+                Assert.Equal(road.Uvs[i].Y, road.Uvs[i + 1].Y);
+            }
+        }
+
+        [Fact]
         public void WallsFaceTheRoad()
         {
             var mesh = RoadMeshBuilder.Build(Oval.Spline, wallHeight: 1.2f, spacing: 2f);

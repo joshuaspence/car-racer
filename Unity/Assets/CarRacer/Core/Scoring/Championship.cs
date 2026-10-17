@@ -74,6 +74,15 @@ namespace CarRacer.Core.Scoring
                 throw new ArgumentException("A player appears more than once in the finishing order.", nameof(finishingOrder));
             }
 
+            // Validate everything before changing anything, so a rejected result leaves the standings intact.
+            foreach (string key in finishingOrder)
+            {
+                if (!_entries.ContainsKey(key))
+                {
+                    throw new ArgumentException($"Unknown player '{key}'.", nameof(finishingOrder));
+                }
+            }
+
             foreach (var entry in _entries.Values)
             {
                 entry.LastEventPosition = 0;
@@ -81,11 +90,7 @@ namespace CarRacer.Core.Scoring
 
             for (int i = 0; i < finishingOrder.Count; i++)
             {
-                if (!_entries.TryGetValue(finishingOrder[i], out var entry))
-                {
-                    throw new ArgumentException($"Unknown player '{finishingOrder[i]}'.", nameof(finishingOrder));
-                }
-
+                var entry = _entries[finishingOrder[i]];
                 int position = i + 1;
                 entry.Points += PointsForPosition(position);
                 entry.LastEventPosition = position;

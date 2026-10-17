@@ -91,6 +91,19 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void RejectedResultsLeaveStandingsUntouched()
+        {
+            var c = NewSeries();
+            c.RecordEvent(new[] { "ben#2", "ana#1", "cy#3" });
+            var before = c.Standings().Select(e => (e.PlayerKey, e.Points, e.Wins, e.LastEventPosition)).ToList();
+
+            Assert.Throws<ArgumentException>(() => c.RecordEvent(new[] { "ana#1", "stranger" }));
+
+            Assert.Equal(before, c.Standings().Select(e => (e.PlayerKey, e.Points, e.Wins, e.LastEventPosition)));
+            Assert.Equal(1, c.EventsCompleted);
+        }
+
+        [Fact]
         public void SaveAndResumeRoundTrips()
         {
             var c = NewSeries(events: 5);

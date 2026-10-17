@@ -45,10 +45,19 @@ namespace CarRacer.Core.Track
         private static MeshData BuildRoad(List<TrackSample> samples)
         {
             var mesh = new MeshData();
-            foreach (var s in samples)
+            // V advances by each step's length over the local width (one texture tile is roughly
+            // square), accumulated so a change in width can't make it run backwards.
+            float v = 0f;
+            for (int i = 0; i < samples.Count; i++)
             {
+                var s = samples[i];
+                if (i > 0)
+                {
+                    var previous = samples[i - 1];
+                    v += (s.Distance - previous.Distance) / ((s.Width + previous.Width) / 2f);
+                }
+
                 Vec3 half = s.Right * (s.Width / 2f);
-                float v = s.Distance / s.Width;
                 mesh.Vertices.Add(s.Position - half);
                 mesh.Vertices.Add(s.Position + half);
                 mesh.Normals.Add(s.Up);
