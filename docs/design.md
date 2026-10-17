@@ -412,7 +412,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   aim for **60 fps** and never drop below 30, rendering at **0.65–0.75 of native resolution**.
 - Vulkan by default, **GLES3 on Adreno 5xx** (Vulkan device filter list).
 - Frame rate capped at 60. Quality preset is picked automatically on first launch, with a
-  manual override.
+  manual override. Built (`QualityPresets`, `GraphicsQuality`): the level is the lower of what
+  the GPU and the memory allow. Adreno 5xx, Mali before G72 or under 4.5 GB is **Low** (0.65 of
+  native resolution, no MSAA). Adreno 600–639, Mali G72–G76 or under 7 GB is **Medium** (0.75,
+  2× MSAA). Anything newer is **High** (full resolution, 4× MSAA). An unrecognised GPU goes by
+  memory. The main menu's Graphics button cycles auto / Low / Medium / High (remembered).
 - Worst-case benchmark: **Pixel 2 XL hosting 6 cars with items**, plus a 20-minute session for
   thermal throttling.
 - Network: 30 Hz × 43 bytes × 6 cars is about 7.7 KB/s per phone, before transport overhead.
