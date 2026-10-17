@@ -13,6 +13,13 @@ namespace CarRacer.Core.Discovery
         public bool IsCompatible => Announcement.ProtocolVersion == DiscoveryConstants.ProtocolVersion;
         public bool IsFull => Announcement.PlayerCount >= Announcement.MaxPlayers;
         public bool CanJoin => IsCompatible && !IsFull && Announcement.State == HostSessionState.Lobby;
+
+        /// <summary>One word or phrase for the join list: why it can't be joined, or that it's open.</summary>
+        public string StatusText =>
+            !IsCompatible ? (Announcement.ProtocolVersion > DiscoveryConstants.ProtocolVersion ? "Update this app to join" : "Host needs updating")
+            : IsFull ? "Full"
+            : Announcement.State == HostSessionState.InEvent ? "Racing"
+            : "Open";
     }
 
     /// <summary>

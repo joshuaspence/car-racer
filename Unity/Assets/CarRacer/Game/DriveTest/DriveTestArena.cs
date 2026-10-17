@@ -187,7 +187,7 @@ namespace CarRacer.Game.DriveTest
 
             if (GUI.Button(new Rect(width - 160f, 20f, 136f, 52f), "Back"))
             {
-                Bootstrap.ShowDiscoveryScreen();
+                Bootstrap.ShowMainMenu();
             }
 
             if (_playerInput != null)

@@ -244,6 +244,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 1. First launch: choose a display name (stored on the device; no accounts).
 2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**.
+   Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards + join by IP) and
+   Practice (a free drive). Garage and the QR code come later.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
