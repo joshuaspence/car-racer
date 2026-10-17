@@ -94,6 +94,22 @@ namespace CarRacer.Core.Driving
 
         public Vec3 Forward => new Vec3(MathF.Sin(Heading), 0f, MathF.Cos(Heading));
 
+        /// <summary>
+        /// How far the current drift has charged, for the HUD meter: 0 with no drift, rising to 1
+        /// when the top boost tier is reached. Tier <c>n</c> is reached at
+        /// <c>DriftTierSeconds[n-1] / DriftTierSeconds[last]</c>.
+        /// </summary>
+        public float DriftCharge(CarTuning tuning)
+        {
+            if (!Drifting || tuning.DriftTierSeconds.Length == 0)
+            {
+                return 0f;
+            }
+
+            float full = tuning.DriftTierSeconds[tuning.DriftTierSeconds.Length - 1];
+            return full <= 0f ? 1f : Math.Min(1f, DriftSeconds / full);
+        }
+
         /// <summary>Boost tier the current drift would release: 0 for none, then 1..3.</summary>
         public int DriftTier(CarTuning tuning)
         {

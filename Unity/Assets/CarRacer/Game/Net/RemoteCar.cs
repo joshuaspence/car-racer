@@ -20,14 +20,16 @@ namespace CarRacer.Game.Net
         private float _driftYaw;
 
         public byte PlayerId { get; private set; }
+        public Color Colour { get; private set; }
         public bool HasState => _predictor.HasState;
 
         /// <summary>The car's last reported velocity, for bumps.</summary>
         public Vector3 Velocity => _predictor.Velocity.ToUnity();
 
-        public void Initialise(byte playerId, Transform visual)
+        public void Initialise(byte playerId, Color colour, Transform visual)
         {
             PlayerId = playerId;
+            Colour = colour;
             _visual = visual;
             _visual.gameObject.SetActive(false);
         }

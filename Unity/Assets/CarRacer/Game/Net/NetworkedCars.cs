@@ -38,6 +38,9 @@ namespace CarRacer.Game.Net
         /// <summary>This phone's own lap count and next checkpoint, for the HUD.</summary>
         public CheckpointDetector Detector => _detector;
 
+        /// <summary>Every other player's car, for the mini-map.</summary>
+        public IEnumerable<RemoteCar> RemoteCars => _remotes.Values;
+
         public void Initialise(DriveTestArena arena, NetworkSession session)
         {
             _arena = arena;
