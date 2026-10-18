@@ -209,6 +209,18 @@ namespace CarRacer.Game.DriveTest
             PlaceLocalCarOnGrid(slot);
         }
 
+        /// <summary>Gives this phone's car another body or colour where it stands (picking a car in the lobby).</summary>
+        public void ReplaceLocalCarBody(Color colour, CarModel body)
+        {
+            if (Car == null)
+            {
+                return;
+            }
+
+            CarFactory.ReplaceBody(Car.gameObject, colour, body);
+            CarColour = colour;
+        }
+
         /// <summary>Puts this phone's car back at rest on grid slot <paramref name="slot"/>, e.g. for a race start.</summary>
         public void PlaceLocalCarOnGrid(int slot) => PlaceLocalCarAtStart(slot, GameMode.Race);
 

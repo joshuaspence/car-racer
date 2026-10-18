@@ -135,6 +135,21 @@ namespace CarRacer.Game.Net
             }
         }
 
+        /// <summary>Asks for another car in the lobby (design doc §11) and remembers it in the garage too; the roster says what was granted.</summary>
+        public void ChangeCar(CarChoice car)
+        {
+            Garage.Body = car.Body;
+            Garage.Colour = car.Colour;
+            if (IsHost)
+            {
+                HostSide.ChangeHostCar(car);
+            }
+            else
+            {
+                GuestSide.ChangeCar(car);
+            }
+        }
+
         public void SendCarState(CarStateMessage state)
         {
             if (IsHost)

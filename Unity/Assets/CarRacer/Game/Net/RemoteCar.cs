@@ -22,7 +22,7 @@ namespace CarRacer.Game.Net
         private Transform _shieldRing;
 
         public byte PlayerId { get; private set; }
-        public Color Colour { get; private set; }
+        public Color Colour { get; set; }
         public bool HasState => _predictor.HasState;
 
         /// <summary>The car's last reported velocity, for bumps.</summary>

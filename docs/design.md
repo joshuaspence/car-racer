@@ -386,8 +386,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
      bodies in turn. Practice uses the garage car.
    - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
      its own camera, far below the menu, rendering to a texture), arrows to step through the
-     bodies, and a swatch per colour. Choices are remembered at once. Picking a car in the lobby
-     isn't possible yet: change it in the garage before hosting or joining.
+     bodies, and a swatch per colour. Choices are remembered at once.
+   - **In the lobby**, a "Your car" panel beside the lobby list has the same arrows and swatches
+     (colours other players have are drawn small and can't be picked). A guest sends
+     `ChangeCarMessage`; the host takes any body, and the colour unless someone else has it, then
+     sends the roster, and every phone swaps that car's body where it stands. Not mid-event. The
+     pick is remembered in the garage too.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
    difficulty. **The host decides** (no voting for now).
 5. Guests tap **Ready**; the host taps **Start** to begin a synced countdown.

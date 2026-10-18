@@ -1,9 +1,11 @@
 using CarRacer.Core.Arena;
+using CarRacer.Core.Art;
 using CarRacer.Core.Bots;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
+using CarRacer.Core.Session;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Menu;
@@ -198,6 +200,85 @@ namespace CarRacer.Game.Net
                 GUI.DrawTexture(area, _joinQr);
                 GUI.Label(new Rect(area.x, area.yMax + 4f, 240f, 30f), "Scan to join", UiStyle.Hint);
             }
+
+            DrawCarPicker(new Rect(left + 560f, _session.IsHost ? 340f : 100f, 248f, 300f), me);
+        }
+
+        /// <summary>
+        /// Changing car without leaving the lobby (design doc §11): arrows through the bodies and a
+        /// swatch per colour. Colours other players have are drawn small and can't be picked. The
+        /// car changes once the host's roster comes back with it.
+        /// </summary>
+        private void DrawCarPicker(Rect area, byte me)
+        {
+            if (!TryFind(me, out var mine))
+            {
+                return;
+            }
+
+            const int perRow = 4;
+            GUILayout.BeginArea(area, UiStyle.Panel);
+            GUILayout.Label("Your car", UiStyle.Hint);
+            GUILayout.Label(CarModels.DisplayName(CarModels.ForIndex(mine.BodyIndex)), _small);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("<", UiStyle.Button))
+            {
+                _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + LobbyRoster.BodyCount - 1) % LobbyRoster.BodyCount), mine.ColourIndex));
+            }
+
+            if (GUILayout.Button(">", UiStyle.Button))
+            {
+                _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + 1) % LobbyRoster.BodyCount), mine.ColourIndex));
+            }
+
+            GUILayout.EndHorizontal();
+            for (int row = 0; row * perRow < LobbyRoster.ColourCount; row++)
+            {
+                GUILayout.BeginHorizontal();
+                for (int i = row * perRow; i < Mathf.Min(LobbyRoster.ColourCount, (row + 1) * perRow); i++)
+                {
+                    var cell = GUILayoutUtility.GetRect(44f, 44f, GUILayout.ExpandWidth(true));
+                    bool chosen = i == mine.ColourIndex;
+                    bool taken = !chosen && ColourTaken((byte)i, me);
+                    if (chosen)
+                    {
+                        Fill(cell, Color.white);
+                    }
+
+                    Fill(Inset(cell, chosen ? 3f : taken ? 14f : 6f), CarColours.ForIndex(i));
+                    if (!taken && !chosen && GUI.Button(cell, GUIContent.none, GUIStyle.none))
+                    {
+                        _session.ChangeCar(new CarChoice(mine.BodyIndex, (byte)i));
+                    }
+                }
+
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private bool ColourTaken(byte colour, byte me)
+        {
+            foreach (var p in _session.Players)
+            {
+                if (p.PlayerId != me && p.ColourIndex == colour)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Rect Inset(Rect r, float by) => new Rect(r.x + by, r.y + by, r.width - 2f * by, r.height - 2f * by);
+
+        private static void Fill(Rect rect, Color colour)
+        {
+            var previous = GUI.color;
+            GUI.color = colour;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         /// <summary>The host's settings for a single event: mode, laps and track.</summary>
