@@ -445,6 +445,10 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 ## 14. Devices and performance
 
 - **Minimum Android 8.0 (API 26)**; target API follows Google Play's requirement. ARM64, IL2CPP.
+- **Installs to internal storage only** (`internalOnly`, not Unity's default `preferExternal`), to
+  match what install sessions ask for. With `preferExternal`, installing the APK from the Files app
+  logged the manifest attribute as dropped and the install was abandoned ("Cancelling"), while
+  `adb install` worked.
 - **Baseline device: Pixel 2 XL** (Snapdragon 835 / Adreno 540, 1440×2880). Low/Medium presets
   aim for **60 fps** and never drop below 30, rendering at **0.65–0.75 of native resolution**.
 - Vulkan by default, **GLES3 on Adreno 5xx** (Vulkan device filter list).

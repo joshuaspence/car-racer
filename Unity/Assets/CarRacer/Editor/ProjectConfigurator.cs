@@ -38,6 +38,11 @@ namespace CarRacer.Editor
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
 
+            // Unity defaults to preferExternal. Install sessions (the Files app's, for one) default to
+            // internal storage, so the system logged the manifest's choice as dropped, and installs
+            // from the Files app were abandoned ("Cancelling") though adb worked. Internal-only matches.
+            PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.ForceInternal;
+
             // Vulkan first, GLES3 fallback. Adreno 5xx (Pixel 2 XL) should be steered to GLES3
             // with a Vulkan device filter list; that's set up with the rendering work in M1.
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
