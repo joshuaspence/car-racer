@@ -421,7 +421,7 @@ namespace CarRacer.Game.Menu
             foreach (var host in hosts)
             {
                 var a = host.Announcement;
-                _hostSignature.Append(host.Address).Append(a.HostName).Append(a.PlayerCount).Append(host.StatusText).Append(host.CanJoin).Append('|');
+                _hostSignature.Append(host.Address).Append(a.HostName).Append(a.PlayerCount).Append(a.MaxPlayers).Append(a.GamePort).Append(host.StatusText).Append(host.CanJoin).Append('|');
             }
 
             _hostSignature.Append(_listener != null);
