@@ -115,7 +115,7 @@ metre, then converge within a few frames.
 | Engine | **Unity 6.3 LTS** (`6000.3.26f1`), **URP** |
 | Networking | `com.unity.netcode.gameobjects` 2.13.x, `com.unity.transport` 2.7.x |
 | Input | `com.unity.inputsystem` (touch + gamepad) |
-| UI | **UI Toolkit**, built from code (no UXML/USS assets); moving over from IMGUI in M10 |
+| UI | **UI Toolkit**, built from code (no UXML/USS assets) for every screen and the HUD; shapes (mini-map, meters, touch buttons) drawn with the vector painter |
 | Language | C# 9 (Unity's compiler) |
 | Licence | Unity Personal (free while revenue and funding are under US$200k a year) |
 
@@ -146,11 +146,12 @@ font set on the root so text renders without a theme. Its `Safe` container keeps
 containers never take touches, so only real controls block the game. `UiKit` makes elements in the
 house style (dark panels, 64-pixel buttons that darken as a finger lands, a yellow accent) with
 font sizes from the large-text option; a layer raises `Restyle` when that option changes so its
-screen rebuilds. The performance readout, the menus (`MainMenu`: each page an element tree, rebuilt when
-something on it changes) and the session screens (`SessionOverlay`, `CupPanel`: the lobby and
-results rebuild only when a signature of what they show changes; the race status, countdown and
-item slot update their text every frame) have moved; the driving HUD (`RaceHud`) and touch buttons
-follow.
+screen rebuilds. The menus (`MainMenu`) build each page as an element tree, rebuilt when something
+on it changes; the session screens (`SessionOverlay`, `CupPanel`) rebuild the lobby and results only
+when a signature of what they show changes, and update the race status, countdown and item slot
+text every frame. The driving HUD (`RaceHud`) draws its shapes (touch buttons, mini-map, drift
+meter, edge arrows) with the vector painter on one full-screen element repainted every frame, with
+labels for its text and the top bar's buttons. Nothing uses IMGUI any more.
 
 ## 4. Driving model
 

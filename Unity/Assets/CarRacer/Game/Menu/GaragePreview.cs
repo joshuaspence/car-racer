@@ -1,5 +1,6 @@
 using CarRacer.Core.Art;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Ui;
 using UnityEngine;
 
 namespace CarRacer.Game.Menu
@@ -39,7 +40,7 @@ namespace CarRacer.Game.Menu
             _camera = cameraObject.AddComponent<Camera>();
             _camera.targetTexture = Texture;
             _camera.clearFlags = CameraClearFlags.SolidColor;
-            _camera.backgroundColor = UiStyle.Background;
+            _camera.backgroundColor = UiKit.Background;
             _camera.fieldOfView = 35f;
             _camera.nearClipPlane = 0.3f;
             _camera.farClipPlane = 20f;
