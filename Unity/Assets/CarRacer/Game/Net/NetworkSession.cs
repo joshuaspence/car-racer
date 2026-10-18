@@ -7,6 +7,7 @@ using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Session;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Platform;
 using Unity.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -34,6 +35,8 @@ namespace CarRacer.Game.Net
 
         /// <summary>Assumed one-way latency to guests on a LAN; the host has no clock samples of its own.</summary>
         public const float HostLatencyGuessMs = 15f;
+
+        private static int _live;
 
         private readonly List<(ulong Connection, float AtTime)> _pendingDisconnects = new List<(ulong, float)>();
         private NetworkManager _network;
@@ -69,6 +72,9 @@ namespace CarRacer.Game.Net
 
         /// <summary>The item referee (host) or follower (guest), created with the race.</summary>
         public IItemView Items { get; private set; }
+
+        /// <summary>True while a session exists on this phone, for the performance readout's traffic line.</summary>
+        public static bool Active => _live > 0;
 
         public static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
@@ -212,6 +218,7 @@ namespace CarRacer.Game.Net
             };
 
             var session = go.AddComponent<NetworkSession>();
+            _live++;
             session._network = network;
             network.OnClientConnectedCallback += session.OnClientConnected;
             network.OnClientDisconnectCallback += session.OnClientDisconnected;
@@ -235,6 +242,8 @@ namespace CarRacer.Game.Net
                 var delivery = reliable ? NetworkDelivery.ReliableSequenced : NetworkDelivery.Unreliable;
                 _network.CustomMessagingManager.SendNamedMessage(MessageName, connection, writer, delivery);
             }
+
+            PerfOverlay.Traffic.Sent(bytes.Length + sizeof(int), Time.realtimeSinceStartupAsDouble);
         }
 
         void ISessionTransport.Disconnect(ulong connection)
@@ -258,6 +267,7 @@ namespace CarRacer.Game.Net
                     return;
                 }
 
+                PerfOverlay.Traffic.Received(length + sizeof(int), Time.realtimeSinceStartupAsDouble);
                 var bytes = new byte[length];
                 reader.ReadBytesSafe(ref bytes, length);
                 message = MessageCodec.Decode(bytes);
@@ -364,6 +374,7 @@ namespace CarRacer.Game.Net
 
         private void OnDestroy()
         {
+            _live--;
             _announcer?.Dispose();
             _announcer = null;
             if (_network != null)
