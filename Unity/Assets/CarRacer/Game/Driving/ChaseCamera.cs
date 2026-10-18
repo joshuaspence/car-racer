@@ -1,4 +1,5 @@
 using CarRacer.Core.Driving;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Driving
@@ -26,6 +27,8 @@ namespace CarRacer.Game.Driving
 
         private Camera _camera;
         private ChaseCameraState _state;
+        private ChaseCameraSettings _calm;
+        private ChaseCameraSettings _calmFrom;
 
         private void Awake()
         {
@@ -55,14 +58,27 @@ namespace CarRacer.Game.Driving
 
             LookingBack = chasing && LookBackInput != null && LookBackInput.LookingBack;
 
+            // Reduced motion (design doc §6) keeps the framing but drops the speed zoom.
+            var settings = Settings;
+            if (Accessibility.ReducedMotion)
+            {
+                if (_calmFrom != Settings)
+                {
+                    _calm = Settings.WithReducedMotion();
+                    _calmFrom = Settings;
+                }
+
+                settings = _calm;
+            }
+
             // Follow the interpolated transform, not the rigidbody, so the camera moves smoothly between physics steps.
             var target = Target.transform.position.ToCore();
             _state = chasing
-                ? ChaseCameraRig.Step(_state, target, Target.State.Heading, Target.ForwardSpeed, Time.deltaTime, Settings)
+                ? ChaseCameraRig.Step(_state, target, Target.State.Heading, Target.ForwardSpeed, Time.deltaTime, settings)
                 : OverheadCameraRig.Step(_state, target, ArenaCentre.Value.ToCore(), Time.deltaTime, OverheadSettings);
 
             // The chase camera keeps following during a glance, so letting go cuts straight back to it.
-            var shown = LookingBack ? ChaseCameraRig.RearView(_state, target, Target.State.Heading, Target.ForwardSpeed, Settings) : _state;
+            var shown = LookingBack ? ChaseCameraRig.RearView(_state, target, Target.State.Heading, Target.ForwardSpeed, settings) : _state;
             transform.position = shown.Position.ToUnity();
             transform.LookAt(shown.LookAt.ToUnity());
             _camera.fieldOfView = shown.FieldOfView;

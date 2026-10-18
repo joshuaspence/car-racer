@@ -28,6 +28,7 @@ namespace CarRacer.Game.Menu
             Join,
             Settings,
             Garage,
+            Accessibility,
         }
 
         private readonly DiscoveredHostList _hosts = new DiscoveredHostList();
@@ -40,7 +41,6 @@ namespace CarRacer.Game.Menu
         private string _joinMessage = string.Empty;
         private Vector2 _scroll;
         private GaragePreview _preview;
-        private GUIStyle _centredHeading;
 
         /// <summary>A join link that arrived before the player had a name; joined once they choose one.</summary>
         public static (string Address, ushort Port)? PendingJoin { get; set; }
@@ -140,6 +140,9 @@ namespace CarRacer.Game.Menu
                     break;
                 case Page.Garage:
                     DrawGaragePage();
+                    break;
+                case Page.Accessibility:
+                    DrawAccessibilityPage();
                     break;
             }
         }
@@ -261,8 +264,7 @@ namespace CarRacer.Game.Menu
                 Garage.Body = Garage.Body - 1;
             }
 
-            _centredHeading = _centredHeading ?? new GUIStyle(UiStyle.Heading) { alignment = TextAnchor.MiddleCenter };
-            GUILayout.Label(CarModels.DisplayName(model), _centredHeading, GUILayout.Height(UiStyle.ButtonHeight), GUILayout.ExpandWidth(true));
+            GUILayout.Label(CarModels.DisplayName(model), UiStyle.HeadingCentred, GUILayout.Height(UiStyle.ButtonHeight), GUILayout.ExpandWidth(true));
             if (GUILayout.Button(">", UiStyle.Button, GUILayout.Width(90f)))
             {
                 Garage.Body = Garage.Body + 1;
@@ -361,12 +363,59 @@ namespace CarRacer.Game.Menu
 
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button(PlayerCarInput.TiltEnabled ? "Tilt steering: on" : "Tilt steering: off", UiStyle.Button))
             {
                 PlayerCarInput.TiltEnabled = !PlayerCarInput.TiltEnabled;
             }
 
-            GUILayout.Label("With tilt steering on, turn the phone like a steering wheel; the left thumb can still steer.", UiStyle.Hint);
+            GUILayout.Space(12f);
+            if (GUILayout.Button("Accessibility", UiStyle.Button))
+            {
+                GoTo(Page.Accessibility);
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.Label("With tilt steering on, turn the phone like a steering wheel; the steering thumb can still steer.", UiStyle.Hint);
+            GUILayout.EndArea();
+        }
+
+        /// <summary>The accessibility options (design doc §5, §6, §11); each applies at once and is remembered.</summary>
+        private void DrawAccessibilityPage()
+        {
+            GUILayout.BeginArea(UiStyle.CentredPanel(760f, 24f, 680f), UiStyle.Panel);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Accessibility", UiStyle.Heading);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Back", UiStyle.Button, GUILayout.Width(140f)))
+            {
+                GoTo(Page.Settings);
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button(Accessibility.LeftHanded ? "Controls: left-handed" : "Controls: right-handed", UiStyle.Button))
+            {
+                Accessibility.LeftHanded = !Accessibility.LeftHanded;
+            }
+
+            GUILayout.Label(Accessibility.LeftHanded ? "Buttons on the left; drag on the right half to steer." : "Buttons on the right; drag on the left half to steer.", UiStyle.Hint);
+            if (GUILayout.Button(Accessibility.LargeControls ? "Control size: large" : "Control size: standard", UiStyle.Button))
+            {
+                Accessibility.LargeControls = !Accessibility.LargeControls;
+            }
+
+            if (GUILayout.Button(Accessibility.LargeText ? "Text size: large" : "Text size: standard", UiStyle.Button))
+            {
+                Accessibility.LargeText = !Accessibility.LargeText;
+            }
+
+            if (GUILayout.Button(Accessibility.ReducedMotion ? "Reduced motion: on" : "Reduced motion: off", UiStyle.Button))
+            {
+                Accessibility.ReducedMotion = !Accessibility.ReducedMotion;
+            }
+
+            GUILayout.Label("Reduced motion keeps the camera steady at speed, stops the car leaning and stops warnings flashing.", UiStyle.Hint);
             GUILayout.EndArea();
         }
 

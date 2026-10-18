@@ -29,6 +29,19 @@ namespace CarRacer.Core.Driving
         public float PositionSharpness = 10f;
 
         public float FieldOfViewSharpness = 3f;
+
+        /// <summary>
+        /// The same framing without the speed effects (reduced motion, design doc §6): the camera
+        /// keeps its resting distance, height and field of view at every speed.
+        /// </summary>
+        public ChaseCameraSettings WithReducedMotion()
+        {
+            var calm = (ChaseCameraSettings)MemberwiseClone();
+            calm.DistanceAtTopSpeed = Distance;
+            calm.HeightAtTopSpeed = Height;
+            calm.FieldOfViewAtTopSpeed = FieldOfView;
+            return calm;
+        }
     }
 
     public struct ChaseCameraState

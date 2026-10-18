@@ -1,4 +1,5 @@
 using CarRacer.Core.Driving;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Driving
@@ -154,7 +155,8 @@ namespace CarRacer.Game.Driving
             float blend = dt > 0f ? 1f - Mathf.Exp(-VisualSharpness * dt) : 1f;
             float targetDriftYaw = _state.Drifting ? _state.DriftDirection * DriftVisualYawDegrees : 0f;
             float speedFraction = Mathf.Clamp01(Mathf.Abs(ForwardSpeed) / Tuning.MaxSpeed);
-            float targetLean = -LastInput.Steer * speedFraction * MaxLeanDegrees;
+            // Reduced motion (design doc §6) keeps the drift swing, which shows the slide, but not the lean.
+            float targetLean = Accessibility.ReducedMotion ? 0f : -LastInput.Steer * speedFraction * MaxLeanDegrees;
             _visualDriftYaw = Mathf.Lerp(_visualDriftYaw, targetDriftYaw, blend);
             _visualLean = Mathf.Lerp(_visualLean, targetLean, blend);
 

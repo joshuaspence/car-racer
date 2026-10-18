@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
+using CarRacer.Game.Platform;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -72,9 +73,11 @@ namespace CarRacer.Game.Driving
         private void Update()
         {
             var safe = Screen.safeArea;
-            if (Layout == null || Layout.ScreenWidth != Screen.width || Layout.ScreenHeight != Screen.height)
+            float buttonScale = Accessibility.LargeControls ? TouchControlLayout.LargeButtonScale : 1f;
+            if (Layout == null || Layout.ScreenWidth != Screen.width || Layout.ScreenHeight != Screen.height
+                || Layout.LeftHanded != Accessibility.LeftHanded || Layout.ButtonScale != buttonScale)
             {
-                Layout = new TouchControlLayout(Screen.width, Screen.height, safe.xMin, safe.yMin, safe.xMax, safe.yMax, Screen.dpi);
+                Layout = new TouchControlLayout(Screen.width, Screen.height, safe.xMin, safe.yMin, safe.xMax, safe.yMax, Screen.dpi, Accessibility.LeftHanded, buttonScale);
             }
 
             ReadTouches(_touches);

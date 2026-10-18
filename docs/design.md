@@ -152,7 +152,7 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 ## 5. Controls
 
 - **Landscape only**, safe-area aware.
-- **Left half of the screen: analog steering.** Touch anywhere and drag left or right; the
+- **Left half of the screen: analog steering** (the right half, left-handed; see Accessibility). Touch anywhere and drag left or right; the
   centre is wherever the thumb first lands.
 - **Right half:** large **Drift** and **Brake/Reverse** buttons; item use is also on the right.
 - **Auto-accelerate on by default** (settings toggle).
@@ -177,6 +177,14 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
 - **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.
+- **Accessibility** (Settings → Accessibility, `Accessibility`; each applies at once and is remembered):
+  - **Left-handed controls:** the whole layout mirrors: buttons on the left, the right half
+    steers, and Look back in the top-right corner. The HUD's mini-map, position and lap move to
+    the top left to make room.
+  - **Large controls:** buttons up to 25% bigger (`TouchControlLayout.LargeButtonScale`), as far
+    as Brake and Item still fit one above the other; on a phone held sideways that is about 15–20%.
+  - **Large text:** menu, lobby and HUD text 20% bigger.
+  - **Reduced motion:** see §6.
 
 ## 6. Camera and HUD
 
@@ -195,6 +203,12 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   how many are left, and Battle's clock; the track's mini-map and "Wrong way!" are hidden.
 - HUD: position (2nd/6), lap (2/3), item slot (top centre), mini-map with coloured dots, drift
   charge meter, countdown, "Wrong way!" (`WrongWayDetector`: sustained reverse for 1 s, with hysteresis).
+- **Nothing is told by colour alone:** the drift meter names its tier ("DRIFT", "BOOST 1–3")
+  as well as colouring it, and your mini-map dot has a white ring.
+- **Reduced motion** (accessibility): the chase camera keeps its resting distance, height and
+  field of view at every speed (`ChaseCameraSettings.WithReducedMotion`), the car body doesn't
+  lean in turns (the drift swing stays, as it shows the slide), and the Missile warning stays up
+  instead of flashing.
 
 ## 7. Game modes
 
@@ -374,7 +388,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
    **Settings**. Built (`MainMenu`): name entry on first launch, Host, Join (game cards + join by
    IP) and Practice (a free drive), joining from the host's QR code, Garage and Settings.
    - **Settings** gathers sound and music volume, graphics quality, the performance readout,
-     haptics, auto-accelerate and tilt steering on one page; each choice is remembered as soon as it changes. Haptics and
+     haptics, auto-accelerate and tilt steering on one page, with an Accessibility page beside it
+     (§5); each choice is remembered as soon as it changes. Haptics and
      auto-accelerate can also be switched while driving.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
