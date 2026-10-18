@@ -428,6 +428,14 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
     texture; each player's copy has the bodywork's strip of it recoloured to their colour, keeping
     its shading (`PaintRecolour`). A car is one mesh and one material, shared by every car of that
     colour. If the files can't be loaded the primitive placeholder is built instead.
+  - **Track scenery** (`TrackScenery`, from the Racing Kit): a gantry over the start line, a metre
+    past each wall; red and green banner towers beside it; up to three grandstands along the start
+    straight, facing the road; and trees (two sizes, 6–9× scale, random turns) tried every 14 m on
+    each side, 6–20 m beyond the wall. Nothing goes within 3 m of any road edge (so not on an
+    oval's infield edge or a figure-eight's crossing), near a raised or sunken stretch, or on
+    another piece, and the placement is the same every time. Pieces are coloured by their OBJ
+    materials and baked into one mesh per colour (`SceneryMesh`), so a track's scenery is a handful
+    of draw calls, with no colliders: it is all behind the walls.
 - **Audio:** CC0 sound effects (Kenney's Impact, Sci-fi and Interface packs, mono 22 kHz in
   `Resources/Audio`; see `docs/credits.md`), a crunch scaled by impact (light, medium or heavy, on
   the same range as the bump's haptic pulse), per-item sounds where each is used, a bang where a

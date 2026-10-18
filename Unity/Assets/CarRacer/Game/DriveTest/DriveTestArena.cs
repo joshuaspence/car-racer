@@ -161,6 +161,9 @@ namespace CarRacer.Game.DriveTest
             AddSurface(name + " road", meshes.Road, RoadColour);
             AddSurface(name + " left wall", meshes.LeftWall, WallColour);
             AddSurface(name + " right wall", meshes.RightWall, WallColour);
+            var scenery = new List<Mesh>();
+            TrackDressing.Build(transform, layout, name, scenery);
+            _owned.AddRange(scenery);
         }
 
         /// <summary>

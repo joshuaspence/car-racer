@@ -11,6 +11,10 @@ From Kenney's [Car Kit](https://kenney.nl/assets/car-kit), released under
 | `race.obj.bytes` | Car Kit: `Models/OBJ format/race.obj` |
 | `colormap.png.bytes` | Car Kit: `Models/OBJ format/Textures/colormap.png` |
 
+And from Kenney's [Racing Kit](https://kenney.nl/assets/racing-kit), also CC0, unchanged except
+for the extension: `overhead`, `grandStand`, `treeLarge`, `treeSmall`, `bannerTowerRed` and
+`bannerTowerGreen` (each `.obj.bytes` with its `.mtl.bytes`, from `Models/OBJ format`).
+
 ## Sound effects
 
 From [Kenney](https://www.kenney.nl), released under
