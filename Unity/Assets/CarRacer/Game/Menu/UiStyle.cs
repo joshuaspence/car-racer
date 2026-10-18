@@ -31,6 +31,7 @@ namespace CarRacer.Game.Menu
 
         public static GUIStyle Title { get; private set; }
         public static GUIStyle Heading { get; private set; }
+        public static GUIStyle HeadingCentred { get; private set; }
         public static GUIStyle Body { get; private set; }
         public static GUIStyle Hint { get; private set; }
         public static GUIStyle HintCentred { get; private set; }
@@ -80,6 +81,7 @@ namespace CarRacer.Game.Menu
             Title.normal.textColor = Accent;
             Heading = new GUIStyle(GUI.skin.label) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold };
             Heading.normal.textColor = Color.white;
+            HeadingCentred = new GUIStyle(Heading) { alignment = TextAnchor.MiddleCenter };
             Body = new GUIStyle(GUI.skin.label) { fontSize = Accessibility.Text(26), wordWrap = true };
             Body.normal.textColor = Color.white;
             Hint = new GUIStyle(Body) { fontSize = Accessibility.Text(21) };

@@ -41,7 +41,6 @@ namespace CarRacer.Game.Menu
         private string _joinMessage = string.Empty;
         private Vector2 _scroll;
         private GaragePreview _preview;
-        private GUIStyle _centredHeading;
 
         /// <summary>A join link that arrived before the player had a name; joined once they choose one.</summary>
         public static (string Address, ushort Port)? PendingJoin { get; set; }
@@ -265,8 +264,7 @@ namespace CarRacer.Game.Menu
                 Garage.Body = Garage.Body - 1;
             }
 
-            _centredHeading = _centredHeading ?? new GUIStyle(UiStyle.Heading) { alignment = TextAnchor.MiddleCenter };
-            GUILayout.Label(CarModels.DisplayName(model), _centredHeading, GUILayout.Height(UiStyle.ButtonHeight), GUILayout.ExpandWidth(true));
+            GUILayout.Label(CarModels.DisplayName(model), UiStyle.HeadingCentred, GUILayout.Height(UiStyle.ButtonHeight), GUILayout.ExpandWidth(true));
             if (GUILayout.Button(">", UiStyle.Button, GUILayout.Width(90f)))
             {
                 Garage.Body = Garage.Body + 1;
