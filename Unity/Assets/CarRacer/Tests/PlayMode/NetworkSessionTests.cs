@@ -1,9 +1,9 @@
 using System.Collections;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Race;
-using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
+using CarRacer.Game.Screens;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -26,24 +26,24 @@ namespace CarRacer.Tests
         [UnityTest]
         public IEnumerator HostingPutsTheHostsCarOnTheGrid()
         {
-            var arena = DriveTestArena.Create(new NoInput(), () => NetworkSession.StartHosting("Test host", TestPort));
+            var screen = TrackScreen.Create(new NoInput(), () => NetworkSession.StartHosting("Test host", TestPort));
             try
             {
                 yield return null;
                 yield return null;
 
-                var session = arena.Session;
+                var session = screen.Session;
                 Assert.IsFalse(session.Ended, session.Status);
                 Assert.IsTrue(session.IsHost);
                 Assert.IsTrue(session.TryGetLocalPlayerId(out byte me));
                 Assert.AreEqual(0, me);
                 Assert.AreEqual(1, session.Players.Count);
                 Assert.AreEqual("Test host", session.Players[0].Name);
-                Assert.IsNotNull(arena.Car, "the host's car should be spawned on its grid slot");
+                Assert.IsNotNull(screen.Car, "the host's car should be spawned on its grid slot");
             }
             finally
             {
-                Object.Destroy(arena.gameObject);
+                Object.Destroy(screen.gameObject);
             }
 
             // Let NGO shut down before anything else starts a NetworkManager.
@@ -55,22 +55,22 @@ namespace CarRacer.Tests
         public IEnumerator ASoloRaceHoldsTheCarOnTheGridUntilGo()
         {
             var input = new FullThrottle();
-            var arena = DriveTestArena.Create(input, () => NetworkSession.StartHosting("Solo", TestPort + 1));
+            var screen = TrackScreen.Create(input, () => NetworkSession.StartHosting("Solo", TestPort + 1));
             try
             {
                 yield return null;
                 yield return null;
-                var race = (HostRace)arena.Session.Race;
+                var race = (HostRace)screen.Session.Race;
                 Assert.IsTrue(race.Start(laps: 1));
 
                 yield return new WaitForSeconds(1f);
                 Assert.AreEqual(RacePhase.Countdown, race.Phase);
-                Assert.IsTrue(arena.Car.InputLocked);
-                Assert.That(arena.Car.ForwardSpeed, Is.EqualTo(0f).Within(0.5f), "held on the grid despite full throttle");
+                Assert.IsTrue(screen.Car.InputLocked);
+                Assert.That(screen.Car.ForwardSpeed, Is.EqualTo(0f).Within(0.5f), "held on the grid despite full throttle");
 
                 yield return new WaitForSeconds((HostRace.StartLeadMs + HostRace.CountdownMs) / 1000f);
                 Assert.AreEqual(RacePhase.Racing, race.Phase);
-                Assert.IsFalse(arena.Car.InputLocked);
+                Assert.IsFalse(screen.Car.InputLocked);
 
                 // Driving off the grid crosses the start line, checkpoint 0.
                 yield return new WaitForSeconds(1.5f);
@@ -78,7 +78,7 @@ namespace CarRacer.Tests
             }
             finally
             {
-                Object.Destroy(arena.gameObject);
+                Object.Destroy(screen.gameObject);
             }
 
             yield return null;

@@ -13,18 +13,18 @@ using CarRacer.Game.Platform;
 using UnityEngine;
 using CarModel = CarRacer.Core.Art.CarModel;
 
-namespace CarRacer.Game.DriveTest
+namespace CarRacer.Game.Screens
 {
     /// <summary>
-    /// Temporary M1 screen for tuning the car on real phones: every built-in track (cars are on one
-    /// at a time, starting on the oval) with the chase camera, touch/keyboard/gamepad controls and a
-    /// small HUD. Alone it holds one car; given a
-    /// <see cref="NetworkSession"/> it is a free drive with everyone in the session (see
-    /// <see cref="NetworkedCars"/>). Everything is built from code under one root object, so
-    /// destroying it cleans up the whole scene; it also destroys the session, which NGO needs on a
-    /// root object of its own. Replaced by the race flow later in M1.
+    /// The driving screen, for practice and for every event: all the built-in tracks (cars are on
+    /// one at a time; only that one is drawn), the Sumo and Battle arenas in a session, the chase
+    /// camera, touch/keyboard/gamepad controls and the HUD. Alone it holds one car for practice;
+    /// given a <see cref="NetworkSession"/> it holds everyone in the session (see
+    /// <see cref="NetworkedCars"/>), whose race flow runs the lobby, events and results on it.
+    /// Everything is built from code under one root object, so destroying it cleans up the whole
+    /// scene; it also destroys the session, which NGO needs on a root object of its own.
     /// </summary>
-    public sealed class DriveTestArena : MonoBehaviour
+    public sealed class TrackScreen : MonoBehaviour
     {
         private const float ReferenceHeight = 720f;
 
@@ -75,15 +75,15 @@ namespace CarRacer.Game.DriveTest
         public string ItemButtonLabel { get; set; } = string.Empty;
 
         /// <summary>
-        /// Builds the arena. Pass <paramref name="inputOverride"/> to drive the car from a test instead
+        /// Builds the screen. Pass <paramref name="inputOverride"/> to drive the car from a test instead
         /// of the player's devices, and <paramref name="startSession"/> to start a hosted or joined
-        /// session (destroyed with the arena).
+        /// session (destroyed with the screen).
         /// </summary>
-        public static DriveTestArena Create(ICarInputSource inputOverride = null, System.Func<NetworkSession> startSession = null)
+        public static TrackScreen Create(ICarInputSource inputOverride = null, System.Func<NetworkSession> startSession = null)
         {
-            var arena = new GameObject("Drive test").AddComponent<DriveTestArena>();
-            arena.Build(inputOverride, startSession);
-            return arena;
+            var screen = new GameObject("Track screen").AddComponent<TrackScreen>();
+            screen.Build(inputOverride, startSession);
+            return screen;
         }
 
         private void Build(ICarInputSource inputOverride, System.Func<NetworkSession> startSession)

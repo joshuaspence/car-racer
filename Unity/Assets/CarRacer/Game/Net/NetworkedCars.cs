@@ -8,9 +8,9 @@ using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Audio;
 using CarRacer.Game.Bots;
-using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Items;
+using CarRacer.Game.Screens;
 using UnityEngine;
 
 namespace CarRacer.Game.Net
@@ -43,7 +43,7 @@ namespace CarRacer.Game.Net
         private readonly Shield _shield = new Shield();
         private Transform _shieldRing;
         private BotCars _botCars;
-        private DriveTestArena _arena;
+        private TrackScreen _screen;
         private NetworkSession _session;
         private CheckpointDetector _detector;
         private int _detectorTrack;
@@ -61,9 +61,9 @@ namespace CarRacer.Game.Net
         /// <summary>Every other player's car, for the mini-map.</summary>
         public IEnumerable<RemoteCar> RemoteCars => _remotes.Values;
 
-        public void Initialise(DriveTestArena arena, NetworkSession session)
+        public void Initialise(TrackScreen screen, NetworkSession session)
         {
-            _arena = arena;
+            _screen = screen;
             _session = session;
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
@@ -72,8 +72,8 @@ namespace CarRacer.Game.Net
                 session.GuestSide.ControlReturned += OnControlReturned;
             }
 
-            _detector = new CheckpointDetector(arena.Track.CheckpointGates());
-            _detectorTrack = arena.TrackIndex;
+            _detector = new CheckpointDetector(screen.Track.CheckpointGates());
+            _detectorTrack = screen.TrackIndex;
 
             // Every track's boxes and the Battle bowl's share one list: they're far apart, so each event only reaches its own.
             var boxes = new List<CarRacer.Core.Numerics.Vec3>();
@@ -92,7 +92,7 @@ namespace CarRacer.Game.Net
             if (session.IsHost)
             {
                 _botCars = gameObject.AddComponent<BotCars>();
-                _botCars.Initialise(arena, session, this);
+                _botCars.Initialise(screen, session, this);
             }
         }
 
@@ -155,7 +155,7 @@ namespace CarRacer.Game.Net
         /// <summary>On the host, reports this phone's own spin-outs; in an arena, takes the controls away once this phone's car is out.</summary>
         private void FollowOwnArenaState()
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -197,8 +197,8 @@ namespace CarRacer.Game.Net
         /// <summary>Uses the held item when the player presses Item, and keeps the Item button and shield ring up to date.</summary>
         private void UseItems()
         {
-            var car = _arena.Car;
-            var input = _arena.PlayerInput;
+            var car = _screen.Car;
+            var input = _screen.PlayerInput;
             bool pressed = input != null && input.ConsumeItemPress();
             _shield.Tick(Time.deltaTime);
             if (pressed && car != null && _phase == RacePhase.Racing)
@@ -214,8 +214,8 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            _arena.ShowItemButton = _phase == RacePhase.Racing;
-            _arena.ItemButtonLabel = ItemNames.Label(_session.Items.Held);
+            _screen.ShowItemButton = _phase == RacePhase.Racing;
+            _screen.ItemButtonLabel = ItemNames.Label(_session.Items.Held);
             if (car != null && _shieldRing == null)
             {
                 _shieldRing = ShieldRing.Build(car.transform);
@@ -227,7 +227,7 @@ namespace CarRacer.Game.Net
         /// <summary>Back from the background after a bot drove this phone's car (design doc §12): carry on from where it got to.</summary>
         private void OnControlReturned(ControlReturnedMessage returned)
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -241,7 +241,7 @@ namespace CarRacer.Game.Net
 
         private void OnHit(HitMessage hit)
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -290,9 +290,9 @@ namespace CarRacer.Game.Net
         /// <summary>Host only, for item hits: where this phone sees a player's car.</summary>
         private bool TryGetCarPosition(byte playerId, out CarRacer.Core.Numerics.Vec3 position)
         {
-            if (playerId == _me && _arena.Car != null)
+            if (playerId == _me && _screen.Car != null)
             {
-                position = _arena.Car.BodyPosition.ToCore();
+                position = _screen.Car.BodyPosition.ToCore();
                 return true;
             }
 
@@ -314,7 +314,7 @@ namespace CarRacer.Game.Net
 
         private void FixedUpdate()
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null || _session.Ended)
             {
                 return;
@@ -364,7 +364,7 @@ namespace CarRacer.Game.Net
         private void FollowRacePhase()
         {
             var phase = _session.Race.Phase;
-            if (phase == _phase || _arena.Car == null)
+            if (phase == _phase || _screen.Car == null)
             {
                 return;
             }
@@ -373,31 +373,31 @@ namespace CarRacer.Game.Net
             // and come back to the track from an arena for the lobby.
             if (phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown))
             {
-                _arena.FollowEventTrack(_session.Race);
-                if (_detectorTrack != _arena.TrackIndex)
+                _screen.FollowEventTrack(_session.Race);
+                if (_detectorTrack != _screen.TrackIndex)
                 {
-                    _detector = new CheckpointDetector(_arena.Track.CheckpointGates());
-                    _detectorTrack = _arena.TrackIndex;
+                    _detector = new CheckpointDetector(_screen.Track.CheckpointGates());
+                    _detectorTrack = _screen.TrackIndex;
                 }
 
-                _arena.PlaceLocalCarAtStart(_session.Race.GridSlotOf(_me), _session.Race.Mode);
+                _screen.PlaceLocalCarAtStart(_session.Race.GridSlotOf(_me), _session.Race.Mode);
                 _detector.Reset();
                 _shield.Clear();
-                _lastPosition = _arena.Car.BodyPosition;
+                _lastPosition = _screen.Car.BodyPosition;
             }
-            else if (phase == RacePhase.Lobby && _arena.CameraRig.ArenaCentre.HasValue)
+            else if (phase == RacePhase.Lobby && _screen.CameraRig.ArenaCentre.HasValue)
             {
-                _arena.PlaceLocalCarOnGrid(_me);
-                _lastPosition = _arena.Car.BodyPosition;
+                _screen.PlaceLocalCarOnGrid(_me);
+                _lastPosition = _screen.Car.BodyPosition;
             }
 
-            _arena.Car.InputLocked = phase == RacePhase.Countdown;
+            _screen.Car.InputLocked = phase == RacePhase.Countdown;
             _phase = phase;
         }
 
         private void SendOwnState(long now)
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -448,9 +448,9 @@ namespace CarRacer.Game.Net
         private float FractionToNextCheckpoint(int playerId)
         {
             Vector3 position;
-            if (playerId == _me && _arena.Car != null)
+            if (playerId == _me && _screen.Car != null)
             {
-                position = _arena.Car.BodyPosition;
+                position = _screen.Car.BodyPosition;
             }
             else if (_remotes.TryGetValue((byte)playerId, out var remote) && remote.HasState)
             {
@@ -467,8 +467,8 @@ namespace CarRacer.Game.Net
                 return 0f;
             }
 
-            float distance = _arena.Track.Spline.FindNearestDistance(position.ToCore());
-            return _arena.Track.FractionToNextCheckpoint(distance, tracker.Get(playerId).NextCheckpoint);
+            float distance = _screen.Track.Spline.FindNearestDistance(position.ToCore());
+            return _screen.Track.FractionToNextCheckpoint(distance, tracker.Get(playerId).NextCheckpoint);
         }
 
         /// <summary>Spawns this phone's car once its roster entry (and colour) is known, and adds or removes remote cars to match the roster.</summary>
@@ -486,12 +486,12 @@ namespace CarRacer.Game.Net
                 {
                     if (!_spawned)
                     {
-                        _arena.SpawnLocalCar(player.PlayerId, colour, body);
+                        _screen.SpawnLocalCar(player.PlayerId, colour, body);
                         _spawned = true;
                     }
                     else if (restyled)
                     {
-                        _arena.ReplaceLocalCarBody(colour, body);
+                        _screen.ReplaceLocalCarBody(colour, body);
                     }
                 }
                 else if (_session.IsHost && player.IsBot)
@@ -500,7 +500,7 @@ namespace CarRacer.Game.Net
                 }
                 else if (!_remotes.TryGetValue(player.PlayerId, out var remote))
                 {
-                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, colour, _arena.transform, body);
+                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, colour, _screen.transform, body);
                 }
                 else if (restyled)
                 {

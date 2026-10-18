@@ -540,6 +540,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M7: Art and settings** | Kenney Car Kit cars and Racing Kit track dressing in place of the primitive placeholders; a settings screen gathering sound and music volume, graphics, haptics, auto-accelerate and tilt steering. |
 | **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
 | **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
+| **M10: UI and tidy-up** | The menus, lobby, results and HUD move from IMGUI to UI Toolkit (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

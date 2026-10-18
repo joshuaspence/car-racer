@@ -1,8 +1,8 @@
 using CarRacer.Core.Discovery;
-using CarRacer.Game.DriveTest;
 using CarRacer.Game.Menu;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
+using CarRacer.Game.Screens;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -53,8 +53,8 @@ namespace CarRacer.Game
                 return;
             }
 
-            var arena = _screen != null ? _screen.GetComponent<DriveTestArena>() : null;
-            if (arena != null && arena.Session != null && !arena.Session.Ended)
+            var screen = _screen != null ? _screen.GetComponent<TrackScreen>() : null;
+            if (screen != null && screen.Session != null && !screen.Session.Ended)
             {
                 return;
             }
@@ -87,18 +87,18 @@ namespace CarRacer.Game
         /// <summary>Practice: drive the track alone.</summary>
         public static void ShowPractice()
         {
-            Show(DriveTestArena.Create().gameObject);
+            Show(TrackScreen.Create().gameObject);
         }
 
         /// <summary>Hosts a session: everyone who joins drives the track and waits in the lobby for the host to start.</summary>
         public static void HostGame(string playerName)
         {
-            Show(DriveTestArena.Create(startSession: () => NetworkSession.StartHosting(playerName)).gameObject);
+            Show(TrackScreen.Create(startSession: () => NetworkSession.StartHosting(playerName)).gameObject);
         }
 
         public static void JoinGame(string playerName, string address, ushort port)
         {
-            Show(DriveTestArena.Create(startSession: () => NetworkSession.Join(playerName, address, port)).gameObject);
+            Show(TrackScreen.Create(startSession: () => NetworkSession.Join(playerName, address, port)).gameObject);
         }
 
         private static void Show(GameObject screen)

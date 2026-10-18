@@ -7,10 +7,10 @@ using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
 using CarRacer.Core.Race;
-using CarRacer.Game.DriveTest;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Items;
 using CarRacer.Game.Net;
+using CarRacer.Game.Screens;
 using UnityEngine;
 using Vec3 = CarRacer.Core.Numerics.Vec3;
 
@@ -68,15 +68,15 @@ namespace CarRacer.Game.Bots
         private readonly List<Vec3> _rivals = new List<Vec3>();
         private readonly List<OtherCar> _others = new List<OtherCar>();
         private readonly List<Bump> _bumps = new List<Bump>();
-        private DriveTestArena _arena;
+        private TrackScreen _screen;
         private NetworkSession _session;
         private NetworkedCars _cars;
         private RacePhase _phase = RacePhase.Lobby;
         private float _sendTimer;
 
-        public void Initialise(DriveTestArena arena, NetworkSession session, NetworkedCars cars)
+        public void Initialise(TrackScreen screen, NetworkSession session, NetworkedCars cars)
         {
-            _arena = arena;
+            _screen = screen;
             _session = session;
             _cars = cars;
             _session.HostSide.BotHitReceived += OnBotHit;
@@ -244,9 +244,9 @@ namespace CarRacer.Game.Bots
         {
             _rivals.Clear();
             var race = _session.Race;
-            if (_arena.Car != null && _session.TryGetLocalPlayerId(out byte me) && !NetworkedCars.IsOut(race, me))
+            if (_screen.Car != null && _session.TryGetLocalPlayerId(out byte me) && !NetworkedCars.IsOut(race, me))
             {
-                _rivals.Add(_arena.Car.BodyPosition.ToCore());
+                _rivals.Add(_screen.Car.BodyPosition.ToCore());
             }
 
             foreach (var pair in _bots)
@@ -329,7 +329,7 @@ namespace CarRacer.Game.Bots
             bool lineUp = phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown);
             if (lineUp)
             {
-                _arena.FollowEventTrack(_session.Race);
+                _screen.FollowEventTrack(_session.Race);
             }
 
             foreach (var bot in _bots.Values)
@@ -391,14 +391,14 @@ namespace CarRacer.Game.Bots
 
         private void LineUp(Bot bot, GameMode mode)
         {
-            if (bot.TrackIndex != _arena.TrackIndex)
+            if (bot.TrackIndex != _screen.TrackIndex)
             {
-                bot.Driver = new BotDriver(_arena.Track.Spline, bot.Skill, bot.Car.Tuning, bot.PlayerId);
-                bot.Detector = new CheckpointDetector(_arena.Track.CheckpointGates());
-                bot.TrackIndex = _arena.TrackIndex;
+                bot.Driver = new BotDriver(_screen.Track.Spline, bot.Skill, bot.Car.Tuning, bot.PlayerId);
+                bot.Detector = new CheckpointDetector(_screen.Track.CheckpointGates());
+                bot.TrackIndex = _screen.TrackIndex;
             }
 
-            _arena.PlaceAtStart(bot.Car, _session.Race.GridSlotOf(bot.PlayerId), mode);
+            _screen.PlaceAtStart(bot.Car, _session.Race.GridSlotOf(bot.PlayerId), mode);
             bot.WasSpunOut = false;
             bot.Detector.Reset();
             bot.Driver.Reset();
@@ -422,7 +422,7 @@ namespace CarRacer.Game.Bots
                 if (!_bots.ContainsKey(player.PlayerId))
                 {
                     var colour = CarColours.ForIndex(player.ColourIndex);
-                    var car = CarFactory.Build($"Bot {player.Name}", colour, _arena.transform, haptics: false, body: CarModels.ForIndex(player.BodyIndex));
+                    var car = CarFactory.Build($"Bot {player.Name}", colour, _screen.transform, haptics: false, body: CarModels.ForIndex(player.BodyIndex));
                     var skill = BotSkill.For(_session.HostSide.BotDifficulty);
                     var bot = new Bot
                     {
@@ -430,9 +430,9 @@ namespace CarRacer.Game.Bots
                         Colour = colour,
                         Car = car,
                         Skill = skill,
-                        Driver = new BotDriver(_arena.Track.Spline, skill, car.Tuning, player.PlayerId),
-                        Detector = new CheckpointDetector(_arena.Track.CheckpointGates()),
-                        TrackIndex = _arena.TrackIndex,
+                        Driver = new BotDriver(_screen.Track.Spline, skill, car.Tuning, player.PlayerId),
+                        Detector = new CheckpointDetector(_screen.Track.CheckpointGates()),
+                        TrackIndex = _screen.TrackIndex,
                         Owner = this,
                     };
                     bot.ShieldRing = ShieldRing.Build(car.transform);
