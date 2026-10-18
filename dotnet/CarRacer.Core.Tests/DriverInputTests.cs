@@ -264,6 +264,45 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void HoldingLookBackLooksBackUntilTheFingerLifts()
+        {
+            var controls = new TouchControls();
+            DriverControls Look(params TouchPoint[] touches) =>
+                controls.Update(new List<TouchPoint>(touches), Layout, showGas: false, showItem: true, showLookBack: true);
+
+            Assert.True(Look(At(1, Layout.LookBackCentre, TouchStage.Began)).LookBack);
+            Assert.True(Look(Touch(1, Layout.LookBackCentre.X, Layout.LookBackCentre.Y - 400f)).LookBack); // sliding off keeps it
+            Assert.False(Look(At(1, Layout.LookBackCentre, TouchStage.Ended)).LookBack);
+        }
+
+        [Fact]
+        public void LookBackTakesOnlyAFingerThatLandsOnIt()
+        {
+            var controls = new TouchControls();
+            var show = new List<TouchPoint> { Touch(1, Layout.LookBackCentre.X + 300f, Layout.LookBackCentre.Y - 300f, TouchStage.Began) };
+            controls.Update(show, Layout, showGas: false, showLookBack: true);
+            Assert.True(controls.Steering);
+
+            // A steering thumb straying over it keeps steering.
+            var slid = controls.Update(new List<TouchPoint> { At(1, Layout.LookBackCentre) }, Layout, showGas: false, showLookBack: true);
+            Assert.False(slid.LookBack);
+            Assert.True(controls.Steering);
+
+            // Hidden, it takes no fingers: one landing there steers.
+            var hidden = new TouchControls();
+            Assert.False(hidden.Update(new List<TouchPoint> { At(2, Layout.LookBackCentre, TouchStage.Began) }, Layout, showGas: false).LookBack);
+            Assert.True(hidden.Steering);
+        }
+
+        [Fact]
+        public void TheLookBackButtonSitsTopLeftBelowTheText()
+        {
+            Assert.True(Layout.LookBackCentre.X < Layout.SteerZoneRight);
+            Assert.True(Layout.LookBackCentre.X - Layout.ButtonRadius >= 0f);
+            Assert.True(Layout.LookBackCentre.Y + Layout.ButtonRadius <= 1080f - TouchControlLayout.TopTextInches * 400f + 0.01f);
+        }
+
+        [Fact]
         public void TheGasButtonOnlyWorksWhenShown()
         {
             var touches = new List<TouchPoint> { At(1, Layout.GasCentre, TouchStage.Began) };
@@ -334,6 +373,22 @@ namespace CarRacer.Core.Tests
 
             // From 3 rad to -3 rad is 0.28 rad onward through π, not 6 rad back round.
             Assert.True(cam.Heading > 3f || cam.Heading < -3f, $"heading {cam.Heading}");
+        }
+
+        [Fact]
+        public void TheRearViewSitsInFrontOfTheCarLookingBack()
+        {
+            var chase = Settle(default, Vec3.Zero, 0.3f, 0f);
+            var rear = ChaseCameraRig.RearView(chase, new Vec3(10f, 0f, 20f), 0f, 0f, Settings);
+            Assert.True(rear.Position.ApproximatelyEquals(new Vec3(10f, Settings.Height, 20f + Settings.Distance)));
+            Assert.True(rear.LookAt.ApproximatelyEquals(new Vec3(10f, Settings.LookHeight, 20f - Settings.LookAhead)));
+            Assert.Equal(chase.FieldOfView, rear.FieldOfView);
+            Assert.Equal(MathF.PI, MathF.Abs(rear.Heading), 3);
+
+            // Square to the car, not to the trailing chase heading, and further out at speed.
+            var fast = ChaseCameraRig.RearView(chase, Vec3.Zero, MathF.PI / 2f, Settings.TopSpeed, Settings);
+            Assert.Equal(Settings.DistanceAtTopSpeed, fast.Position.X, 3);
+            Assert.Equal(0f, fast.Position.Z, 3);
         }
 
         [Fact]

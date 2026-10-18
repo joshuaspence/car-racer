@@ -115,6 +115,7 @@ namespace CarRacer.Game.DriveTest
             unityCamera.farClipPlane = 600f;
             cameraObject.AddComponent<AudioListener>();
             CameraRig = cameraObject.AddComponent<ChaseCamera>();
+            CameraRig.LookBackInput = _playerInput;
 
             // Until this phone's car exists (a guest waiting to join), look over the track.
             cameraObject.transform.position = new Vector3(45f, 70f, -70f);
@@ -330,6 +331,11 @@ namespace CarRacer.Game.DriveTest
             if (ShowItemButton)
             {
                 DrawButton(layout, layout.ItemCentre, ItemButtonLabel, touch.ItemHeld);
+            }
+
+            if (_playerInput.ShowLookBack)
+            {
+                DrawButton(layout, layout.LookBackCentre, "LOOK BACK", touch.LookBackHeld);
             }
         }
 
