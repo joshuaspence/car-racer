@@ -371,9 +371,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 1. First launch: choose a display name (stored on the device; no accounts).
 2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**,
-   **Settings**. Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards +
-   join by IP) and Practice (a free drive), joining from the host's QR code, and Settings. The
-   garage comes later.
+   **Settings**. Built (`MainMenu`): name entry on first launch, Host, Join (game cards + join by
+   IP) and Practice (a free drive), joining from the host's QR code, Garage and Settings.
    - **Settings** gathers sound and music volume, graphics quality, haptics, auto-accelerate and
      tilt steering on one page; each choice is remembered as soon as it changes. Haptics and
      auto-accelerate can also be switched while driving.
@@ -385,6 +384,10 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
      the host keeps the player's colour unless someone has it, when they get the next free colour
      along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
      bodies in turn. Practice uses the garage car.
+   - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
+     its own camera, far below the menu, rendering to a texture), arrows to step through the
+     bodies, and a swatch per colour. Choices are remembered at once. Picking a car in the lobby
+     isn't possible yet: change it in the garage before hosting or joining.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
    difficulty. **The host decides** (no voting for now).
 5. Guests tap **Ready**; the host taps **Start** to begin a synced countdown.
@@ -497,6 +500,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M5: Robustness** | Background grace with bot takeover and return, "Reconnecting…" on Wi-Fi drops, join by QR code, automatic quality presets. |
 | **M6: Race feel** | Edge-of-screen indicators, incoming-missile warning, rear-view glance, audio (engines, crunches, items, music). |
 | **M7: Art and settings** | Kenney Car Kit cars and Racing Kit track dressing in place of the primitive placeholders; a settings screen gathering sound and music volume, graphics, haptics, auto-accelerate and tilt steering. |
-| Later | Track voting, Google Play internal testing track, more tracks and cars, accessibility pass. |
+| **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
+| Later | Track voting, Google Play internal testing track, accessibility pass. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

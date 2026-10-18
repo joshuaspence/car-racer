@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using CarRacer.Core.Art;
 using CarRacer.Core.Audio;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Session;
@@ -26,6 +27,7 @@ namespace CarRacer.Game.Menu
             Main,
             Join,
             Settings,
+            Garage,
         }
 
         private readonly DiscoveredHostList _hosts = new DiscoveredHostList();
@@ -37,6 +39,8 @@ namespace CarRacer.Game.Menu
         private string _joinAddress;
         private string _joinMessage = string.Empty;
         private Vector2 _scroll;
+        private GaragePreview _preview;
+        private GUIStyle _centredHeading;
 
         /// <summary>A join link that arrived before the player had a name; joined once they choose one.</summary>
         public static (string Address, ushort Port)? PendingJoin { get; set; }
@@ -72,6 +76,18 @@ namespace CarRacer.Game.Menu
 
         private void GoTo(Page page)
         {
+            // The turntable only exists while the garage is open.
+            if (page == Page.Garage && _preview == null)
+            {
+                _preview = new GameObject(nameof(GaragePreview)).AddComponent<GaragePreview>();
+                _preview.transform.SetParent(transform, false);
+            }
+            else if (page != Page.Garage && _preview != null)
+            {
+                Destroy(_preview.gameObject);
+                _preview = null;
+            }
+
             if (page == Page.Join && _page != Page.Join)
             {
                 StartDiscovery();
@@ -121,6 +137,9 @@ namespace CarRacer.Game.Menu
                     break;
                 case Page.Settings:
                     DrawSettingsPage();
+                    break;
+                case Page.Garage:
+                    DrawGaragePage();
                     break;
             }
         }
@@ -189,12 +208,99 @@ namespace CarRacer.Game.Menu
                 GoTo(Page.Name);
             }
 
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Garage", UiStyle.Button))
+            {
+                GoTo(Page.Garage);
+            }
+
+            GUILayout.Space(12f);
             if (GUILayout.Button("Settings", UiStyle.Button))
             {
                 GoTo(Page.Settings);
             }
 
+            GUILayout.EndHorizontal();
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// The garage (design doc §11): a turning preview of the car, the body to step through and
+        /// a swatch per colour. The choice is remembered at once and used when hosting, joining or
+        /// practising.
+        /// </summary>
+        private void DrawGaragePage()
+        {
+            GUILayout.BeginArea(UiStyle.CentredPanel(760f, 24f, 680f), UiStyle.Panel);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Garage", UiStyle.Heading);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Back", UiStyle.Button, GUILayout.Width(140f)))
+            {
+                // Leaving destroys the preview, so the rest of this pass would no longer match its
+                // layout; stop here rather than draw a page that is gone.
+                GoTo(Page.Main);
+                GUIUtility.ExitGUI();
+            }
+
+            GUILayout.EndHorizontal();
+
+            var model = Garage.Model;
+            var colour = CarColours.ForIndex(Garage.Colour);
+            if (_preview != null)
+            {
+                _preview.Show(model, colour);
+                var area = GUILayoutUtility.GetRect(480f, 300f, GUILayout.ExpandWidth(true));
+                float width = Mathf.Min(area.width, area.height * 4f / 3f);
+                GUI.DrawTexture(new Rect(area.x + (area.width - width) / 2f, area.y, width, area.height), _preview.Texture, ScaleMode.ScaleToFit);
+            }
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("<", UiStyle.Button, GUILayout.Width(90f)))
+            {
+                Garage.Body = Garage.Body - 1;
+            }
+
+            _centredHeading = _centredHeading ?? new GUIStyle(UiStyle.Heading) { alignment = TextAnchor.MiddleCenter };
+            GUILayout.Label(CarModels.DisplayName(model), _centredHeading, GUILayout.Height(UiStyle.ButtonHeight), GUILayout.ExpandWidth(true));
+            if (GUILayout.Button(">", UiStyle.Button, GUILayout.Width(90f)))
+            {
+                Garage.Body = Garage.Body + 1;
+            }
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            for (int i = 0; i < LobbyRoster.ColourCount; i++)
+            {
+                // The chosen colour is drawn larger, with a white edge.
+                bool chosen = i == Garage.Colour;
+                var swatch = GUILayoutUtility.GetRect(UiStyle.ButtonHeight, UiStyle.ButtonHeight, GUILayout.ExpandWidth(true));
+                if (chosen)
+                {
+                    Fill(swatch, Color.white);
+                }
+
+                Fill(chosen ? Inset(swatch, 4f) : Inset(swatch, 8f), CarColours.ForIndex(i));
+                if (GUI.Button(swatch, GUIContent.none, GUIStyle.none))
+                {
+                    Garage.Colour = i;
+                }
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Every car drives the same. If someone in the game already has your colour, you get the next free one.", UiStyle.Hint);
+            GUILayout.EndArea();
+        }
+
+        private static Rect Inset(Rect r, float by) => new Rect(r.x + by, r.y + by, r.width - 2f * by, r.height - 2f * by);
+
+        private static void Fill(Rect rect, Color colour)
+        {
+            var previous = GUI.color;
+            GUI.color = colour;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         /// <summary>Every setting in one place (design doc §11); each is remembered as soon as it changes.</summary>
