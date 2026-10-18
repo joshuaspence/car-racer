@@ -16,6 +16,10 @@ namespace CarRacer.Core.Track
             Vec3.Zero,
             new Vec3(-450f, 0f, 0f),
             new Vec3(550f, 0f, 30f),
+
+            // North of the Battle bowl, side by side.
+            new Vec3(-20f, 0f, 520f),
+            new Vec3(-450f, 0f, 520f),
         };
 
         private static List<TrackLayout> _layouts;

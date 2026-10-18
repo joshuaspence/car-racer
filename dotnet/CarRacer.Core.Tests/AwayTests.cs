@@ -9,7 +9,7 @@ namespace CarRacer.Core.Tests
     /// <summary>A guest whose app goes to the background mid-event (design doc §12): a bot drives after 10 s, and they get the car back on return.</summary>
     public class AwayTests
     {
-        private const ushort Version = 14;
+        private const ushort Version = 15;
         private const ulong GuestConnection = 7;
 
         private sealed class HostLink : ISessionTransport

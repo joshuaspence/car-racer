@@ -359,7 +359,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - The host **auto-saves after every event**; a dead session can be **resumed**, and players
   reclaim their points by name (ignoring case and spaces at the ends). Names are unique within a
   lobby; device ids aren't needed on a LAN of friends.
-- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the three tracks in order; Mixed Cup adds
+- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the first three tracks in order; Mixed Cup adds
   Sumo then Battle. After each event `CupRun` scores the results, sends everyone a
   `CupStandingsMessage` (the table and when the next event starts) and saves. The next event
   starts 10 s later straight from the results screen, unless the host pauses; the host can also
@@ -412,12 +412,17 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - **Everything else is generated** from it: road and wall meshes (`RoadMeshBuilder`),
   checkpoint gates, start grid (two staggered columns behind the line), item box positions and
   the bot racing line (`TrackLayout`). Arenas will work the same way (platform shape + edge type).
-- Initial content: **3 tracks** and **2 arenas** (Sumo platform, Battle bowl):
+- Content: **5 tracks** and **2 arenas** (Sumo platform, Battle bowl):
   - **Pebble Oval** (`oval`, ~390 m): an easy rounded rectangle.
   - **Canyon Hairpins** (`canyon`, ~590 m): a jump over a crest on the opening straight, two
     hairpins, a chicane and a fast sweeper.
   - **Crossover Eight** (`figure-eight`, ~700 m): crosses the middle on the ground, climbs round
     the right-hand loop and crosses back on a bridge 8 m up.
+  - **Seaside Sweepers** (`sweepers`, ~500 m): wide and flat; a long straight into a banked
+    right-hander, a run of left-right sweepers, and a wide hairpin home.
+  - **Switchback Hill** (`switchbacks`, ~480 m): up a long ramp, round a switchback near the top,
+    along a ridge 9 m up, and down through a long, sweeping bend.
+  - The cups use the first three tracks; the newer two are for single events.
 - **In the scene** (`TrackCatalog`): every track is built at once, each moved to its own patch
   of grass clear of the others and of the arenas. The host picks the track in the lobby
   (remembered); the countdown carries its index (protocol 10) and everyone lines up on that
