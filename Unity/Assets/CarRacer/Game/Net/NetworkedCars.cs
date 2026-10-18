@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Arena;
+using CarRacer.Core.Art;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Physics;
@@ -478,7 +479,7 @@ namespace CarRacer.Game.Net
                 {
                     if (!_spawned)
                     {
-                        _arena.SpawnLocalCar(player.PlayerId, CarColours.ForIndex(player.ColourIndex));
+                        _arena.SpawnLocalCar(player.PlayerId, CarColours.ForIndex(player.ColourIndex), CarModels.ForIndex(player.BodyIndex));
                         _spawned = true;
                     }
                 }
@@ -488,7 +489,7 @@ namespace CarRacer.Game.Net
                 }
                 else if (!_remotes.ContainsKey(player.PlayerId))
                 {
-                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, CarColours.ForIndex(player.ColourIndex), _arena.transform);
+                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, CarColours.ForIndex(player.ColourIndex), _arena.transform, CarModels.ForIndex(player.BodyIndex));
                 }
             }
 

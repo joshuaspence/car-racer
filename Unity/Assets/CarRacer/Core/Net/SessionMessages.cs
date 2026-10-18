@@ -8,19 +8,34 @@ namespace CarRacer.Core.Net
         public ushort ProtocolVersion;
         public string PlayerName = string.Empty;
 
+        /// <summary>The car body chosen in the garage (design doc §11).</summary>
+        public byte BodyIndex;
+
+        /// <summary>The colour chosen in the garage; the host gives the nearest free one if it's taken.</summary>
+        public byte ColourIndex;
+
         public MessageType Type => MessageType.JoinRequest;
 
         public void Write(NetWriter w)
         {
             w.WriteUShort(ProtocolVersion);
             w.WriteString(PlayerName);
+            w.WriteByte(BodyIndex);
+            w.WriteByte(ColourIndex);
         }
 
-        public static JoinRequestMessage Read(NetReader r) => new JoinRequestMessage
+        public static JoinRequestMessage Read(NetReader r)
         {
-            ProtocolVersion = r.ReadUShort(),
-            PlayerName = r.ReadString(),
-        };
+            // The version comes first, so a guest on another version is still told why it can't join.
+            var message = new JoinRequestMessage { ProtocolVersion = r.ReadUShort(), PlayerName = r.ReadString() };
+            if (r.Remaining >= 2)
+            {
+                message.BodyIndex = r.ReadByte();
+                message.ColourIndex = r.ReadByte();
+            }
+
+            return message;
+        }
     }
 
     public enum JoinResult : byte
@@ -62,6 +77,9 @@ namespace CarRacer.Core.Net
 
         /// <summary>A car the host drives (design doc §9), shown as "(bot)".</summary>
         public bool IsBot;
+
+        /// <summary>Which car body (design doc §11).</summary>
+        public byte BodyIndex;
     }
 
     /// <summary>Host → all, whenever anyone joins, leaves or changes: the full player list.</summary>
@@ -82,6 +100,7 @@ namespace CarRacer.Core.Net
                 w.WriteBool(p.Ready);
                 w.WriteBool(p.IsHost);
                 w.WriteBool(p.IsBot);
+                w.WriteByte(p.BodyIndex);
             }
         }
 
@@ -99,6 +118,7 @@ namespace CarRacer.Core.Net
                     Ready = r.ReadBool(),
                     IsHost = r.ReadBool(),
                     IsBot = r.ReadBool(),
+                    BodyIndex = r.ReadByte(),
                 });
             }
 

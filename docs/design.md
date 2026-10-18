@@ -379,6 +379,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
      auto-accelerate can also be switched while driving.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
+   - Built so far: six Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
+     hatchback sports, SUV luxury and van), each drawn 2.43 m long so they fill the same physics
+     car and drive the same. The choice (`Garage`, remembered on the phone) goes in the join request;
+     the host keeps the player's colour unless someone has it, when they get the next free colour
+     along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
+     bodies in turn. Practice uses the garage car.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
    difficulty. **The host decides** (no voting for now).
 5. Guests tap **Ready**; the host taps **Start** to begin a synced countdown.
