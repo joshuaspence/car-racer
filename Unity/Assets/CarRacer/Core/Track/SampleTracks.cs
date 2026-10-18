@@ -99,7 +99,7 @@ namespace CarRacer.Core.Track
         };
 
         /// <summary>
-        /// A fast, flowing circuit (about 640 m): a long front straight into a banked right-hander,
+        /// A fast, flowing circuit (about 500 m): a long front straight into a banked right-hander,
         /// a run of left-right sweepers along the back, and a wide hairpin home. Wide and flat, so
         /// it rewards holding a drift through the bends.
         /// </summary>
@@ -119,10 +119,10 @@ namespace CarRacer.Core.Track
                 new TrackPoint(45f, 0f, 120f, 16f, 8f),
                 new TrackPoint(78f, 0f, 108f, 16f, 6f),
                 new TrackPoint(95f, 0f, 80f, 15f, -4f),
-                new TrackPoint(120f, 0f, 58f, 15f, -6f),
+                new TrackPoint(120f, 0f, 58f, 15f, 6f),
                 new TrackPoint(128f, 0f, 30f, 15f, 4f),
-                new TrackPoint(112f, 0f, 5f, 15f, 6f),
-                new TrackPoint(118f, 0f, -22f, 15f, -4f),
+                new TrackPoint(112f, 0f, 5f, 15f, -6f),
+                new TrackPoint(118f, 0f, -22f, 15f, 4f),
                 new TrackPoint(100f, 0f, -48f, 16f, 6f),
                 new TrackPoint(65f, 0f, -55f, 16f, 8f),
                 new TrackPoint(30f, 0f, -48f, 16f, 8f),
@@ -131,7 +131,7 @@ namespace CarRacer.Core.Track
         };
 
         /// <summary>
-        /// A hill climb (about 620 m): up a long ramp, round a tight switchback near the top,
+        /// A hill climb (about 480 m): up a long ramp, round a tight switchback near the top,
         /// along the ridge 9 m up, and down the far side through a second switchback.
         /// </summary>
         public static TrackDefinition Switchbacks() => new TrackDefinition

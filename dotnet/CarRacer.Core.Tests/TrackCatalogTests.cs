@@ -22,6 +22,18 @@ namespace CarRacer.Core.Tests
 
         private static TrackLayout Layout(string id) => new TrackLayout(SampleTracks.All().Single(t => t.Id == id));
 
+        [Theory]
+        [InlineData("oval", 386f)]
+        [InlineData("canyon", 590f)]
+        [InlineData("figure-eight", 700f)]
+        [InlineData("sweepers", 500f)]
+        [InlineData("switchbacks", 480f)]
+        public void EachTrackIsAboutAsLongAsItsDescriptionSays(string id, float metres)
+        {
+            // The lengths quoted in SampleTracks and the design doc, to within 10 m.
+            Assert.InRange(Layout(id).Spline.Length, metres - 10f, metres + 10f);
+        }
+
         [Fact]
         public void EveryTrackHasADistinctIdAndName()
         {
