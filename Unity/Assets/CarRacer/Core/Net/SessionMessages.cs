@@ -80,6 +80,9 @@ namespace CarRacer.Core.Net
 
         /// <summary>Which car body (design doc §11).</summary>
         public byte BodyIndex;
+
+        /// <summary>The track this player voted for (design doc §11), or <see cref="VoteTrackMessage.NoVote"/>.</summary>
+        public byte TrackVote;
     }
 
     /// <summary>Host → all, whenever anyone joins, leaves or changes: the full player list.</summary>
@@ -101,6 +104,7 @@ namespace CarRacer.Core.Net
                 w.WriteBool(p.IsHost);
                 w.WriteBool(p.IsBot);
                 w.WriteByte(p.BodyIndex);
+                w.WriteByte(p.TrackVote);
             }
         }
 
@@ -119,6 +123,7 @@ namespace CarRacer.Core.Net
                     IsHost = r.ReadBool(),
                     IsBot = r.ReadBool(),
                     BodyIndex = r.ReadByte(),
+                    TrackVote = r.ReadByte(),
                 });
             }
 
@@ -157,6 +162,20 @@ namespace CarRacer.Core.Net
             GuestSentMs = r.ReadLong(),
             HostMs = r.ReadLong(),
         };
+    }
+
+    /// <summary>Guest → host: the guest's vote for the next track (design doc §11), or <see cref="NoVote"/> to withdraw it.</summary>
+    public sealed class VoteTrackMessage : IGameMessage
+    {
+        public const byte NoVote = byte.MaxValue;
+
+        public byte TrackIndex = NoVote;
+
+        public MessageType Type => MessageType.VoteTrack;
+
+        public void Write(NetWriter w) => w.WriteByte(TrackIndex);
+
+        public static VoteTrackMessage Read(NetReader r) => new VoteTrackMessage { TrackIndex = r.ReadByte() };
     }
 
     /// <summary>Guest → host: the guest tapped Ready (or un-Ready) in the lobby.</summary>

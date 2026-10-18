@@ -156,6 +156,15 @@ namespace CarRacer.Game.Net
             }
         }
 
+        /// <summary>A guest's vote for the next track (design doc §11); the host decides, so it has no vote of its own.</summary>
+        public void VoteTrack(byte track)
+        {
+            if (!IsHost)
+            {
+                GuestSide.VoteTrack(track);
+            }
+        }
+
         public void SendCarState(CarStateMessage state)
         {
             if (IsHost)

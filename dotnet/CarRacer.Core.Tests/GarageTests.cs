@@ -54,7 +54,7 @@ namespace CarRacer.Core.Tests
         public void TheChoiceTravelsInTheJoinRequestAndTheRoster()
         {
             var join = Assert.IsType<JoinRequestMessage>(MessageCodec.Decode(MessageCodec.Encode(
-                new JoinRequestMessage { ProtocolVersion = 16, PlayerName = "Alice", BodyIndex = 3, ColourIndex = 5 })));
+                new JoinRequestMessage { ProtocolVersion = 17, PlayerName = "Alice", BodyIndex = 3, ColourIndex = 5 })));
             Assert.Equal(3, join.BodyIndex);
             Assert.Equal(5, join.ColourIndex);
 
@@ -80,9 +80,9 @@ namespace CarRacer.Core.Tests
         public void AGuestsChoiceReachesTheHostsRoster()
         {
             var transport = new RecordingTransport();
-            var host = new HostSession(transport, "Host", 16, () => 0, new CarChoice(1, 2));
+            var host = new HostSession(transport, "Host", 17, () => 0, new CarChoice(1, 2));
             var link = new ForwardingLink(host);
-            var guest = new GuestSession(link, "Guest", 16, () => 0, new CarChoice(4, 2));
+            var guest = new GuestSession(link, "Guest", 17, () => 0, new CarChoice(4, 2));
             guest.OnConnected();
 
             var player = host.Roster.Players.Single(p => !p.IsHost);

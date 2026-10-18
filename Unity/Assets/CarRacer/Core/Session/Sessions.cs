@@ -240,6 +240,13 @@ namespace CarRacer.Core.Session
                     }
 
                     break;
+                case VoteTrackMessage vote when joined && !EventInProgress:
+                    if (Roster.Vote(playerId, vote.TrackIndex))
+                    {
+                        BroadcastRoster();
+                    }
+
+                    break;
                 case CarStateMessage state when joined && state.PlayerId == playerId:
                     // A guest may only speak for its own car.
                     foreach (ulong other in _playerByConnection.Keys)
@@ -271,10 +278,11 @@ namespace CarRacer.Core.Session
         /// <summary>Sends the host's own car (or a bot's) to every guest.</summary>
         public void BroadcastCarState(CarStateMessage state) => Broadcast(state, reliable: false);
 
-        /// <summary>Clears every guest's Ready (the lobby reopening after an event) and tells everyone.</summary>
+        /// <summary>Clears every guest's Ready and track vote (the lobby reopening after an event) and tells everyone.</summary>
         public void ResetReady()
         {
             Roster.ResetReady();
+            Roster.ClearVotes();
             BroadcastRoster();
         }
 
@@ -542,6 +550,9 @@ namespace CarRacer.Core.Session
             _car = car;
             SendToHost(new ChangeCarMessage { BodyIndex = car.Body, ColourIndex = car.Colour }, reliable: true);
         }
+
+        /// <summary>Votes for the next track (design doc §11), or withdraws the vote with <see cref="VoteTrackMessage.NoVote"/>.</summary>
+        public void VoteTrack(byte track) => SendToHost(new VoteTrackMessage { TrackIndex = track }, reliable: true);
 
         public void SendCarState(CarStateMessage state) => SendToHost(state, reliable: false);
 

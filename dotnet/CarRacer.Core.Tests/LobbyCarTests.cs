@@ -8,7 +8,7 @@ namespace CarRacer.Core.Tests
     /// <summary>Changing car in the lobby (design doc §11).</summary>
     public class LobbyCarTests
     {
-        private const ushort Version = 16;
+        private const ushort Version = 17;
 
         [Fact]
         public void APlayerCanChangeBodyAndToAFreeColour()
