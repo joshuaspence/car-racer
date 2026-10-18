@@ -31,6 +31,9 @@ namespace CarRacer.Game.Net
         public const float SendIntervalSeconds = 1f / 30f;
 
         private readonly Dictionary<byte, RemoteCar> _remotes = new Dictionary<byte, RemoteCar>();
+
+        /// <summary>The body and colour each car was last built with, to notice a change of car in the lobby.</summary>
+        private readonly Dictionary<byte, (byte Body, byte Colour)> _looks = new Dictionary<byte, (byte, byte)>();
         private readonly HashSet<byte> _inRoster = new HashSet<byte>();
         private readonly List<byte> _gone = new List<byte>();
         private readonly BumpMonitor _bumpMonitor = new BumpMonitor();
@@ -475,22 +478,37 @@ namespace CarRacer.Game.Net
             foreach (var player in _session.Players)
             {
                 _inRoster.Add(player.PlayerId);
+                var look = (player.BodyIndex, player.ColourIndex);
+                var colour = CarColours.ForIndex(player.ColourIndex);
+                var body = CarModels.ForIndex(player.BodyIndex);
+                bool restyled = _looks.TryGetValue(player.PlayerId, out var had) && had != look;
                 if (player.PlayerId == _me)
                 {
                     if (!_spawned)
                     {
-                        _arena.SpawnLocalCar(player.PlayerId, CarColours.ForIndex(player.ColourIndex), CarModels.ForIndex(player.BodyIndex));
+                        _arena.SpawnLocalCar(player.PlayerId, colour, body);
                         _spawned = true;
+                    }
+                    else if (restyled)
+                    {
+                        _arena.ReplaceLocalCarBody(colour, body);
                     }
                 }
                 else if (_session.IsHost && player.IsBot)
                 {
                     // The host drives its bots itself (BotCars); they aren't remote cars here.
                 }
-                else if (!_remotes.ContainsKey(player.PlayerId))
+                else if (!_remotes.TryGetValue(player.PlayerId, out var remote))
                 {
-                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, CarColours.ForIndex(player.ColourIndex), _arena.transform, CarModels.ForIndex(player.BodyIndex));
+                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, colour, _arena.transform, body);
                 }
+                else if (restyled)
+                {
+                    CarFactory.ReplaceBody(remote.gameObject, colour, body);
+                    remote.Colour = colour;
+                }
+
+                _looks[player.PlayerId] = look;
             }
 
             _gone.Clear();
@@ -506,6 +524,7 @@ namespace CarRacer.Game.Net
             {
                 Destroy(_remotes[id].gameObject);
                 _remotes.Remove(id);
+                _looks.Remove(id);
             }
         }
     }

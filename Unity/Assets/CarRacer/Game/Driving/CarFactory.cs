@@ -71,6 +71,29 @@ namespace CarRacer.Game.Driving
             return car;
         }
 
+        /// <summary>
+        /// Swaps the body and paint of a car made here (design doc §11, picking a car in the lobby),
+        /// leaving the car where it is. Takes the car's root object.
+        /// </summary>
+        public static void ReplaceBody(GameObject car, Color colour, CarModel body)
+        {
+            var visual = car.transform.Find("Body");
+            if (visual == null)
+            {
+                return;
+            }
+
+            // Detach first: Destroy waits for the end of the frame, and the new body shouldn't share the old one's parent until then.
+            for (int i = visual.childCount - 1; i >= 0; i--)
+            {
+                var old = visual.GetChild(i);
+                old.SetParent(null, false);
+                Object.Destroy(old.gameObject);
+            }
+
+            BuildBody(visual, colour, body);
+        }
+
         private static void BuildBody(Transform visual, Color colour, CarModel body)
         {
             if (CarBodies.TryBuild(visual, colour, body ?? CarModels.Race))
