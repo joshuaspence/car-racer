@@ -146,7 +146,8 @@ font set on the root so text renders without a theme. Its `Safe` container keeps
 containers never take touches, so only real controls block the game. `UiKit` makes elements in the
 house style (dark panels, 64-pixel buttons that darken as a finger lands, a yellow accent) with
 font sizes from the large-text option; a layer raises `Restyle` when that option changes so its
-screen rebuilds. The performance readout was the first to move; the menus, lobby and HUD follow.
+screen rebuilds. The performance readout and the menus (`MainMenu`: each page an element tree, rebuilt when
+something on it changes) have moved; the lobby and HUD follow.
 
 ## 4. Driving model
 
