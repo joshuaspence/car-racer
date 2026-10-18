@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CarRacer.Core.Art;
 using CarRacer.Core.Track;
 using CarRacer.Game;
@@ -39,9 +40,11 @@ namespace CarRacer.Tests
         public void TracksGetSceneryBakedIntoAFewMeshes()
         {
             var parent = new GameObject("Track").transform;
+            var meshes = new List<Mesh>();
             try
             {
-                TrackDressing.Build(parent, TrackCatalog.Layouts[0], "Oval");
+                TrackDressing.Build(parent, TrackCatalog.Layouts[0], "Oval", meshes);
+                Assert.AreEqual(parent.childCount, meshes.Count);
                 Assert.Greater(parent.childCount, 2);
                 Assert.Less(parent.childCount, 12);
                 foreach (Transform piece in parent)
@@ -54,6 +57,10 @@ namespace CarRacer.Tests
             finally
             {
                 Object.DestroyImmediate(parent.gameObject);
+                foreach (var mesh in meshes)
+                {
+                    Object.DestroyImmediate(mesh);
+                }
             }
         }
 

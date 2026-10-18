@@ -9,14 +9,16 @@ namespace CarRacer.Game.Arenas
     /// <summary>
     /// Puts Kenney Racing Kit scenery round a track (design doc §13): <see cref="TrackScenery"/>
     /// places it and <see cref="SceneryMesh"/> bakes it into one mesh per colour. The models are read
-    /// from <c>Resources/Models</c> once. Scenery has no colliders; it sits behind the walls.
+    /// from <c>Resources/Models</c> once. Scenery has no colliders; it sits behind the walls. Unity
+    /// doesn't free meshes made in code with their objects, so the caller destroys the ones it gets back.
     /// </summary>
     public static class TrackDressing
     {
         private static Dictionary<string, ObjModel> _models;
         private static Dictionary<string, Vec3> _colours;
 
-        public static void Build(Transform parent, TrackLayout layout, string name)
+        /// <summary>Builds the scenery under <paramref name="parent"/> and adds the meshes it made to <paramref name="meshes"/>, for the caller to destroy.</summary>
+        public static void Build(Transform parent, TrackLayout layout, string name, List<Mesh> meshes)
         {
             if (!Load())
             {
@@ -28,7 +30,9 @@ namespace CarRacer.Game.Arenas
             {
                 var piece = new GameObject($"{name} scenery {ColorUtility.ToHtmlStringRGB(ToColour(colour))}");
                 piece.transform.SetParent(parent, false);
-                piece.AddComponent<MeshFilter>().sharedMesh = mesh.ToUnityMesh(piece.name);
+                var unityMesh = mesh.ToUnityMesh(piece.name);
+                meshes.Add(unityMesh);
+                piece.AddComponent<MeshFilter>().sharedMesh = unityMesh;
                 piece.AddComponent<MeshRenderer>().sharedMaterial = SimpleMaterials.Get(ToColour(colour));
             }
         }
