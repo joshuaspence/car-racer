@@ -30,12 +30,12 @@ namespace CarRacer.Core.Session
         private readonly ushort _protocolVersion;
         private readonly Dictionary<ulong, byte> _playerByConnection = new Dictionary<ulong, byte>();
 
-        public HostSession(ISessionTransport transport, string hostName, ushort protocolVersion, Func<long> clockMs)
+        public HostSession(ISessionTransport transport, string hostName, ushort protocolVersion, Func<long> clockMs, CarChoice car = default)
         {
             _transport = transport;
             _protocolVersion = protocolVersion;
             _clockMs = clockMs;
-            HostPlayerId = Roster.Add(hostName, isHost: true).PlayerId;
+            HostPlayerId = Roster.Add(hostName, isHost: true, car).PlayerId;
         }
 
         public LobbyRoster Roster { get; } = new LobbyRoster();
@@ -287,7 +287,7 @@ namespace CarRacer.Core.Session
                 return;
             }
 
-            var player = Roster.Add(join.PlayerName);
+            var player = Roster.Add(join.PlayerName, car: new CarChoice(join.BodyIndex, join.ColourIndex));
             _playerByConnection[connection] = player.PlayerId;
             _lastHeardMs[player.PlayerId] = _clockMs();
             _transport.Send(connection, new JoinReplyMessage { Result = JoinResult.Accepted, PlayerId = player.PlayerId }, reliable: true);
@@ -372,6 +372,7 @@ namespace CarRacer.Core.Session
         private readonly ISessionTransport _transport;
         private readonly Func<long> _clockMs;
         private readonly string _playerName;
+        private readonly CarChoice _car;
         private readonly ushort _protocolVersion;
         private long _nextPingMs;
         private int _pingsSent;
@@ -386,10 +387,11 @@ namespace CarRacer.Core.Session
         /// <summary>…and after this long it gives up and goes back to the menu.</summary>
         public const long GiveUpAfterMs = 10_000;
 
-        public GuestSession(ISessionTransport transport, string playerName, ushort protocolVersion, Func<long> clockMs)
+        public GuestSession(ISessionTransport transport, string playerName, ushort protocolVersion, Func<long> clockMs, CarChoice car = default)
         {
             _transport = transport;
             _playerName = playerName;
+            _car = car;
             _protocolVersion = protocolVersion;
             _clockMs = clockMs;
         }
@@ -420,7 +422,7 @@ namespace CarRacer.Core.Session
         public void OnConnected()
         {
             _lastHeardMs = _clockMs();
-            _transport.Send(HostConnection, new JoinRequestMessage { ProtocolVersion = _protocolVersion, PlayerName = LobbyRoster.CleanName(_playerName) }, reliable: true);
+            _transport.Send(HostConnection, new JoinRequestMessage { ProtocolVersion = _protocolVersion, PlayerName = LobbyRoster.CleanName(_playerName), BodyIndex = _car.Body, ColourIndex = _car.Colour }, reliable: true);
         }
 
         /// <summary>Joined, but nothing from the host for <see cref="ReconnectingAfterMs"/>: the Wi-Fi may have dropped.</summary>

@@ -65,6 +65,25 @@ namespace CarRacer.Tests
         }
 
         [Test]
+        public void EveryGarageBodyBuilds()
+        {
+            foreach (var model in CarModels.Bodies)
+            {
+                var visual = new GameObject(model.Name).transform;
+                try
+                {
+                    Assert.IsTrue(CarBodies.TryBuild(visual, Color.magenta, model), model.Name);
+                    var mesh = visual.GetChild(0).GetComponent<MeshFilter>().sharedMesh;
+                    Assert.AreEqual(CarModels.Length, mesh.bounds.size.z * model.Scale, 0.05f, model.Name);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(visual.gameObject);
+                }
+            }
+        }
+
+        [Test]
         public void EachColourGetsItsOwnPaintAndSharesTheMesh()
         {
             var a = new GameObject("A").transform;

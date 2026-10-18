@@ -4,12 +4,26 @@ using CarRacer.Core.Net;
 
 namespace CarRacer.Core.Session
 {
+    /// <summary>The car a player picked in the garage (design doc §11): a body and a colour.</summary>
+    public struct CarChoice
+    {
+        public byte Body;
+        public byte Colour;
+
+        public CarChoice(byte body, byte colour)
+        {
+            Body = body;
+            Colour = colour;
+        }
+    }
+
     /// <summary>One person in the session, as the host tracks them.</summary>
     public sealed class LobbyPlayer
     {
         public byte PlayerId;
         public string Name = string.Empty;
         public byte ColourIndex;
+        public byte BodyIndex;
         public bool Ready;
         public bool IsHost;
         public bool IsBot;
@@ -17,8 +31,10 @@ namespace CarRacer.Core.Session
 
     /// <summary>
     /// The host's list of players (design doc §11). Hands out the lowest free player id, which is
-    /// also the grid slot until race rules decide otherwise, and the lowest free car colour, so
-    /// no two players share one. The host and bots are always ready; guests tap Ready.
+    /// also the grid slot until race rules decide otherwise. Each player gets the colour they
+    /// picked in the garage unless someone already has it, in which case the later joiner gets
+    /// the next free one along, so no two players share one; bots get the lowest free colour and
+    /// a body each in turn. The host and bots are always ready; guests tap Ready.
     /// </summary>
     public sealed class LobbyRoster
     {
@@ -27,6 +43,9 @@ namespace CarRacer.Core.Session
 
         /// <summary>Number of distinct car colours; at least <see cref="MaxPlayers"/>.</summary>
         public const int ColourCount = 8;
+
+        /// <summary>Number of car bodies to pick from (<c>CarModels.Bodies</c>).</summary>
+        public const int BodyCount = 6;
 
         private readonly List<LobbyPlayer> _players = new List<LobbyPlayer>();
 
@@ -75,8 +94,8 @@ namespace CarRacer.Core.Session
             return IsFull ? JoinResult.SessionFull : JoinResult.Accepted;
         }
 
-        /// <summary>Adds a player, or returns null if the session is full.</summary>
-        public LobbyPlayer Add(string name, bool isHost = false)
+        /// <summary>Adds a player with the car they picked (the first body and colour if not given), or returns null if the session is full.</summary>
+        public LobbyPlayer Add(string name, bool isHost = false, CarChoice car = default)
         {
             if (IsFull)
             {
@@ -87,7 +106,8 @@ namespace CarRacer.Core.Session
             {
                 PlayerId = LowestFree(p => p.PlayerId),
                 Name = CleanName(name),
-                ColourIndex = LowestFree(p => p.ColourIndex),
+                ColourIndex = FreeColourFrom(car.Colour),
+                BodyIndex = (byte)(car.Body % BodyCount),
                 Ready = isHost,
                 IsHost = isHost,
             };
@@ -103,6 +123,7 @@ namespace CarRacer.Core.Session
             var bot = Add(NextBotName());
             if (bot != null)
             {
+                bot.BodyIndex = (byte)(bot.PlayerId % BodyCount);
                 bot.IsBot = true;
                 bot.Ready = true;
             }
@@ -150,6 +171,7 @@ namespace CarRacer.Core.Session
                     PlayerId = p.PlayerId,
                     Name = p.Name,
                     ColourIndex = p.ColourIndex,
+                    BodyIndex = p.BodyIndex,
                     Ready = p.Ready,
                     IsHost = p.IsHost,
                     IsBot = p.IsBot,
@@ -182,6 +204,21 @@ namespace CarRacer.Core.Session
             }
 
             return "Bot";
+        }
+
+        /// <summary><paramref name="wanted"/> if nobody has it, otherwise the next free colour after it (wrapping round).</summary>
+        private byte FreeColourFrom(byte wanted)
+        {
+            for (int i = 0; i < ColourCount; i++)
+            {
+                byte candidate = (byte)((wanted + i) % ColourCount);
+                if (!_players.Exists(p => p.ColourIndex == candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return LowestFree(p => p.ColourIndex);
         }
 
         private byte LowestFree(Func<LobbyPlayer, byte> taken)
