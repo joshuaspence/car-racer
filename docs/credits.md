@@ -21,3 +21,16 @@ From [Kenney](https://www.kenney.nl), released under
 | `item_box.ogg` | Interface Sounds: `confirmation_001` |
 
 The engine note is synthesised in code (`Core/Audio/SoundRules.cs`, `EngineTone`).
+
+## Music
+
+All [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) from OpenGameArt. Each was
+re-encoded to 32 kHz stereo Ogg Vorbis.
+
+| File in `Unity/Assets/CarRacer/Resources/Music` | Plays | Track and author |
+| --- | --- | --- |
+| `menu.ogg` | Menus and lobbies | [Dizzy Racing](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
+| `oval.ogg` | The oval | [Pixel Sprinter](https://opengameart.org/content/pixel-sprinter) (loop version) by Zane Little Music |
+| `canyon.ogg` | The canyon | [Fever Stadium](https://opengameart.org/content/fever-stadium) (165 bpm) by mintodog |
+| `figure_eight.ogg` | The figure-eight | [Winning the Race](https://opengameart.org/content/winning-the-race) by Section 31 |
+| `arena.ogg` | Sumo and Battle | [Midnight Cruiser](https://opengameart.org/content/midnight-cruiser) by Zane Little Music |
