@@ -9,6 +9,9 @@ namespace CarRacer.Core.Art
     public sealed class ObjPart
     {
         public string Name = string.Empty;
+
+        /// <summary>The OBJ material (<c>usemtl</c>) the part is drawn in; a group using several becomes several parts.</summary>
+        public string Material = string.Empty;
         public readonly List<Vec3> Positions = new List<Vec3>();
         public readonly List<Vec3> Normals = new List<Vec3>();
         public readonly List<Vec2> Uvs = new List<Vec2>();
@@ -79,8 +82,21 @@ namespace CarRacer.Core.Art
                         break;
                     case "g":
                     case "o":
-                        part = new ObjPart { Name = f.Length > 1 ? f[1] : string.Empty };
+                        part = new ObjPart { Name = f.Length > 1 ? f[1] : string.Empty, Material = part != null ? part.Material : string.Empty };
                         model.Parts.Add(part);
+                        break;
+                    case "usemtl":
+                        string material = f.Length > 1 ? f[1] : string.Empty;
+                        if (part == null || part.Triangles.Count > 0)
+                        {
+                            part = new ObjPart { Name = part != null ? part.Name : string.Empty, Material = material };
+                            model.Parts.Add(part);
+                        }
+                        else
+                        {
+                            part.Material = material;
+                        }
+
                         break;
                     case "f":
                         if (part == null)

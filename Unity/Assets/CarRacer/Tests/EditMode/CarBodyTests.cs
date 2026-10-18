@@ -1,12 +1,14 @@
 using CarRacer.Core.Art;
+using CarRacer.Core.Track;
 using CarRacer.Game;
+using CarRacer.Game.Arenas;
 using CarRacer.Game.Driving;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace CarRacer.Tests
 {
-    /// <summary>The Kenney car loads from its OBJ and palette, painted in the player's colour.</summary>
+    /// <summary>The Kenney car loads from its OBJ and palette, painted in the player's colour, and tracks get their Racing Kit scenery.</summary>
     public class CarBodyTests
     {
         [Test]
@@ -30,6 +32,28 @@ namespace CarRacer.Tests
             finally
             {
                 Object.DestroyImmediate(visual.gameObject);
+            }
+        }
+
+        [Test]
+        public void TracksGetSceneryBakedIntoAFewMeshes()
+        {
+            var parent = new GameObject("Track").transform;
+            try
+            {
+                TrackDressing.Build(parent, TrackCatalog.Layouts[0], "Oval");
+                Assert.Greater(parent.childCount, 2);
+                Assert.Less(parent.childCount, 12);
+                foreach (Transform piece in parent)
+                {
+                    Assert.Greater(piece.GetComponent<MeshFilter>().sharedMesh.vertexCount, 0, piece.name);
+                    Assert.AreEqual(SimpleMaterials.ShaderName, piece.GetComponent<MeshRenderer>().sharedMaterial.shader.name);
+                    Assert.IsNull(piece.GetComponent<Collider>());
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
             }
         }
 
