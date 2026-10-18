@@ -39,6 +39,8 @@ jobs:
     needs: licence
     if: needs.licence.outputs.available == 'true'
     runs-on: ubuntu-latest
+    # A healthy build takes 15-20 minutes; a hung Unity editor would otherwise sit for 6 hours.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +75,8 @@ jobs:
     needs: licence
     if: needs.licence.outputs.available == 'true'
     runs-on: ubuntu-latest
+    # A healthy build takes 15-20 minutes; a hung Unity editor would otherwise sit for 6 hours.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
