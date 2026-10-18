@@ -389,7 +389,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
      bodies, and a swatch per colour. Choices are remembered at once. Picking a car in the lobby
      isn't possible yet: change it in the garage before hosting or joining.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
-   difficulty. **The host decides** (no voting for now).
+   difficulty. **The host decides**, but guests can vote for the track: a "Vote for a track"
+   button steps through the tracks and back to no vote (`VoteTrackMessage`), every lobby shows the
+   count ("Votes: Canyon 2 · Oval 1", `TrackVotes`), and the host gets a "Go with it" button when
+   the most-voted track isn't their pick. A tie never overrides the host's pick. Votes go in the
+   roster (protocol 17) and are cleared when the lobby reopens after an event.
 5. Guests tap **Ready**; the host taps **Start** to begin a synced countdown.
 6. After an event: results, then **back to the same lobby** for a one-tap rematch.
 

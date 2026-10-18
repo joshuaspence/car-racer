@@ -27,6 +27,9 @@ namespace CarRacer.Core.Net
         Projectiles = 19,
         CupStandings = 20,
         ControlReturned = 21,
+
+        // 22 is ChangeCar (picking a car in the lobby).
+        VoteTrack = 23,
     }
 
     [Flags]
@@ -303,6 +306,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.ControlReturned:
                     message = ControlReturnedMessage.Read(reader);
+                    break;
+                case MessageType.VoteTrack:
+                    message = VoteTrackMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");

@@ -4,6 +4,7 @@ using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
+using CarRacer.Core.Session;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Menu;
@@ -186,6 +187,7 @@ namespace CarRacer.Game.Net
                 }
 
                 GUILayout.Label(ready ? "Waiting for the host to start the race." : "Drive around, then tap Ready.", UiStyle.Hint);
+                DrawTrackVote(me);
             }
 
             GUILayout.EndVertical();
@@ -237,7 +239,63 @@ namespace CarRacer.Game.Net
                     _track = (_track + 1) % TrackCatalog.Count;
                     PlayerPrefs.SetInt(TrackKey, _track);
                 }
+
+                // Guests' votes only suggest; the host can go with them in one tap, or not.
+                var votes = TrackVotes.Count(_session.Players, TrackCatalog.Count);
+                string summary = TrackVotes.Summary(votes, TrackNames());
+                if (summary.Length > 0)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Votes: " + summary, UiStyle.Hint);
+                    int leader = TrackVotes.Leader(votes, _track);
+                    if (leader != _track && GUILayout.Button("Go with it", UiStyle.Button, GUILayout.Width(180f)))
+                    {
+                        _track = leader;
+                        PlayerPrefs.SetInt(TrackKey, _track);
+                    }
+
+                    GUILayout.EndHorizontal();
+                }
             }
+        }
+
+        /// <summary>
+        /// A guest's vote for the next race's track (design doc §11): tap to step through the tracks
+        /// and back to no vote. The host sees the count and still decides.
+        /// </summary>
+        private void DrawTrackVote(byte me)
+        {
+            if (!TryFind(me, out var mine))
+            {
+                return;
+            }
+
+            bool voted = mine.TrackVote < TrackCatalog.Count;
+            string label = voted ? "My vote: " + TrackCatalog.Layouts[mine.TrackVote].Definition.DisplayName : "Vote for a track";
+            if (GUILayout.Button(label, UiStyle.Button))
+            {
+                int next = voted ? mine.TrackVote + 1 : 0;
+                _session.VoteTrack(next < TrackCatalog.Count ? (byte)next : VoteTrackMessage.NoVote);
+            }
+
+            string summary = TrackVotes.Summary(TrackVotes.Count(_session.Players, TrackCatalog.Count), TrackNames());
+            GUILayout.Label(summary.Length > 0 ? "Votes: " + summary : "The host picks the track; votes help them decide.", UiStyle.Hint);
+        }
+
+        private static string[] _trackNames;
+
+        private static string[] TrackNames()
+        {
+            if (_trackNames == null)
+            {
+                _trackNames = new string[TrackCatalog.Count];
+                for (int i = 0; i < _trackNames.Length; i++)
+                {
+                    _trackNames[i] = TrackCatalog.Layouts[i].Definition.DisplayName;
+                }
+            }
+
+            return _trackNames;
         }
 
         private void UpdateJoinQr(string link)

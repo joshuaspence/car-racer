@@ -27,6 +27,9 @@ namespace CarRacer.Core.Session
         public bool Ready;
         public bool IsHost;
         public bool IsBot;
+
+        /// <summary>The track this player voted for, or <see cref="VoteTrackMessage.NoVote"/>.</summary>
+        public byte TrackVote = VoteTrackMessage.NoVote;
     }
 
     /// <summary>
@@ -152,6 +155,32 @@ namespace CarRacer.Core.Session
             return true;
         }
 
+        /// <summary>Records a guest's track vote (design doc §11); the host decides and bots don't vote. Returns true if it changed.</summary>
+        public bool Vote(byte playerId, byte track)
+        {
+            var player = Find(playerId);
+            if (player == null || player.IsHost || player.IsBot || player.TrackVote == track)
+            {
+                return false;
+            }
+
+            player.TrackVote = track;
+            return true;
+        }
+
+        /// <summary>Withdraws every vote, e.g. when an event starts from them. Returns true if there were any.</summary>
+        public bool ClearVotes()
+        {
+            bool any = false;
+            foreach (var p in _players)
+            {
+                any |= p.TrackVote != VoteTrackMessage.NoVote;
+                p.TrackVote = VoteTrackMessage.NoVote;
+            }
+
+            return any;
+        }
+
         /// <summary>Clears every guest's Ready, e.g. when an event ends and the lobby reopens.</summary>
         public void ResetReady()
         {
@@ -172,6 +201,7 @@ namespace CarRacer.Core.Session
                     Name = p.Name,
                     ColourIndex = p.ColourIndex,
                     BodyIndex = p.BodyIndex,
+                    TrackVote = p.TrackVote,
                     Ready = p.Ready,
                     IsHost = p.IsHost,
                     IsBot = p.IsBot,
