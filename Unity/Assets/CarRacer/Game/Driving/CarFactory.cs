@@ -21,13 +21,13 @@ namespace CarRacer.Game.Driving
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
 
-            var body = root.AddComponent<Rigidbody>();
-            body.mass = 1f;
-            body.linearDamping = 0f;
-            body.angularDamping = 0f;
-            body.constraints = RigidbodyConstraints.FreezeRotation;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            var sphereBody = root.AddComponent<Rigidbody>();
+            sphereBody.mass = 1f;
+            sphereBody.linearDamping = 0f;
+            sphereBody.angularDamping = 0f;
+            sphereBody.constraints = RigidbodyConstraints.FreezeRotation;
+            sphereBody.interpolation = RigidbodyInterpolation.Interpolate;
+            sphereBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             // The car model owns grip, so the sphere itself must slide freely.
             var sphere = root.AddComponent<SphereCollider>();
