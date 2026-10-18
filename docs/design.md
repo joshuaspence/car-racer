@@ -345,7 +345,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 
 ## 10. Championship (`Championship`)
 
-- Cups: **Grand Prix** (3 races) and **Mixed Cup** (3 races + Sumo + Battle), or custom.
+- Cups: **Grand Prix** (a race on every track: 5) and **Mixed Cup** (the same 5 races + Sumo + Battle), or custom.
 - Points for 1st to 6th: **10 / 8 / 6 / 4 / 2 / 1**, the same for races and arenas. Arena order is
   last car standing first, then reverse elimination order.
 - **Reverse grid** (leader starts last) is on by default as a host toggle.
@@ -359,7 +359,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - The host **auto-saves after every event**; a dead session can be **resumed**, and players
   reclaim their points by name (ignoring case and spaces at the ends). Names are unique within a
   lobby; device ids aren't needed on a LAN of friends.
-- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the first three tracks in order; Mixed Cup adds
+- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is every track in catalog order; Mixed Cup adds
   Sumo then Battle. After each event `CupRun` scores the results, sends everyone a
   `CupStandingsMessage` (the table and when the next event starts) and saves. The next event
   starts 10 s later straight from the results screen, unless the host pauses; the host can also
@@ -422,7 +422,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
     right-hander, a run of left-right sweepers, and a wide hairpin home.
   - **Switchback Hill** (`switchbacks`, ~480 m): up a long ramp, round a switchback near the top,
     along a ridge 9 m up, and down through a long, sweeping bend.
-  - The cups use the first three tracks; the newer two are for single events.
+  - Both cups race every track, so a new track joins them (a test enforces it).
 - **In the scene** (`TrackCatalog`): every track is built at once, each moved to its own patch
   of grass clear of the others and of the arenas. The host picks the track in the lobby
   (remembered); the countdown carries its index (protocol 10) and everyone lines up on that

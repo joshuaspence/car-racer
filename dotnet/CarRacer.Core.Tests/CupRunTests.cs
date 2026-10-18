@@ -313,9 +313,13 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void TheBuiltInCupsAreAsDesigned()
         {
-            Assert.Equal(new[] { 0, 1, 2 }, Cups.GrandPrix.Events.Select(e => e.TrackIndex));
+            // Every track, in catalog order, so a new track joins the cups or fails here.
+            var everyTrack = Enumerable.Range(0, CarRacer.Core.Track.SampleTracks.All().Length).ToArray();
+            Assert.Equal(everyTrack, Cups.GrandPrix.Events.Select(e => e.TrackIndex));
             Assert.All(Cups.GrandPrix.Events, e => Assert.Equal(GameMode.Race, e.Mode));
-            Assert.Equal(new[] { GameMode.Race, GameMode.Race, GameMode.Race, GameMode.Sumo, GameMode.Battle }, Cups.MixedCup.Events.Select(e => e.Mode));
+            Assert.Equal(everyTrack, Cups.MixedCup.Events.Where(e => e.Mode == GameMode.Race).Select(e => e.TrackIndex));
+            Assert.Equal(new[] { GameMode.Sumo, GameMode.Battle }, Cups.MixedCup.Events.Skip(everyTrack.Length).Select(e => e.Mode));
+            Assert.Equal(everyTrack.Length + 2, Cups.MixedCup.Events.Count);
             Assert.Same(Cups.MixedCup, Cups.Find("mixed"));
             Assert.Null(Cups.Find("nope"));
         }
