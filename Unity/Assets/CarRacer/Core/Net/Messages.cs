@@ -27,8 +27,7 @@ namespace CarRacer.Core.Net
         Projectiles = 19,
         CupStandings = 20,
         ControlReturned = 21,
-
-        // 22 is ChangeCar (picking a car in the lobby).
+        ChangeCar = 22,
         VoteTrack = 23,
     }
 
@@ -306,6 +305,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.ControlReturned:
                     message = ControlReturnedMessage.Read(reader);
+                    break;
+                case MessageType.ChangeCar:
+                    message = ChangeCarMessage.Read(reader);
                     break;
                 case MessageType.VoteTrack:
                     message = VoteTrackMessage.Read(reader);

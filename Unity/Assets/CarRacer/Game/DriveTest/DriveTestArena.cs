@@ -36,6 +36,9 @@ namespace CarRacer.Game.DriveTest
         private static readonly Color GrassColour = new Color(0.36f, 0.6f, 0.3f);
 
         private readonly List<Object> _owned = new List<Object>();
+
+        /// <summary>Each track's road, walls and scenery, by catalog index; only the current track's are drawn.</summary>
+        private readonly List<Renderer[]> _trackRenderers = new List<Renderer[]>();
         private ICarInputSource _inputSource;
         private PlayerCarInput _playerInput;
         private NetworkSession _session;
@@ -97,6 +100,8 @@ namespace CarRacer.Game.DriveTest
             {
                 BuildTrack(layout);
             }
+
+            DrawOnlyCurrentTrack();
 
             if (inputOverride != null)
             {
@@ -160,13 +165,34 @@ namespace CarRacer.Game.DriveTest
             ground.transform.localScale = new Vector3((maxX - minX + 2f * GroundMargin) / 10f, 1f, (maxZ - minZ + 2f * GroundMargin) / 10f);
             ground.GetComponent<Renderer>().sharedMaterial = SimpleMaterials.Get(GrassColour);
 
+            // The road, walls and scenery go under one object so they can be hidden together; the
+            // grass stays drawn so the world doesn't end at this track's edge.
+            var drawn = new GameObject(name).transform;
+            drawn.SetParent(transform, false);
             var meshes = RoadMeshBuilder.Build(layout.Spline, layout.Definition.WallHeight);
-            AddSurface(name + " road", meshes.Road, RoadColour);
-            AddSurface(name + " left wall", meshes.LeftWall, WallColour);
-            AddSurface(name + " right wall", meshes.RightWall, WallColour);
+            AddSurface(drawn, name + " road", meshes.Road, RoadColour);
+            AddSurface(drawn, name + " left wall", meshes.LeftWall, WallColour);
+            AddSurface(drawn, name + " right wall", meshes.RightWall, WallColour);
             var scenery = new List<Mesh>();
-            TrackDressing.Build(transform, layout, name, scenery);
+            TrackDressing.Build(drawn, layout, name, scenery);
             _owned.AddRange(scenery);
+            _trackRenderers.Add(drawn.GetComponentsInChildren<Renderer>());
+        }
+
+        /// <summary>
+        /// Every track is built, but with a 600 m view the others would all be drawn too (design doc
+        /// §14). Only the track cars are on is drawn; the others keep their colliders, so nothing that
+        /// is still on one falls through.
+        /// </summary>
+        private void DrawOnlyCurrentTrack()
+        {
+            for (int i = 0; i < _trackRenderers.Count; i++)
+            {
+                foreach (var renderer in _trackRenderers[i])
+                {
+                    renderer.enabled = i == TrackIndex;
+                }
+            }
         }
 
         /// <summary>
@@ -182,6 +208,7 @@ namespace CarRacer.Game.DriveTest
             }
 
             TrackIndex = index;
+            DrawOnlyCurrentTrack();
             return true;
         }
 
@@ -207,6 +234,18 @@ namespace CarRacer.Game.DriveTest
             Car.InputSource = _inputSource;
             CameraRig.Target = Car;
             PlaceLocalCarOnGrid(slot);
+        }
+
+        /// <summary>Gives this phone's car another body or colour where it stands (picking a car in the lobby).</summary>
+        public void ReplaceLocalCarBody(Color colour, CarModel body)
+        {
+            if (Car == null)
+            {
+                return;
+            }
+
+            CarFactory.ReplaceBody(Car.gameObject, colour, body);
+            CarColour = colour;
         }
 
         /// <summary>Puts this phone's car back at rest on grid slot <paramref name="slot"/>, e.g. for a race start.</summary>
@@ -245,12 +284,12 @@ namespace CarRacer.Game.DriveTest
             car.Place(position.ToUnity() + Vector3.up * (CarController.SphereRadius + 0.1f), Mathf.Atan2(forward.X, forward.Z));
         }
 
-        private void AddSurface(string name, MeshData data, Color colour)
+        private void AddSurface(Transform parent, string name, MeshData data, Color colour)
         {
             var mesh = data.ToUnityMesh(name);
             _owned.Add(mesh);
             var surface = new GameObject(name);
-            surface.transform.SetParent(transform, false);
+            surface.transform.SetParent(parent, false);
             surface.AddComponent<MeshFilter>().sharedMesh = mesh;
             surface.AddComponent<MeshRenderer>().sharedMaterial = SimpleMaterials.Get(colour);
             surface.AddComponent<MeshCollider>().sharedMesh = mesh;

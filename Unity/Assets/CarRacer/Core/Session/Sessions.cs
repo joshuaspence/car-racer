@@ -233,6 +233,13 @@ namespace CarRacer.Core.Session
                     }
 
                     break;
+                case ChangeCarMessage change when joined && !EventInProgress:
+                    if (Roster.ChangeCar(playerId, new CarChoice(change.BodyIndex, change.ColourIndex)))
+                    {
+                        BroadcastRoster();
+                    }
+
+                    break;
                 case VoteTrackMessage vote when joined && !EventInProgress:
                     if (Roster.Vote(playerId, vote.TrackIndex))
                     {
@@ -277,6 +284,18 @@ namespace CarRacer.Core.Session
             Roster.ResetReady();
             Roster.ClearVotes();
             BroadcastRoster();
+        }
+
+        /// <summary>The host picked another car in the lobby; ignored mid-event. Returns true if it changed.</summary>
+        public bool ChangeHostCar(CarChoice car)
+        {
+            if (EventInProgress || !Roster.ChangeCar(HostPlayerId, car))
+            {
+                return false;
+            }
+
+            BroadcastRoster();
+            return true;
         }
 
         public void SetHostName(string name)
@@ -380,7 +399,7 @@ namespace CarRacer.Core.Session
         private readonly ISessionTransport _transport;
         private readonly Func<long> _clockMs;
         private readonly string _playerName;
-        private readonly CarChoice _car;
+        private CarChoice _car;
         private readonly ushort _protocolVersion;
         private long _nextPingMs;
         private int _pingsSent;
@@ -523,6 +542,13 @@ namespace CarRacer.Core.Session
             {
                 _transport.Send(HostConnection, new SetReadyMessage { Ready = ready }, reliable: true);
             }
+        }
+
+        /// <summary>Asks the host for another car (design doc §11); the roster that comes back says what was granted.</summary>
+        public void ChangeCar(CarChoice car)
+        {
+            _car = car;
+            SendToHost(new ChangeCarMessage { BodyIndex = car.Body, ColourIndex = car.Colour }, reliable: true);
         }
 
         /// <summary>Votes for the next track (design doc §11), or withdraws the vote with <see cref="VoteTrackMessage.NoVote"/>.</summary>

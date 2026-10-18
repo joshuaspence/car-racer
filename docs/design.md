@@ -373,8 +373,8 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**,
    **Settings**. Built (`MainMenu`): name entry on first launch, Host, Join (game cards + join by
    IP) and Practice (a free drive), joining from the host's QR code, Garage and Settings.
-   - **Settings** gathers sound and music volume, graphics quality, haptics, auto-accelerate and
-     tilt steering on one page; each choice is remembered as soon as it changes. Haptics and
+   - **Settings** gathers sound and music volume, graphics quality, the performance readout,
+     haptics, auto-accelerate and tilt steering on one page; each choice is remembered as soon as it changes. Haptics and
      auto-accelerate can also be switched while driving.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
@@ -386,8 +386,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
      bodies in turn. Practice uses the garage car.
    - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
      its own camera, far below the menu, rendering to a texture), arrows to step through the
-     bodies, and a swatch per colour. Choices are remembered at once. Picking a car in the lobby
-     isn't possible yet: change it in the garage before hosting or joining.
+     bodies, and a swatch per colour. Choices are remembered at once.
+   - **In the lobby**, a "Your car" panel beside the lobby list has the same arrows and swatches
+     (colours other players have are drawn small and can't be picked). A guest sends
+     `ChangeCarMessage`; the host takes any body, and the colour unless someone else has it, then
+     sends the roster, and every phone swaps that car's body where it stands. Not mid-event. The
+     pick is remembered in the garage too.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
    difficulty. **The host decides**, but guests can vote for the track: a "Vote for a track"
    button steps through the tracks and back to no vote (`VoteTrackMessage`), every lobby shows the
@@ -484,9 +488,19 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   native resolution, no MSAA). Adreno 600–639, Mali G72–G76 or under 7 GB is **Medium** (0.75,
   2× MSAA). Anything newer is **High** (full resolution, 4× MSAA). An unrecognised GPU goes by
   memory. The main menu's Graphics button cycles auto / Low / Medium / High (remembered).
+- **Only the current track is drawn.** Every track is built at once, and the 600 m view would
+  otherwise draw all of them; the others' road, walls and scenery are hidden (colliders kept)
+  until racing moves there. Their grass stays, so the world doesn't end at the track's edge.
+- **Low quality keeps half the trees** (`QualitySettingsValues.TreeShare`): every other tree that
+  higher levels place, in the same spots. Takes effect the next time a track screen is built.
 - Worst-case benchmark: **Pixel 2 XL hosting 6 cars with items**, plus a 20-minute session for
   thermal throttling.
 - Network: 30 Hz × 43 bytes × 6 cars is about 7.7 KB/s per phone, before transport overhead.
+- **Performance readout** (`PerfStats`, `PerfOverlay`): small text at the top centre of every
+  screen with the frame rate and slowest frame over the last 2 s, how many frames missed 30 fps,
+  draw calls, memory in use and this phone's session traffic (up and down, per second). On by
+  default in development builds, and switched in Settings ("Perf stats"). Draw calls and memory
+  only report in development builds; release builds show the frame and traffic figures.
 
 ## 15. CI, builds and distribution
 
@@ -510,6 +524,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M6: Race feel** | Edge-of-screen indicators, incoming-missile warning, rear-view glance, audio (engines, crunches, items, music). |
 | **M7: Art and settings** | Kenney Car Kit cars and Racing Kit track dressing in place of the primitive placeholders; a settings screen gathering sound and music volume, graphics, haptics, auto-accelerate and tilt steering. |
 | **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
-| Later | Track voting, Google Play internal testing track, accessibility pass. |
+| **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
+| Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

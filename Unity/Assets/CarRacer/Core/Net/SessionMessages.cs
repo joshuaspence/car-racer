@@ -189,4 +189,21 @@ namespace CarRacer.Core.Net
 
         public static SetReadyMessage Read(NetReader r) => new SetReadyMessage { Ready = r.ReadBool() };
     }
+
+    /// <summary>Guest → host: the guest picked another body or colour in the lobby (design doc §11).</summary>
+    public sealed class ChangeCarMessage : IGameMessage
+    {
+        public byte BodyIndex;
+        public byte ColourIndex;
+
+        public MessageType Type => MessageType.ChangeCar;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(BodyIndex);
+            w.WriteByte(ColourIndex);
+        }
+
+        public static ChangeCarMessage Read(NetReader r) => new ChangeCarMessage { BodyIndex = r.ReadByte(), ColourIndex = r.ReadByte() };
+    }
 }

@@ -332,10 +332,19 @@ namespace CarRacer.Game.Menu
             GUILayout.EndHorizontal();
 
             // Graphics is automatic by default (design doc §14); tap to choose a level instead.
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
             {
                 GraphicsQuality.Cycle();
             }
+
+            GUILayout.Space(12f);
+            if (GUILayout.Button(PerfOverlay.Label, UiStyle.Button))
+            {
+                PerfOverlay.Visible = !PerfOverlay.Visible;
+            }
+
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(Vibration.Enabled ? "Haptics: on" : "Haptics: off", UiStyle.Button))

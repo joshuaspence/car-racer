@@ -155,6 +155,39 @@ namespace CarRacer.Core.Session
             return true;
         }
 
+        /// <summary>
+        /// Changes a person's car in the lobby (design doc §11): any body, and the colour unless
+        /// someone else has it, in which case they keep theirs. Returns true if anything changed.
+        /// Bots keep the cars they were given.
+        /// </summary>
+        public bool ChangeCar(byte playerId, CarChoice car)
+        {
+            var player = Find(playerId);
+            if (player == null || player.IsBot)
+            {
+                return false;
+            }
+
+            byte body = (byte)(car.Body % BodyCount);
+            byte colour = (byte)(car.Colour % ColourCount);
+            if (_players.Exists(p => p != player && p.ColourIndex == colour))
+            {
+                colour = player.ColourIndex;
+            }
+
+            if (body == player.BodyIndex && colour == player.ColourIndex)
+            {
+                return false;
+            }
+
+            player.BodyIndex = body;
+            player.ColourIndex = colour;
+            return true;
+        }
+
+        /// <summary>True if someone other than <paramref name="playerId"/> has colour <paramref name="colour"/>.</summary>
+        public bool ColourTaken(byte colour, byte playerId) => _players.Exists(p => p.PlayerId != playerId && p.ColourIndex == colour);
+
         /// <summary>Records a guest's track vote (design doc §11); the host decides and bots don't vote. Returns true if it changed.</summary>
         public bool Vote(byte playerId, byte track)
         {
