@@ -418,8 +418,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - **Audio:** CC0 sound effects (Kenney's Impact, Sci-fi and Interface packs, mono 22 kHz in
   `Resources/Audio`; see `docs/credits.md`), a crunch scaled by impact (light, medium or heavy, on
   the same range as the bump's haptic pulse), per-item sounds where each is used, a bang where a
-  Missile ends or a Bomb goes off, a chime on picking up an item, a whoosh on each boost, CC0 music
-  per track, and separate music and sound-effects volume (Off, Low, Medium, High).
+  Missile ends or a Bomb goes off, a chime on picking up an item, a whoosh on each boost, and
+  separate music and sound-effects volume (Off, Low, Medium, High; music starts at Medium).
+  - **Music** (`MusicChoice`): CC0 tunes from OpenGameArt in `Resources/Music`, streamed. The menus
+    and a session's lobby play the menu tune; each track has its own tune while racing or
+    practising on it, and both arenas share one. A change of tune fades out and in over 0.6 s, and
+    the music carries on across screens.
   - **Engines** are made in code, not recorded, so they loop without a click (`EngineTone`): a
     stack of harmonics pulsing like an engine's firing. Every car has one, its pitch and loudness
     rising with speed (`SoundRules`) and a touch higher while boosting; other cars' fade with
@@ -461,6 +465,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M4: Championship** | Cups, points, reverse grid, standings screens, auto-save and resume. |
 | **M5: Robustness** | Background grace with bot takeover and return, "Reconnecting…" on Wi-Fi drops, join by QR code, automatic quality presets. |
 | **M6: Race feel** | Edge-of-screen indicators, incoming-missile warning, rear-view glance, audio (engines, crunches, items, music). |
+| **M7: Art and settings** | Kenney Car Kit cars and Racing Kit track dressing in place of the primitive placeholders; a settings screen gathering sound and music volume, graphics, haptics, auto-accelerate and tilt steering. |
 | Later | Track voting, Google Play internal testing track, more tracks and cars, accessibility pass. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

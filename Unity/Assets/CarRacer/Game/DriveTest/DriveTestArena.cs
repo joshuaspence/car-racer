@@ -5,6 +5,7 @@ using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Arenas;
+using CarRacer.Game.Audio;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
@@ -122,6 +123,7 @@ namespace CarRacer.Game.DriveTest
             cameraObject.transform.LookAt(new Vector3(45f, 0f, 30f));
 
             gameObject.AddComponent<RaceHud>().Initialise(this);
+            gameObject.AddComponent<MusicDirector>().Initialise(this);
             if (startSession == null)
             {
                 SpawnLocalCar(0, CarColours.ForIndex(0));

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using CarRacer.Core.Audio;
 using CarRacer.Game.Audio;
 using NUnit.Framework;
 using UnityEngine;
@@ -27,6 +28,23 @@ namespace CarRacer.Tests
                 .Select(Path.GetFileNameWithoutExtension)
                 .OrderBy(n => n);
             CollectionAssert.AreEqual(GameAudio.ClipNames.OrderBy(n => n), files);
+        }
+
+        [Test]
+        public void EveryTuneLoadsAndStreams()
+        {
+            foreach (string name in MusicChoice.All)
+            {
+                var clip = MusicPlayer.Clip(name);
+                Assert.IsNotNull(clip, name);
+                Assert.AreEqual(AudioClipLoadType.Streaming, clip.loadType, name);
+                Assert.Greater(clip.length, 20f, name);
+            }
+
+            var files = Directory.GetFiles(Path.Combine(Application.dataPath, "CarRacer/Resources/Music"), "*.ogg")
+                .Select(Path.GetFileNameWithoutExtension)
+                .OrderBy(n => n);
+            CollectionAssert.AreEqual(MusicChoice.All.OrderBy(n => n), files);
         }
 
         [Test]

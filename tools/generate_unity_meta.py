@@ -84,6 +84,10 @@ AudioImporter:
   assetBundleVariant:
 """
 
+# Music (anything under a Music folder): streamed rather than held in memory, stereo, 2D.
+MUSIC = AUDIO.replace("loadType: 0", "loadType: 2").replace("quality: 0.7", "quality: 0.5").replace(
+    "preloadAudioData: 1", "preloadAudioData: 0").replace("forceToMono: 1", "forceToMono: 0").replace("3D: 1", "3D: 0")
+
 DEFAULT = """fileFormatVersion: 2
 guid: {guid}
 DefaultImporter:
@@ -92,6 +96,8 @@ DefaultImporter:
   assetBundleName:
   assetBundleVariant:
 """
+
+AUDIO_SUFFIXES = (".ogg", ".wav")
 
 TEMPLATES = {
     ".cs": MONO_SCRIPT,
@@ -102,6 +108,12 @@ TEMPLATES = {
     ".ogg": AUDIO,
     ".wav": AUDIO,
 }
+
+
+def template_for(path: Path) -> str:
+    if path.suffix in AUDIO_SUFFIXES and "Music" in path.parts:
+        return MUSIC
+    return TEMPLATES.get(path.suffix, DEFAULT)
 
 
 def guid_for(path: Path) -> str:
@@ -125,7 +137,7 @@ def main() -> int:
             continue
         missing.append(meta)
         if not check:
-            template = FOLDER if path.is_dir() else TEMPLATES.get(path.suffix, DEFAULT)
+            template = FOLDER if path.is_dir() else template_for(path)
             meta.write_text(template.format(guid=guid_for(path)), encoding="utf-8")
 
     orphaned = [

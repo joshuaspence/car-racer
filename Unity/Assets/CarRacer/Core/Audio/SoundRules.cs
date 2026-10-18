@@ -12,7 +12,7 @@ namespace CarRacer.Core.Audio
 
     /// <summary>
     /// How the game sounds (design doc §13): engine pitch and loudness from speed, which crunch a
-    /// bump makes and how loud, and the sound-effects volume setting.
+    /// bump makes and how loud, and the sound-effects and music volume settings.
     /// </summary>
     public static class SoundRules
     {
@@ -31,6 +31,12 @@ namespace CarRacer.Core.Audio
         private static readonly string[] VolumeNames = { "Off", "Low", "Medium", "High" };
 
         public const int DefaultVolumeStep = 3;
+
+        /// <summary>Music starts at Medium, under the sound effects.</summary>
+        public const int DefaultMusicStep = 2;
+
+        /// <summary>Seconds to fade one tune out (and the next in) when the tune changes.</summary>
+        public const float MusicFadeSeconds = 0.6f;
 
         public static float EnginePitch(float speed, float topSpeed, bool boosting) =>
             IdlePitch + (TopSpeedPitch - IdlePitch) * SpeedShare(speed, topSpeed) + (boosting ? BoostPitch : 0f);

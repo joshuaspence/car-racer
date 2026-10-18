@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using CarRacer.Core.Audio;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Session;
 using CarRacer.Game.Audio;
@@ -49,6 +50,7 @@ namespace CarRacer.Game.Menu
             _nameDraft = string.IsNullOrEmpty(_name) ? SystemInfo.deviceModel : _name;
             _joinAddress = PlayerPrefs.GetString(JoinAddressKey, string.Empty);
             _page = string.IsNullOrEmpty(_name) ? Page.Name : Page.Main;
+            MusicPlayer.Play(MusicChoice.Menu);
         }
 
         private void OnDisable()
@@ -150,7 +152,7 @@ namespace CarRacer.Game.Menu
 
         private void DrawMainPage()
         {
-            GUILayout.BeginArea(UiStyle.CentredPanel(480f, 70f, 600f), UiStyle.Panel);
+            GUILayout.BeginArea(UiStyle.CentredPanel(480f, 40f, 680f), UiStyle.Panel);
             GUILayout.Label("Car Racer", UiStyle.Title);
             GUILayout.Label($"Racing as {_name}", UiStyle.HintCentred);
             if (!string.IsNullOrEmpty(Notice))
@@ -183,16 +185,21 @@ namespace CarRacer.Game.Menu
             }
 
             // Graphics is automatic by default (design doc §14); tap to choose a level instead.
-            GUILayout.BeginHorizontal();
             if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
             {
                 GraphicsQuality.Cycle();
             }
 
-            GUILayout.Space(12f);
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button(GameAudio.Label, UiStyle.Button))
             {
                 GameAudio.CycleVolume();
+            }
+
+            GUILayout.Space(12f);
+            if (GUILayout.Button(MusicPlayer.Label, UiStyle.Button))
+            {
+                MusicPlayer.CycleVolume();
             }
 
             GUILayout.EndHorizontal();
