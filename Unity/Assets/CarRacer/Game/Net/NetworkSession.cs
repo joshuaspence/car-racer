@@ -6,6 +6,7 @@ using CarRacer.Core.Net;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
 using CarRacer.Core.Session;
+using CarRacer.Game.Driving;
 using Unity.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -150,7 +151,7 @@ namespace CarRacer.Game.Net
         {
             var session = Create();
             session.IsHost = true;
-            session.HostSide = new HostSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs);
+            session.HostSide = new HostSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs, Garage.Choice);
             session.HostSide.CarStateReceived += session.RaiseCarState;
             session.HostSide.HitReceived += session.RaiseHit;
 
@@ -179,7 +180,7 @@ namespace CarRacer.Game.Net
         public static NetworkSession Join(string playerName, string address, ushort port)
         {
             var session = Create();
-            session.GuestSide = new GuestSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs);
+            session.GuestSide = new GuestSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs, Garage.Choice);
             session.GuestSide.CarStateReceived += session.RaiseCarState;
             session.GuestSide.HitReceived += session.RaiseHit;
 

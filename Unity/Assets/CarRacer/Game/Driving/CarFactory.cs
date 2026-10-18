@@ -6,15 +6,17 @@ using UnityEngine;
 namespace CarRacer.Game.Driving
 {
     /// <summary>
-    /// Builds a car from code: the physics sphere plus Kenney's race car body in the player's colour
-    /// (design doc §13), or a placeholder made of primitives if the model can't be loaded.
+    /// Builds a car from code: the physics sphere plus the player's Kenney body in their colour
+    /// (design doc §11, §13), or a placeholder made of primitives if the model can't be loaded.
+    /// Every body drives the same; only the look differs.
     /// </summary>
     public static class CarFactory
     {
         private static PhysicsMaterial _frictionless;
 
         /// <param name="haptics">Whether bumps and boosts vibrate the phone and sound up close: yes for this phone's own car, no for bots the host drives.</param>
-        public static CarController Build(string name, Color colour, Transform parent, bool haptics = true)
+        /// <param name="body">The garage body (design doc §11); the race car if not given.</param>
+        public static CarController Build(string name, Color colour, Transform parent, bool haptics = true, CarModel body = null)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
@@ -35,7 +37,7 @@ namespace CarRacer.Game.Driving
             var visual = new GameObject("Body").transform;
             visual.SetParent(root.transform, false);
             visual.localPosition = new Vector3(0f, -CarController.SphereRadius, 0f);
-            BuildBody(visual, colour);
+            BuildBody(visual, colour, body);
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
@@ -53,7 +55,7 @@ namespace CarRacer.Game.Driving
         /// collider, so it is never a solid wall for this phone's car; contact with it is
         /// resolved by <c>BumpMonitor</c> instead (design doc §2.2).
         /// </summary>
-        public static RemoteCar BuildRemote(string name, byte playerId, Color colour, Transform parent)
+        public static RemoteCar BuildRemote(string name, byte playerId, Color colour, Transform parent, CarModel body = null)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
@@ -61,7 +63,7 @@ namespace CarRacer.Game.Driving
             var visual = new GameObject("Body").transform;
             visual.SetParent(root.transform, false);
             visual.localPosition = new Vector3(0f, -CarController.SphereRadius, 0f);
-            BuildBody(visual, colour);
+            BuildBody(visual, colour, body);
 
             var car = root.AddComponent<RemoteCar>();
             car.Initialise(playerId, colour, visual);
@@ -69,9 +71,9 @@ namespace CarRacer.Game.Driving
             return car;
         }
 
-        private static void BuildBody(Transform visual, Color colour)
+        private static void BuildBody(Transform visual, Color colour, CarModel body)
         {
-            if (CarBodies.TryBuild(visual, colour, CarModels.Race))
+            if (CarBodies.TryBuild(visual, colour, body ?? CarModels.Race))
             {
                 return;
             }

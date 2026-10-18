@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Arena;
+using CarRacer.Core.Art;
 using CarRacer.Core.Bots;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Items;
@@ -421,7 +422,7 @@ namespace CarRacer.Game.Bots
                 if (!_bots.ContainsKey(player.PlayerId))
                 {
                     var colour = CarColours.ForIndex(player.ColourIndex);
-                    var car = CarFactory.Build($"Bot {player.Name}", colour, _arena.transform, haptics: false);
+                    var car = CarFactory.Build($"Bot {player.Name}", colour, _arena.transform, haptics: false, body: CarModels.ForIndex(player.BodyIndex));
                     var skill = BotSkill.For(_session.HostSide.BotDifficulty);
                     var bot = new Bot
                     {

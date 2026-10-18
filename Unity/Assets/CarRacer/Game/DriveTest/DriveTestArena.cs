@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Arena;
+using CarRacer.Core.Art;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Race;
@@ -126,7 +127,8 @@ namespace CarRacer.Game.DriveTest
             gameObject.AddComponent<MusicDirector>().Initialise(this);
             if (startSession == null)
             {
-                SpawnLocalCar(0, CarColours.ForIndex(0));
+                // Practice: the car from the garage.
+                SpawnLocalCar(0, CarColours.ForIndex(Garage.Colour), Garage.Model);
             }
             else
             {
@@ -191,15 +193,15 @@ namespace CarRacer.Game.DriveTest
             }
         }
 
-        /// <summary>Creates this phone's car on grid slot <paramref name="slot"/> and points the camera at it.</summary>
-        public void SpawnLocalCar(int slot, Color colour)
+        /// <summary>Creates this phone's car (<paramref name="body"/>, or the race car) on grid slot <paramref name="slot"/> and points the camera at it.</summary>
+        public void SpawnLocalCar(int slot, Color colour, CarModel body = null)
         {
             if (Car != null)
             {
                 Destroy(Car.gameObject);
             }
 
-            Car = CarFactory.Build("Car", colour, transform);
+            Car = CarFactory.Build("Car", colour, transform, body: body);
             CarColour = colour;
             Car.InputSource = _inputSource;
             CameraRig.Target = Car;
