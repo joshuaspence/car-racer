@@ -1,3 +1,4 @@
+using System.Text;
 using CarRacer.Core.Arena;
 using CarRacer.Core.Art;
 using CarRacer.Core.Bots;
@@ -10,14 +11,18 @@ using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Menu;
 using CarRacer.Game.Platform;
+using CarRacer.Game.Ui;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CarRacer.Game.Net
 {
     /// <summary>
-    /// The session screens drawn over the track (design doc §6, §11): the lobby (players, Ready,
-    /// mode, track, laps and Start), the countdown, the race HUD (position and lap, or lives and
-    /// who is left in an arena) and the results with a rematch. Temporary IMGUI until the real UI.
+    /// The session screens drawn over the track (design doc §6, §11), on a UI Toolkit layer: the
+    /// lobby (players, Ready, mode, track, laps, bots, votes, the car picker and Start), the
+    /// countdown, the race HUD (position and lap, or lives and who is left in an arena, and the
+    /// item slot) and the results with a rematch or the cup table. The lobby and results are
+    /// rebuilt only when what they show changes; the race HUD's text is updated every frame.
     /// </summary>
     public sealed class SessionOverlay : MonoBehaviour
     {
@@ -27,24 +32,46 @@ namespace CarRacer.Game.Net
         public const string ModeKey = "mode";
         public const string TrackKey = "track";
 
+        /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
+        public const float LeftCornerDrop = 16f;
+
+        /// <summary>A session that has ended (host gone, connection lost) shows why, then goes back to the menu after this long.</summary>
+        public const float EndedReturnSeconds = 4f;
+
+        /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
+        private const float AddressRefreshSeconds = 3f;
+
         /// <summary>The bot fill choices (design doc §9): off, or fill the grid to 4 or 6 cars.</summary>
         private static readonly int[] BotFills = { 0, 4, 6 };
 
+        private static string[] _trackNames;
+
+        private readonly StringBuilder _signature = new StringBuilder();
         private NetworkSession _session;
         private NetworkedCars _cars;
         private int _laps = 3;
         private GameMode _mode = GameMode.Race;
         private int _track;
         private CupPanel _cup;
-        /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
-        private const float AddressRefreshSeconds = 3f;
-
         private string _hostAddresses = string.Empty;
         private string _joinLink;
         private Texture2D _joinQr;
         private float _nextAddressRefresh;
-        private GUIStyle _small;
-        private GUIStyle _big;
+
+        private UiRoot _layer;
+        private Label _status;
+        private Label _banner;
+        private Label _countdown;
+        private VisualElement _view;
+        private ScrollView _lobbyScroll;
+        private VisualElement _raceHud;
+        private Label _corner1;
+        private Label _corner2;
+        private Label _corner3;
+        private Label _itemSlot;
+        private Label _cupCountdown;
+        private string _shownView;
+        private bool _hudLeftHanded;
 
         public void Initialise(NetworkSession session, NetworkedCars cars)
         {
@@ -58,10 +85,104 @@ namespace CarRacer.Game.Net
                 _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
                 _track = TrackCatalog.Clamp(PlayerPrefs.GetInt(TrackKey, 0));
             }
+
+            _layer = UiRoot.Create(transform, "Session", order: 10);
+            _layer.Restyle += Build;
+            Build();
         }
 
-        /// <summary>A session that has ended (host gone, connection lost) shows why, then goes back to the menu after this long.</summary>
-        public const float EndedReturnSeconds = 4f;
+        /// <summary>Makes the layer's lasting elements; the lobby and results views are filled in as they change.</summary>
+        private void Build()
+        {
+            _layer.Safe.Clear();
+            _layer.Full.Clear();
+            _layer.Full.Add(_layer.Safe);
+
+            _status = UiKit.Text(string.Empty, 20, Color.white);
+            _status.style.position = Position.Absolute;
+            _status.style.left = 24f;
+            _status.style.top = 64f;
+            _layer.Safe.Add(_status);
+
+            _view = UiKit.Fill(new VisualElement { name = "view" });
+            _layer.Safe.Add(_view);
+            _shownView = null;
+
+            BuildRaceHud();
+
+            _countdown = Big(96, 200f, 140f);
+            _layer.Full.Add(_countdown);
+            _banner = Big(56, 260f, 80f);
+            _layer.Full.Add(_banner);
+        }
+
+        /// <summary>A large centred line across the screen, <paramref name="top"/> pixels down; hidden until given text.</summary>
+        private static Label Big(int size, float top, float height)
+        {
+            var label = UiKit.Centred(UiKit.Text(string.Empty, size, Color.white, bold: true));
+            label.style.position = Position.Absolute;
+            label.style.left = label.style.right = 0f;
+            label.style.top = top;
+            label.style.height = height;
+            label.style.display = DisplayStyle.None;
+            return label;
+        }
+
+        /// <summary>
+        /// The race HUD: up to three lines of status in the top corner opposite Look back (the top
+        /// right, or the top left with left-handed controls, design doc §5) and the item slot at the
+        /// top centre (§6).
+        /// </summary>
+        private void BuildRaceHud()
+        {
+            _hudLeftHanded = Accessibility.LeftHanded;
+            _raceHud = UiKit.Fill(new VisualElement { name = "race HUD" });
+            var corner = new VisualElement();
+            corner.style.position = Position.Absolute;
+            corner.style.top = _hudLeftHanded ? 84f + LeftCornerDrop : 84f;
+            corner.style.width = 400f;
+            if (_hudLeftHanded)
+            {
+                corner.style.left = 24f;
+            }
+            else
+            {
+                corner.style.right = 24f;
+            }
+
+            corner.pickingMode = PickingMode.Ignore;
+            _corner1 = CornerLine();
+            _corner2 = CornerLine();
+            _corner3 = CornerLine();
+            corner.Add(_corner1);
+            corner.Add(_corner2);
+            corner.Add(_corner3);
+            _raceHud.Add(corner);
+
+            var slot = UiKit.Panel();
+            slot.style.position = Position.Absolute;
+            slot.style.top = 16f;
+            slot.style.left = Length.Percent(50);
+            slot.style.marginLeft = -110f;
+            slot.style.width = 220f;
+            slot.style.height = 56f;
+            slot.style.paddingTop = slot.style.paddingBottom = 0f;
+            slot.style.justifyContent = Justify.Center;
+            slot.pickingMode = PickingMode.Ignore;
+            _itemSlot = UiKit.Centred(UiKit.Text("—", 34, UiKit.Muted, bold: true));
+            slot.Add(_itemSlot);
+            _raceHud.Add(slot);
+            _raceHud.style.display = DisplayStyle.None;
+            _layer.Safe.Add(_raceHud);
+        }
+
+        private Label CornerLine()
+        {
+            var line = UiKit.Text(string.Empty, 34, Color.white, bold: true);
+            line.style.height = 44f;
+            line.style.unityTextAlign = _hudLeftHanded ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
+            return line;
+        }
 
         private void Update()
         {
@@ -71,140 +192,275 @@ namespace CarRacer.Game.Net
                 return;
             }
 
-            if (_session != null && !_session.Ended && _session.Race != null)
-            {
-                _cup.Tick();
-            }
-        }
-
-        private void OnGUI()
-        {
-            if (_session == null)
+            if (_session == null || _layer == null)
             {
                 return;
             }
 
-            UiStyle.Begin();
-            float width = UiStyle.Width;
-            float left = UiStyle.SafeArea.x + 24f;
-            _small = _small ?? new GUIStyle(GUI.skin.label);
-            _small.fontSize = Accessibility.Text(20);
-            _big = _big ?? new GUIStyle(GUI.skin.label) { fontSize = 96, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-
-            GUI.Label(new Rect(left, 64f, 700f, 30f), _session.Status, _small);
-            if (_session.Ended || _session.Reconnecting)
+            if (!_session.Ended && _session.Race != null)
             {
-                // Design doc §12: "Reconnecting…" while the host is quiet; why it ended, before going back to the menu.
-                var banner = new GUIStyle(_big) { fontSize = 56 };
-                GUI.Label(new Rect(0f, 260f, width, 80f), _session.Ended ? _session.Status : "Reconnecting…", banner);
+                _cup.Tick();
             }
+
+            if (_hudLeftHanded != Accessibility.LeftHanded)
+            {
+                Build();
+            }
+
+            Set(_status, _session.Status);
+
+            // Design doc §12: "Reconnecting…" while the host is quiet; why it ended, before going back to the menu.
+            Show(_banner, _session.Ended ? _session.Status : _session.Reconnecting ? "Reconnecting…" : null);
 
             bool joined = _session.TryGetLocalPlayerId(out byte me);
             if (_session.Ended || !joined || _session.Race == null)
             {
+                ShowView(string.Empty, null);
+                _raceHud.style.display = DisplayStyle.None;
+                Show(_countdown, null);
                 return;
             }
 
             var race = _session.Race;
+            bool racing = race.Phase == RacePhase.Countdown || race.Phase == RacePhase.Racing;
+            _raceHud.style.display = racing ? DisplayStyle.Flex : DisplayStyle.None;
             switch (race.Phase)
             {
                 case RacePhase.Lobby:
-                    DrawLobby(left, me);
+                    Show(_countdown, null);
+                    if (_session.IsHost && Time.unscaledTime >= _nextAddressRefresh)
+                    {
+                        RefreshHostAddresses();
+                    }
+
+                    ShowView(LobbySignature(me), () => BuildLobby(me));
                     break;
                 case RacePhase.Countdown:
                 case RacePhase.Racing:
-                    DrawRace(race, width, me);
+                    ShowView("race", null);
+                    UpdateRace(race, me);
                     break;
                 case RacePhase.Results:
-                    DrawResults(race, width, me);
+                    Show(_countdown, null);
+                    var table = _cup.CurrentStandings(race);
+                    ShowView(ResultsSignature(race, table), () => BuildResults(race, me, table));
+                    if (table != null && _cupCountdown != null)
+                    {
+                        _cup.UpdateCountdown(table, _cupCountdown);
+                    }
+
                     break;
             }
         }
 
-        private void DrawLobby(float left, byte me)
+        /// <summary>Rebuilds the lobby or results view with <paramref name="build"/> when its <paramref name="signature"/> changes.</summary>
+        private void ShowView(string signature, System.Action build)
         {
-            GUILayout.BeginArea(new Rect(left, 100f, 540f, 600f));
-            GUILayout.BeginVertical(UiStyle.Panel);
-            GUILayout.Label("Lobby", UiStyle.Heading);
+            if (signature == _shownView)
+            {
+                return;
+            }
+
+            _shownView = signature;
+            _view.Clear();
+            _cupCountdown = null;
+            build?.Invoke();
+        }
+
+        /// <summary>
+        /// The lobby rebuilds whenever anyone readies up, changes car or votes; carry the scroll
+        /// position over so the host isn't thrown back to the top, away from Start. The offset is
+        /// applied once the new list has been laid out, as until then there is nothing to scroll.
+        /// </summary>
+        private void KeepScroll(ScrollView scroll)
+        {
+            float offset = _lobbyScroll != null ? _lobbyScroll.scrollOffset.y : 0f;
+            _lobbyScroll = scroll;
+            if (offset <= 0f)
+            {
+                return;
+            }
+
+            EventCallback<GeometryChangedEvent> restore = null;
+            restore = _ =>
+            {
+                scroll.contentContainer.UnregisterCallback(restore);
+                scroll.scrollOffset = new Vector2(0f, offset);
+            };
+            scroll.contentContainer.RegisterCallback(restore);
+        }
+
+        /// <summary>Forces the current view to rebuild next frame, after a button changed what it shows.</summary>
+        private void Changed() => _shownView = null;
+
+        private static void Set(Label label, string text)
+        {
+            if (label.text != text)
+            {
+                label.text = text;
+            }
+        }
+
+        private static void Show(Label label, string text)
+        {
+            label.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
+            if (!string.IsNullOrEmpty(text))
+            {
+                Set(label, text);
+            }
+        }
+
+        private void RefreshHostAddresses()
+        {
+            // For guests whose network blocks discovery (design doc §1.1).
+            var addresses = HostAddress.LocalIPv4Addresses();
+            _hostAddresses = addresses.Count > 0 ? "Join by IP: " + string.Join(" or ", addresses) : string.Empty;
+            _nextAddressRefresh = Time.unscaledTime + AddressRefreshSeconds;
+            UpdateJoinQr(addresses.Count > 0 ? JoinLink.Make(addresses[0], _session.Port) : null);
+        }
+
+        /// <summary>Everything the lobby shows, so it rebuilds only when one of these changes.</summary>
+        private string LobbySignature(byte me)
+        {
+            _signature.Clear().Append("lobby/").Append(me).Append('/');
+            foreach (var p in _session.Players)
+            {
+                _signature.Append(p.PlayerId).Append(p.Name).Append(p.ColourIndex).Append(p.BodyIndex)
+                    .Append(p.Ready).Append(p.IsHost).Append(p.IsBot).Append(p.TrackVote).Append('|');
+            }
+
+            if (_session.IsHost)
+            {
+                var host = _session.HostSide;
+                _signature.Append(_mode).Append(_laps).Append(_track).Append(host.BotFill).Append(host.BotDifficulty)
+                    .Append(_cup.Signature).Append(_hostAddresses).Append(_joinLink).Append(CanStart());
+            }
+            else
+            {
+                _signature.Append(_session.GuestSide.Ready);
+            }
+
+            return _signature.ToString();
+        }
+
+        private bool CanStart() => _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
+
+        private void BuildLobby(byte me)
+        {
+            // The lobby list and settings on the left: as tall as they need, scrolling if that's
+            // more than the space below the status line. The column marks out that space; the
+            // panel shrinks to fit inside it.
+            var column = new VisualElement { name = "lobby column", pickingMode = PickingMode.Ignore };
+            column.style.position = Position.Absolute;
+            column.style.left = 24f;
+            column.style.top = 100f;
+            column.style.bottom = 16f;
+            column.style.width = 540f;
+            column.style.alignItems = Align.FlexStart;
+            var panel = UiKit.Panel(540f);
+            panel.style.maxHeight = Length.Percent(100);
+            panel.style.flexShrink = 1f;
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.style.flexGrow = 0f;
+            scroll.style.flexShrink = 1f;
+            KeepScroll(scroll);
+            var content = scroll.contentContainer;
+            panel.Add(scroll);
+            column.Add(panel);
+            _view.Add(column);
+
+            content.Add(UiKit.Heading("Lobby"));
             foreach (var player in _session.Players)
             {
                 string state = player.IsHost ? "host" : player.IsBot ? "bot" : player.Ready ? "ready" : "not ready";
                 string you = player.PlayerId == me ? " (you)" : string.Empty;
-                GUILayout.BeginHorizontal();
-                var swatch = GUILayoutUtility.GetRect(22f, 22f, GUILayout.Width(22f), GUILayout.Height(34f));
-                Swatch(swatch.x, swatch.y + 2f, player.ColourIndex);
-                GUILayout.Label(player.Name + you, UiStyle.Body);
-                GUILayout.FlexibleSpace();
-                GUILayout.Label(state, UiStyle.Hint);
-                GUILayout.EndHorizontal();
+                var row = UiKit.Row();
+                row.Add(Dot(player.ColourIndex));
+                row.Add(UiKit.Space(8f));
+                row.Add(UiKit.Body(player.Name + you));
+                row.Add(UiKit.Grow());
+                row.Add(UiKit.Hint(state));
+                content.Add(row);
             }
 
-            GUILayout.Space(8f);
+            content.Add(UiKit.Space(8f));
             if (_session.IsHost)
             {
-                // For guests whose network blocks discovery (design doc §1.1).
-                if (Time.unscaledTime >= _nextAddressRefresh)
-                {
-                    var addresses = HostAddress.LocalIPv4Addresses();
-                    _hostAddresses = addresses.Count > 0 ? "Join by IP: " + string.Join(" or ", addresses) : string.Empty;
-                    _nextAddressRefresh = Time.unscaledTime + AddressRefreshSeconds;
-                    UpdateJoinQr(addresses.Count > 0 ? JoinLink.Make(addresses[0], _session.Port) : null);
-                }
-
                 if (_hostAddresses.Length > 0)
                 {
-                    GUILayout.Label(_hostAddresses, UiStyle.Hint);
+                    content.Add(UiKit.Hint(_hostAddresses));
                 }
 
-                _cup.DrawLobbyChoice();
+                _cup.AddLobbyChoice(content, Changed);
                 if (!_cup.CupChosen)
                 {
-                    DrawSingleEventSettings();
+                    AddSingleEventSettings(content);
                 }
 
-                DrawBotSettings();
+                AddBotSettings(content);
 
                 // The host decides (design doc §11); alone, it's a practice race.
-                bool canStart = _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
+                bool canStart = CanStart();
                 if (_cup.CupChosen)
                 {
-                    _cup.DrawStartButtons(canStart);
+                    _cup.AddStartButtons(content, canStart);
                 }
                 else
                 {
-                    GUI.enabled = canStart;
-                    if (GUILayout.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
+                    content.Add(UiKit.Enabled(UiKit.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", () =>
                     {
-                        ((HostRace)_session.Race).Start(_laps, _mode, _track);
-                    }
-
-                    GUI.enabled = true;
+                        if (CanStart())
+                        {
+                            ((HostRace)_session.Race).Start(_laps, _mode, _track);
+                        }
+                    }, primary: true), canStart));
                 }
             }
             else
             {
                 bool ready = _session.GuestSide.Ready;
-                if (GUILayout.Button(ready ? "Not ready" : "Ready", ready ? UiStyle.Button : UiStyle.PrimaryButton))
+                content.Add(UiKit.Button(ready ? "Not ready" : "Ready", () =>
                 {
-                    _session.GuestSide.SetReady(!ready);
-                }
-
-                GUILayout.Label(ready ? "Waiting for the host to start the race." : "Drive around, then tap Ready.", UiStyle.Hint);
-                DrawTrackVote(me);
+                    _session.GuestSide.SetReady(!_session.GuestSide.Ready);
+                    Changed();
+                }, primary: !ready));
+                content.Add(UiKit.Hint(ready ? "Waiting for the host to start the race." : "Drive around, then tap Ready."));
+                AddTrackVote(content, me);
             }
 
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
-
-            // Scanned with a guest's camera app, the code opens the game straight into joining (design doc §1.1).
+            // On the right: the host's QR code (scanned with a guest's camera app, it opens the game
+            // straight into joining, design doc §1.1), then this phone's car picker.
+            var side = new VisualElement();
+            side.style.position = Position.Absolute;
+            side.style.left = 584f;
+            side.style.top = 100f;
+            side.style.width = 248f;
+            side.pickingMode = PickingMode.Ignore;
             if (_session.IsHost && _joinQr != null)
             {
-                var area = new Rect(left + 560f, 100f, 200f, 200f);
-                GUI.DrawTexture(area, _joinQr);
-                GUI.Label(new Rect(area.x, area.yMax + 4f, 240f, 30f), "Scan to join", UiStyle.Hint);
+                var qr = new Image { image = _joinQr, scaleMode = ScaleMode.ScaleToFit };
+                qr.style.width = qr.style.height = 200f;
+                qr.pickingMode = PickingMode.Ignore;
+                side.Add(qr);
+                side.Add(UiKit.Hint("Scan to join"));
+                side.Add(UiKit.Space(12f));
             }
 
-            DrawCarPicker(new Rect(left + 560f, _session.IsHost ? 340f : 100f, 248f, 300f), me);
+            AddCarPicker(side, me);
+            _view.Add(side);
+        }
+
+        private static VisualElement Dot(int colourIndex)
+        {
+            var dot = new VisualElement();
+            dot.style.width = dot.style.height = 18f;
+            dot.style.flexShrink = 0f;
+            dot.style.backgroundColor = CarColours.ForIndex(colourIndex);
+            dot.pickingMode = PickingMode.Ignore;
+            UiKit.Round(dot, 4f);
+            return dot;
         }
 
         /// <summary>
@@ -212,7 +468,7 @@ namespace CarRacer.Game.Net
         /// swatch per colour. Colours other players have are drawn small and can't be picked. The
         /// car changes once the host's roster comes back with it.
         /// </summary>
-        private void DrawCarPicker(Rect area, byte me)
+        private void AddCarPicker(VisualElement side, byte me)
         {
             if (!TryFind(me, out var mine))
             {
@@ -220,45 +476,27 @@ namespace CarRacer.Game.Net
             }
 
             const int perRow = 4;
-            GUILayout.BeginArea(area, UiStyle.Panel);
-            GUILayout.Label("Your car", UiStyle.Hint);
-            GUILayout.Label(CarModels.DisplayName(CarModels.ForIndex(mine.BodyIndex)), _small);
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("<", UiStyle.Button))
-            {
-                _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + LobbyRoster.BodyCount - 1) % LobbyRoster.BodyCount), mine.ColourIndex));
-            }
-
-            if (GUILayout.Button(">", UiStyle.Button))
-            {
-                _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + 1) % LobbyRoster.BodyCount), mine.ColourIndex));
-            }
-
-            GUILayout.EndHorizontal();
+            var panel = UiKit.Panel();
+            panel.Add(UiKit.Hint("Your car"));
+            panel.Add(UiKit.Text(CarModels.DisplayName(CarModels.ForIndex(mine.BodyIndex)), 20, Color.white));
+            panel.Add(UiKit.EvenRow(
+                UiKit.Button("<", () => _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + LobbyRoster.BodyCount - 1) % LobbyRoster.BodyCount), mine.ColourIndex))),
+                UiKit.Button(">", () => _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + 1) % LobbyRoster.BodyCount), mine.ColourIndex)))));
             for (int row = 0; row * perRow < LobbyRoster.ColourCount; row++)
             {
-                GUILayout.BeginHorizontal();
+                var swatches = UiKit.Row();
                 for (int i = row * perRow; i < Mathf.Min(LobbyRoster.ColourCount, (row + 1) * perRow); i++)
                 {
-                    var cell = GUILayoutUtility.GetRect(44f, 44f, GUILayout.ExpandWidth(true));
+                    byte colour = (byte)i;
                     bool chosen = i == mine.ColourIndex;
-                    bool taken = !chosen && ColourTaken((byte)i, me);
-                    if (chosen)
-                    {
-                        Fill(cell, Color.white);
-                    }
-
-                    Fill(Inset(cell, chosen ? 3f : taken ? 14f : 6f), CarColours.ForIndex(i));
-                    if (!taken && !chosen && GUI.Button(cell, GUIContent.none, GUIStyle.none))
-                    {
-                        _session.ChangeCar(new CarChoice(mine.BodyIndex, (byte)i));
-                    }
+                    bool taken = !chosen && ColourTaken(colour, me);
+                    swatches.Add(UiKit.Swatch(CarColours.ForIndex(i), chosen, taken, () => _session.ChangeCar(new CarChoice(mine.BodyIndex, colour)), size: 44f));
                 }
 
-                GUILayout.EndHorizontal();
+                panel.Add(swatches);
             }
 
-            GUILayout.EndArea();
+            side.Add(panel);
         }
 
         private bool ColourTaken(byte colour, byte me)
@@ -274,78 +512,95 @@ namespace CarRacer.Game.Net
             return false;
         }
 
-        private static Rect Inset(Rect r, float by) => new Rect(r.x + by, r.y + by, r.width - 2f * by, r.height - 2f * by);
-
-        private static void Fill(Rect rect, Color colour)
+        /// <summary>The host's settings for a single event: mode, laps and track, and the guests' track votes.</summary>
+        private void AddSingleEventSettings(VisualElement panel)
         {
-            var previous = GUI.color;
-            GUI.color = colour;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = previous;
-        }
-
-        /// <summary>The host's settings for a single event: mode, laps and track.</summary>
-        private void DrawSingleEventSettings()
-        {
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button(ModeName(_mode), UiStyle.Button, GUILayout.Width(150f)))
+            var row = UiKit.Row();
+            var mode = UiKit.Button(ModeName(_mode), () =>
             {
                 _mode = (GameMode)(((int)_mode + 1) % 3);
                 PlayerPrefs.SetInt(ModeKey, (int)_mode);
-            }
-
+                Changed();
+            });
+            mode.style.width = 150f;
+            row.Add(mode);
+            row.Add(UiKit.Space(12f));
             if (_mode == GameMode.Race)
             {
-                GUILayout.Label($"Laps: {_laps}", UiStyle.Body, GUILayout.Width(130f));
-                if (GUILayout.Button("-", UiStyle.Button, GUILayout.Width(80f)))
+                var laps = UiKit.Body($"Laps: {_laps}");
+                laps.style.width = 130f;
+                row.Add(laps);
+                var fewer = UiKit.Button("-", () =>
                 {
                     _laps = Mathf.Max(1, _laps - 1);
-                }
-
-                if (GUILayout.Button("+", UiStyle.Button, GUILayout.Width(80f)))
+                    Changed();
+                });
+                fewer.style.width = 80f;
+                row.Add(fewer);
+                row.Add(UiKit.Space(8f));
+                var more = UiKit.Button("+", () =>
                 {
                     _laps = Mathf.Min(MaxLaps, _laps + 1);
-                }
+                    Changed();
+                });
+                more.style.width = 80f;
+                row.Add(more);
             }
             else
             {
-                GUILayout.Label(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only", UiStyle.Hint);
+                var hint = UiKit.Hint(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only");
+                hint.style.flexShrink = 1f;
+                row.Add(hint);
             }
 
-            GUILayout.EndHorizontal();
-            if (_mode == GameMode.Race)
+            panel.Add(row);
+            if (_mode != GameMode.Race)
             {
-                // The host picks the track (design doc §11); everyone moves to it at the countdown.
-                if (GUILayout.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, UiStyle.Button))
-                {
-                    _track = (_track + 1) % TrackCatalog.Count;
-                    PlayerPrefs.SetInt(TrackKey, _track);
-                }
-
-                // Guests' votes only suggest; the host can go with them in one tap, or not.
-                var votes = TrackVotes.Count(_session.Players, TrackCatalog.Count);
-                string summary = TrackVotes.Summary(votes, TrackNames());
-                if (summary.Length > 0)
-                {
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Label("Votes: " + summary, UiStyle.Hint);
-                    int leader = TrackVotes.Leader(votes, _track);
-                    if (leader != _track && GUILayout.Button("Go with it", UiStyle.Button, GUILayout.Width(180f)))
-                    {
-                        _track = leader;
-                        PlayerPrefs.SetInt(TrackKey, _track);
-                    }
-
-                    GUILayout.EndHorizontal();
-                }
+                return;
             }
+
+            // The host picks the track (design doc §11); everyone moves to it at the countdown.
+            panel.Add(UiKit.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, () =>
+            {
+                _track = (_track + 1) % TrackCatalog.Count;
+                PlayerPrefs.SetInt(TrackKey, _track);
+                Changed();
+            }));
+
+            // Guests' votes only suggest; the host can go with them in one tap, or not.
+            var votes = TrackVotes.Count(_session.Players, TrackCatalog.Count);
+            string summary = TrackVotes.Summary(votes, TrackNames());
+            if (summary.Length == 0)
+            {
+                return;
+            }
+
+            var voteRow = UiKit.Row();
+            var count = UiKit.Hint("Votes: " + summary);
+            count.style.flexShrink = 1f;
+            count.style.flexGrow = 1f;
+            voteRow.Add(count);
+            int leader = TrackVotes.Leader(votes, _track);
+            if (leader != _track)
+            {
+                var go = UiKit.Button("Go with it", () =>
+                {
+                    _track = leader;
+                    PlayerPrefs.SetInt(TrackKey, _track);
+                    Changed();
+                });
+                go.style.width = 180f;
+                voteRow.Add(go);
+            }
+
+            panel.Add(voteRow);
         }
 
         /// <summary>
         /// A guest's vote for the next race's track (design doc §11): tap to step through the tracks
         /// and back to no vote. The host sees the count and still decides.
         /// </summary>
-        private void DrawTrackVote(byte me)
+        private void AddTrackVote(VisualElement panel, byte me)
         {
             if (!TryFind(me, out var mine))
             {
@@ -354,17 +609,40 @@ namespace CarRacer.Game.Net
 
             bool voted = mine.TrackVote < TrackCatalog.Count;
             string label = voted ? "My vote: " + TrackCatalog.Layouts[mine.TrackVote].Definition.DisplayName : "Vote for a track";
-            if (GUILayout.Button(label, UiStyle.Button))
+            panel.Add(UiKit.Button(label, () =>
             {
                 int next = voted ? mine.TrackVote + 1 : 0;
                 _session.VoteTrack(next < TrackCatalog.Count ? (byte)next : VoteTrackMessage.NoVote);
-            }
+            }));
 
             string summary = TrackVotes.Summary(TrackVotes.Count(_session.Players, TrackCatalog.Count), TrackNames());
-            GUILayout.Label(summary.Length > 0 ? "Votes: " + summary : "The host picks the track; votes help them decide.", UiStyle.Hint);
+            panel.Add(UiKit.Hint(summary.Length > 0 ? "Votes: " + summary : "The host picks the track; votes help them decide."));
         }
 
-        private static string[] _trackNames;
+        /// <summary>The host's bot fill and difficulty (design doc §9), remembered between sessions.</summary>
+        private void AddBotSettings(VisualElement panel)
+        {
+            var host = _session.HostSide;
+            var fill = UiKit.Button(host.BotFill == 0 ? "Bots: off" : $"Bots: fill to {host.BotFill}", () =>
+            {
+                int next = (System.Array.IndexOf(BotFills, host.BotFill) + 1) % BotFills.Length;
+                host.BotFill = BotFills[next];
+                PlayerPrefs.SetInt(BotFillKey, host.BotFill);
+                Changed();
+            });
+            var difficulty = UiKit.Enabled(UiKit.Button(host.BotDifficulty.ToString(), () =>
+            {
+                if (host.BotFill == 0)
+                {
+                    return;
+                }
+
+                host.BotDifficulty = (BotDifficulty)(((int)host.BotDifficulty + 1) % 3);
+                PlayerPrefs.SetInt(BotDifficultyKey, (int)host.BotDifficulty);
+                Changed();
+            }), host.BotFill > 0);
+            panel.Add(UiKit.EvenRow(fill, difficulty));
+        }
 
         private static string[] TrackNames()
         {
@@ -408,51 +686,40 @@ namespace CarRacer.Game.Net
             }
         }
 
-        /// <summary>The host's bot fill and difficulty (design doc §9), remembered between sessions.</summary>
-        private void DrawBotSettings()
-        {
-            var host = _session.HostSide;
-            GUILayout.BeginHorizontal();
-            string fill = host.BotFill == 0 ? "Bots: off" : $"Bots: fill to {host.BotFill}";
-            if (GUILayout.Button(fill, UiStyle.Button, GUILayout.Width(250f)))
-            {
-                int next = (System.Array.IndexOf(BotFills, host.BotFill) + 1) % BotFills.Length;
-                host.BotFill = BotFills[next];
-                PlayerPrefs.SetInt(BotFillKey, host.BotFill);
-            }
-
-            GUI.enabled = host.BotFill > 0;
-            if (GUILayout.Button(host.BotDifficulty.ToString(), UiStyle.Button))
-            {
-                host.BotDifficulty = (BotDifficulty)(((int)host.BotDifficulty + 1) % 3);
-                PlayerPrefs.SetInt(BotDifficultyKey, (int)host.BotDifficulty);
-            }
-
-            GUI.enabled = true;
-            GUILayout.EndHorizontal();
-        }
-
-        private void DrawRace(IRaceView race, float width, byte me)
+        /// <summary>The countdown, then the race or arena status and the item slot, refreshed every frame.</summary>
+        private void UpdateRace(IRaceView race, byte me)
         {
             long msToGo = race.StartAtLocalMs - NetworkSession.NowMs;
+            string big = null;
             if (race.Phase == RacePhase.Countdown)
             {
                 if (msToGo <= HostRace.CountdownMs)
                 {
-                    GUI.Label(new Rect(0f, 200f, width, 140f), ((msToGo + 999) / 1000).ToString(), _big);
+                    big = ((msToGo + 999) / 1000).ToString();
                 }
             }
             else if (msToGo > -1000)
             {
-                GUI.Label(new Rect(0f, 200f, width, 140f), "GO!", _big);
+                big = "GO!";
             }
 
+            Show(_countdown, big);
             if (race.Mode != GameMode.Race)
             {
-                DrawArenaStatus(race, width, me, msToGo);
-                return;
+                UpdateArenaStatus(race, me, msToGo);
+            }
+            else
+            {
+                UpdateRaceStatus(race, me);
             }
 
+            var held = _session.Items?.Held ?? ItemKind.None;
+            Set(_itemSlot, held == ItemKind.None ? "—" : ItemNames.Label(held));
+            _itemSlot.style.color = held == ItemKind.None ? UiKit.Muted : UiKit.Accent;
+        }
+
+        private void UpdateRaceStatus(IRaceView race, byte me)
+        {
             int lap = Mathf.Min(_cars.Detector.LapsCompleted + 1, race.LapCount);
             string position = string.Empty;
             var standings = race.Standings;
@@ -474,14 +741,13 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = CornerStyle();
-            GUI.Label(Corner(width, 84f), position, style);
-            GUI.Label(Corner(width, 128f), $"Lap {lap} / {race.LapCount}", style);
-            DrawItemSlot(width, style);
+            Set(_corner1, position);
+            Set(_corner2, $"Lap {lap} / {race.LapCount}");
+            Set(_corner3, string.Empty);
         }
 
         /// <summary>The arena HUD (design doc §7.0): this phone's lives (Battle) or place once out, how many are left, and Battle's clock.</summary>
-        private void DrawArenaStatus(IRaceView race, float width, byte me, long msToGo)
+        private void UpdateArenaStatus(IRaceView race, byte me, long msToGo)
         {
             int left = 0;
             int total = 0;
@@ -506,87 +772,78 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = CornerStyle();
-            GUI.Label(Corner(width, 84f), status, style);
-            GUI.Label(Corner(width, 128f), total > 0 ? $"{left} / {total} left" : string.Empty, style);
-            if (race.Mode == GameMode.Battle && race.Phase == RacePhase.Racing)
-            {
-                long remaining = System.Math.Max(0L, BattleRules.TimeLimitMs + msToGo);
-                GUI.Label(Corner(width, 172f), RaceFormat.Time(remaining), style);
-            }
-
-            DrawItemSlot(width, style);
+            Set(_corner1, status);
+            Set(_corner2, total > 0 ? $"{left} / {total} left" : string.Empty);
+            bool clock = race.Mode == GameMode.Battle && race.Phase == RacePhase.Racing;
+            Set(_corner3, clock ? RaceFormat.Time(System.Math.Max(0L, BattleRules.TimeLimitMs + msToGo)) : string.Empty);
         }
 
-        /// <summary>
-        /// A line of the race status in the top corner opposite Look back: the top right, or the
-        /// top left with left-handed controls, whose Look back sits top-right (design doc §5). On
-        /// the left it starts a little lower, below the session's status line.
-        /// </summary>
-        private static Rect Corner(float width, float y) =>
-            Accessibility.LeftHanded ? new Rect(UiStyle.SafeArea.x + 24f, y + LeftCornerDrop, 400f, 44f) : new Rect(width - 424f, y, 400f, 44f);
-
-        /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
-        public const float LeftCornerDrop = 16f;
-
-        private GUIStyle CornerStyle() => new GUIStyle(_small)
+        /// <summary>Everything the results show, so they rebuild only when one of these changes.</summary>
+        private string ResultsSignature(IRaceView race, CupStandingsMessage table)
         {
-            fontSize = Accessibility.Text(34),
-            fontStyle = FontStyle.Bold,
-            alignment = Accessibility.LeftHanded ? TextAnchor.UpperLeft : TextAnchor.UpperRight,
-        };
-
-        /// <summary>The item slot, top centre (design doc §6).</summary>
-        private void DrawItemSlot(float width, GUIStyle style)
-        {
-            var held = _session.Items?.Held ?? ItemKind.None;
-            var slot = new Rect(width / 2f - 110f, 16f, 220f, 56f);
-            GUI.Box(slot, GUIContent.none, UiStyle.Panel);
-            var slotStyle = new GUIStyle(style) { alignment = TextAnchor.MiddleCenter };
-            slotStyle.normal.textColor = held == ItemKind.None ? UiStyle.Muted : UiStyle.Accent;
-            GUI.Label(slot, held == ItemKind.None ? "—" : ItemNames.Label(held), slotStyle);
-        }
-
-        private void DrawResults(IRaceView race, float width, byte me)
-        {
-            var results = race.Results;
-
-            // In a cup the table goes beside the results, and its buttons replace the lobby button.
-            var cup = _cup.CurrentStandings(race);
-            float x = cup != null ? width / 2f - 580f : width / 2f - 260f;
-            if (cup != null)
+            _signature.Clear().Append("results/");
+            foreach (var r in race.Results.Results)
             {
-                _cup.DrawStandings(cup, width / 2f + 40f, 140f, TryFind(me, out var self) ? self.Name : string.Empty);
+                _signature.Append(r.PlayerId).Append(r.Position).Append(r.RaceTimeMs).Append(r.DidNotFinish).Append('|');
             }
 
-            float y = 140f;
-            GUI.Box(new Rect(x - 20f, y - 20f, 560f, 80f + 32f * results.Results.Count), GUIContent.none);
-            GUI.Label(new Rect(x, y, 520f, 34f), "Results", new GUIStyle(_small) { fontSize = 30, fontStyle = FontStyle.Bold });
-            y += 44f;
-            foreach (var r in results.Results)
+            _signature.Append(_session.Players.Count).Append(_cup.Run != null);
+            if (table != null)
+            {
+                _signature.Append(_cup.StandingsSignature(table));
+            }
+
+            return _signature.ToString();
+        }
+
+        private void BuildResults(IRaceView race, byte me, CupStandingsMessage table)
+        {
+            // The results, with the cup table beside them in a cup; its buttons replace the lobby button.
+            var row = UiKit.Row();
+            row.style.position = Position.Absolute;
+            row.style.top = 120f;
+            row.style.left = row.style.right = 0f;
+            row.style.justifyContent = Justify.Center;
+            row.style.alignItems = Align.FlexStart;
+
+            var panel = UiKit.Panel(560f);
+            panel.Add(UiKit.Heading("Results"));
+            foreach (var r in race.Results.Results)
             {
                 bool stillHere = TryFind(r.PlayerId, out var player);
-                Swatch(x, y, stillHere ? player.ColourIndex : r.PlayerId);
+
                 // In an arena the time is how long the player lasted.
                 string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
                 string tag = r.PlayerId == me ? " (you)" : !stillHere ? " (left)" : player.IsBot ? " (bot)" : string.Empty;
-                GUI.Label(new Rect(x + 28f, y, 360f, 30f), $"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", _small);
-                GUI.Label(new Rect(x + 400f, y, 120f, 30f), time, _small);
-                y += 32f;
+                var line = UiKit.Row();
+                line.Add(Dot(stillHere ? player.ColourIndex : r.PlayerId));
+                line.Add(UiKit.Space(10f));
+                var name = UiKit.Text($"{RaceFormat.Ordinal(r.Position)}  {r.Name}{tag}", 20, Color.white);
+                name.style.flexGrow = 1f;
+                line.Add(name);
+                line.Add(UiKit.Text(time, 20, Color.white));
+                panel.Add(line);
             }
 
-            y += 16f;
+            panel.Add(UiKit.Space(16f));
             if (_session.IsHost && _cup.Run == null)
             {
-                if (GUI.Button(new Rect(x, y, 220f, 48f), "Back to lobby"))
-                {
-                    ((HostRace)race).ReturnToLobby();
-                }
+                panel.Add(UiKit.Button("Back to lobby", () => ((HostRace)race).ReturnToLobby(), primary: true));
             }
-            else if (!_session.IsHost && cup == null)
+            else if (!_session.IsHost && table == null)
             {
-                GUI.Label(new Rect(x, y, 520f, 30f), "Waiting for the host...", _small);
+                panel.Add(UiKit.Text("Waiting for the host...", 20, UiKit.Muted));
             }
+
+            row.Add(panel);
+            if (table != null)
+            {
+                row.Add(UiKit.Space(40f));
+                string self = TryFind(me, out var mine) ? mine.Name : string.Empty;
+                row.Add(_cup.BuildStandings(table, self, Changed, out _cupCountdown));
+            }
+
+            _view.Add(row);
         }
 
         private static string ModeName(GameMode mode) => mode == GameMode.Race ? "Race" : mode == GameMode.Sumo ? "Sumo" : "Battle";
@@ -605,14 +862,6 @@ namespace CarRacer.Game.Net
 
             player = default;
             return false;
-        }
-
-        private static void Swatch(float x, float y, int colourIndex)
-        {
-            var previous = GUI.color;
-            GUI.color = CarColours.ForIndex(colourIndex);
-            GUI.DrawTexture(new Rect(x, y + 5f, 16f, 16f), Texture2D.whiteTexture);
-            GUI.color = previous;
         }
     }
 }

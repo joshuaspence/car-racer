@@ -1,9 +1,11 @@
 using System;
+using System.Text;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Core.Scoring;
-using CarRacer.Game.Menu;
+using CarRacer.Game.Ui;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CarRacer.Game.Net
 {
@@ -12,6 +14,7 @@ namespace CarRacer.Game.Net
     /// single event or a cup, reverse grid, resuming a saved cup, the <see cref="CupRun"/> itself
     /// (ticked every frame) and its auto-save in PlayerPrefs. On every phone: the standings table
     /// beside the results, with the countdown to the next event, and the host's pause and skip.
+    /// It builds UI Toolkit elements for <see cref="SessionOverlay"/>'s lobby and results views.
     /// </summary>
     public sealed class CupPanel
     {
@@ -26,8 +29,6 @@ namespace CarRacer.Game.Net
         private bool _reverseGrid = true;
         private string _savedText;
         private CupRun _saved;
-        private GUIStyle _row;
-        private GUIStyle _title;
 
         public CupPanel(NetworkSession session)
         {
@@ -48,15 +49,19 @@ namespace CarRacer.Game.Net
         /// <summary>Call every frame.</summary>
         public void Tick() => Run?.Tick();
 
-        /// <summary>The host's lobby choices: single event or a cup, and for a cup, reverse grid and resuming a save.</summary>
-        public void DrawLobbyChoice()
+        /// <summary>What the lobby's cup parts show, so the lobby rebuilds only when it changes.</summary>
+        public string Signature => $"{_choice}/{_reverseGrid}/{PlayerPrefs.GetString(SaveKey, string.Empty).Length}";
+
+        /// <summary>The host's lobby choices: single event or a cup, and for a cup, reverse grid; <paramref name="changed"/> runs after each change.</summary>
+        public void AddLobbyChoice(VisualElement panel, Action changed)
         {
             string label = _choice == 0 ? "Event: single" : "Event: " + Cups.All[_choice - 1].Name;
-            if (GUILayout.Button(label, UiStyle.Button))
+            panel.Add(UiKit.Button(label, () =>
             {
                 _choice = (_choice + 1) % (Cups.All.Count + 1);
                 PlayerPrefs.SetInt(ChoiceKey, _choice);
-            }
+                changed();
+            }));
 
             if (!CupChosen)
             {
@@ -64,34 +69,39 @@ namespace CarRacer.Game.Net
             }
 
             var cup = Cups.All[_choice - 1];
-            GUILayout.Label($"{cup.Events.Count} events; the next starts 10 s after each finishes.", UiStyle.Hint);
-            if (GUILayout.Button(_reverseGrid ? "Reverse grid: on" : "Reverse grid: off", UiStyle.Button))
+            panel.Add(UiKit.Hint($"{cup.Events.Count} events; the next starts 10 s after each finishes."));
+            panel.Add(UiKit.Button(_reverseGrid ? "Reverse grid: on" : "Reverse grid: off", () =>
             {
                 _reverseGrid = !_reverseGrid;
                 PlayerPrefs.SetInt(ReverseGridKey, _reverseGrid ? 1 : 0);
-            }
+                changed();
+            }));
         }
 
-        /// <summary>The host's start buttons for a cup: start a new one, or resume the saved one. Returns true if an event started.</summary>
-        public bool DrawStartButtons(bool canStart)
+        /// <summary>The host's start buttons for a cup: start a new one, or resume the saved one.</summary>
+        public void AddStartButtons(VisualElement panel, bool canStart)
         {
             var host = (HostRace)_session.Race;
             var saved = LoadSave(host);
-            GUI.enabled = canStart;
-            bool started = false;
-            if (saved != null && GUILayout.Button($"Resume {saved.Cup.Name} ({saved.Championship.EventsCompleted} of {saved.Cup.Events.Count} done)", UiStyle.Button))
+            if (saved != null)
             {
-                started = Begin(saved);
+                panel.Add(UiKit.Enabled(UiKit.Button($"Resume {saved.Cup.Name} ({saved.Championship.EventsCompleted} of {saved.Cup.Events.Count} done)", () =>
+                {
+                    if (canStart)
+                    {
+                        Begin(saved);
+                    }
+                }), canStart));
             }
 
             var cup = Cups.All[_choice - 1];
-            if (GUILayout.Button(canStart ? "Start " + cup.Name : "Waiting for everyone to be ready", UiStyle.PrimaryButton))
+            panel.Add(UiKit.Enabled(UiKit.Button(canStart ? "Start " + cup.Name : "Waiting for everyone to be ready", () =>
             {
-                started = Begin(new CupRun(_session.HostSide, host, () => NetworkSession.NowMs, cup, _reverseGrid));
-            }
-
-            GUI.enabled = true;
-            return started;
+                if (canStart)
+                {
+                    Begin(new CupRun(_session.HostSide, host, () => NetworkSession.NowMs, cup, _reverseGrid));
+                }
+            }, primary: true), canStart));
         }
 
         /// <summary>The cup table for the results screen, or null outside a cup.</summary>
@@ -105,37 +115,83 @@ namespace CarRacer.Game.Net
             return _session.IsHost ? Run?.Standings : (race as GuestRace)?.CupStandings;
         }
 
-        /// <summary>
-        /// Draws the cup table at (<paramref name="x"/>, <paramref name="y"/>) with the countdown to
-        /// the next event, and on the host the pause, skip and finish buttons. Returns true once the
-        /// host has finished with a completed cup (the caller goes back to the lobby).
-        /// </summary>
-        public bool DrawStandings(CupStandingsMessage table, float x, float y, string me)
+        /// <summary>What the standings show (not the countdown, which <see cref="UpdateCountdown"/> keeps current), so the results rebuild only when it changes.</summary>
+        public string StandingsSignature(CupStandingsMessage table)
         {
-            _row = _row ?? new GUIStyle(GUI.skin.label) { fontSize = 20 };
-            _title = _title ?? new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold };
-            const float width = 420f;
-            GUI.Box(new Rect(x - 20f, y - 20f, width + 40f, 150f + 30f * table.Standings.Count), GUIContent.none);
+            var text = new StringBuilder();
+            text.Append(table.CupName).Append(table.EventsCompleted).Append('/').Append(table.TotalEvents).Append(table.IsComplete);
+            text.Append(table.NextEventAtHostMs > 0).Append(Run != null && Run.Paused);
+            foreach (var entry in table.Standings)
+            {
+                text.Append('|').Append(entry.Name).Append(entry.Points);
+            }
+
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// The cup table with the countdown to the next event, and on the host the pause, skip and
+        /// leave buttons, or Back to lobby once the cup is won. <paramref name="countdown"/> is the
+        /// label to keep current with <see cref="UpdateCountdown"/>; <paramref name="changed"/> runs
+        /// after the host changes something.
+        /// </summary>
+        public VisualElement BuildStandings(CupStandingsMessage table, string me, Action changed, out Label countdown)
+        {
+            var panel = UiKit.Panel(460f);
             string heading = table.IsComplete ? $"{table.CupName}: final" : $"{table.CupName}: {table.EventsCompleted} of {table.TotalEvents}";
-            GUI.Label(new Rect(x, y, width, 34f), heading, _title);
-            y += 44f;
+            panel.Add(UiKit.Heading(heading));
             for (int i = 0; i < table.Standings.Count; i++)
             {
                 var entry = table.Standings[i];
                 string you = string.Equals(entry.Name, me, StringComparison.OrdinalIgnoreCase) ? " (you)" : string.Empty;
-                GUI.Label(new Rect(x, y, 300f, 28f), $"{RaceFormat.Ordinal(i + 1)}  {entry.Name}{you}", _row);
-                GUI.Label(new Rect(x + 300f, y, 120f, 28f), $"{entry.Points} pts", _row);
-                y += 30f;
+                var row = UiKit.Row();
+                var name = UiKit.Text($"{RaceFormat.Ordinal(i + 1)}  {entry.Name}{you}", 20, Color.white);
+                name.style.flexGrow = 1f;
+                row.Add(name);
+                row.Add(UiKit.Text($"{entry.Points} pts", 20, Color.white));
+                panel.Add(row);
             }
 
-            y += 12f;
+            panel.Add(UiKit.Space(12f));
+            countdown = null;
             if (table.IsComplete)
             {
-                GUI.Label(new Rect(x, y, width, 30f), table.Standings.Count > 0 ? $"{table.Standings[0].Name} wins the {table.CupName}!" : string.Empty, _row);
-                y += 36f;
-                return _session.IsHost && GUI.Button(new Rect(x, y, 220f, 48f), "Back to lobby") && Finish();
+                panel.Add(UiKit.Text(table.Standings.Count > 0 ? $"{table.Standings[0].Name} wins the {table.CupName}!" : string.Empty, 20, UiKit.Accent, bold: true));
+                if (_session.IsHost)
+                {
+                    panel.Add(UiKit.Button("Back to lobby", Finish, primary: true));
+                }
+
+                return panel;
             }
 
+            countdown = UiKit.Text(string.Empty, 20, Color.white);
+            panel.Add(countdown);
+            UpdateCountdown(table, countdown);
+            if (_session.IsHost && Run != null)
+            {
+                var run = Run;
+                panel.Add(UiKit.EvenRow(
+                    UiKit.Button(run.Paused ? "Resume" : "Pause", () =>
+                    {
+                        run.SetPaused(!run.Paused);
+                        changed();
+                    }),
+                    UiKit.Button("Next event", () => run.AdvanceNow()),
+                    UiKit.Button("Leave cup", () =>
+                    {
+                        // Leaving keeps the save, so the cup can be resumed from the lobby.
+                        Run = null;
+                        ((HostRace)_session.Race).ReturnToLobby();
+                    })));
+            }
+
+            return panel;
+        }
+
+        /// <summary>Sets the countdown line to the time left before the next event.</summary>
+        public void UpdateCountdown(CupStandingsMessage table, Label countdown)
+        {
             long nextAt = table.NextEventAtHostMs;
             if (nextAt > 0 && !_session.IsHost)
             {
@@ -143,29 +199,11 @@ namespace CarRacer.Game.Net
             }
 
             long msToGo = nextAt - NetworkSession.NowMs;
-            GUI.Label(new Rect(x, y, width, 30f), nextAt > 0 ? $"Next event in {Math.Max(0L, (msToGo + 999) / 1000)} s" : "Next event: waiting for the host", _row);
-            y += 36f;
-            if (_session.IsHost && Run != null)
+            string text = nextAt > 0 ? $"Next event in {Math.Max(0L, (msToGo + 999) / 1000)} s" : "Next event: waiting for the host";
+            if (countdown.text != text)
             {
-                if (GUI.Button(new Rect(x, y, 140f, 48f), Run.Paused ? "Resume" : "Pause"))
-                {
-                    Run.SetPaused(!Run.Paused);
-                }
-
-                if (GUI.Button(new Rect(x + 150f, y, 140f, 48f), "Next event"))
-                {
-                    Run.AdvanceNow();
-                }
-
-                // Leaving keeps the save, so the cup can be resumed from the lobby.
-                if (GUI.Button(new Rect(x + 300f, y, 120f, 48f), "Leave cup"))
-                {
-                    Run = null;
-                    ((HostRace)_session.Race).ReturnToLobby();
-                }
+                countdown.text = text;
             }
-
-            return false;
         }
 
         private bool Begin(CupRun run)
@@ -182,12 +220,11 @@ namespace CarRacer.Game.Net
         }
 
         /// <summary>The finished cup is done with: its save goes, and everyone goes back to the lobby.</summary>
-        private bool Finish()
+        private void Finish()
         {
             Run = null;
             PlayerPrefs.DeleteKey(SaveKey);
             ((HostRace)_session.Race).ReturnToLobby();
-            return true;
         }
 
         private static void Save(byte[] save)
