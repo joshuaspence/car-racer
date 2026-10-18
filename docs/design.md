@@ -359,7 +359,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 - The host **auto-saves after every event**; a dead session can be **resumed**, and players
   reclaim their points by name (ignoring case and spaces at the ends). Names are unique within a
   lobby; device ids aren't needed on a LAN of friends.
-- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the three tracks in order; Mixed Cup adds
+- **Flow** (`Cups`, `CupRun`, host side): Grand Prix is the first three tracks in order; Mixed Cup adds
   Sumo then Battle. After each event `CupRun` scores the results, sends everyone a
   `CupStandingsMessage` (the table and when the next event starts) and saves. The next event
   starts 10 s later straight from the results screen, unless the host pauses; the host can also

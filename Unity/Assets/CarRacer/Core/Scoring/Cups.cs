@@ -35,7 +35,7 @@ namespace CarRacer.Core.Scoring
         public IReadOnlyList<CupEvent> Events { get; }
     }
 
-    /// <summary>The built-in cups: Grand Prix (the three tracks) and Mixed Cup (the three tracks, then Sumo and Battle).</summary>
+    /// <summary>The built-in cups: Grand Prix (the first three tracks) and Mixed Cup (the first three tracks, then Sumo and Battle).</summary>
     public static class Cups
     {
         public static readonly Cup GrandPrix = new Cup("grand-prix", "Grand Prix", new[]
