@@ -323,20 +323,28 @@ namespace CarRacer.Game.Net
 
         private void BuildLobby(byte me)
         {
-            // The lobby list and settings on the left, scrolling if they don't fit.
+            // The lobby list and settings on the left: as tall as they need, scrolling if that's
+            // more than the space below the status line. The column marks out that space; the
+            // panel shrinks to fit inside it.
+            var column = new VisualElement { name = "lobby column", pickingMode = PickingMode.Ignore };
+            column.style.position = Position.Absolute;
+            column.style.left = 24f;
+            column.style.top = 100f;
+            column.style.bottom = 16f;
+            column.style.width = 540f;
+            column.style.alignItems = Align.FlexStart;
             var panel = UiKit.Panel(540f);
-            panel.style.position = Position.Absolute;
-            panel.style.left = 24f;
-            panel.style.top = 100f;
             panel.style.maxHeight = Length.Percent(100);
-            panel.style.bottom = 16f;
+            panel.style.flexShrink = 1f;
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-            scroll.style.flexGrow = 1f;
+            scroll.style.flexGrow = 0f;
+            scroll.style.flexShrink = 1f;
             var content = scroll.contentContainer;
             panel.Add(scroll);
-            _view.Add(panel);
+            column.Add(panel);
+            _view.Add(column);
 
             content.Add(UiKit.Heading("Lobby"));
             foreach (var player in _session.Players)
