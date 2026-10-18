@@ -1,6 +1,7 @@
 using CarRacer.Editor;
 using CarRacer.Game;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace CarRacer.Tests
@@ -14,6 +15,13 @@ namespace CarRacer.Tests
             Assert.IsNotNull(Shader.Find(SimpleMaterials.ShaderName));
             ProjectConfigurator.Apply();
             Assert.IsTrue(ProjectConfigurator.IsAlwaysIncluded(SimpleMaterials.ShaderName));
+        }
+
+        [Test]
+        public void TheAppInstallsToInternalStorage()
+        {
+            ProjectConfigurator.Apply();
+            Assert.AreEqual(AndroidPreferredInstallLocation.ForceInternal, PlayerSettings.Android.preferredInstallLocation);
         }
 
         [Test]
