@@ -161,6 +161,50 @@ namespace CarRacer.Game.Ui
             return field;
         }
 
+        /// <summary>Enables or disables a control, fading it while disabled (there is no theme to do it).</summary>
+        public static T Enabled<T>(T element, bool enabled) where T : VisualElement
+        {
+            element.SetEnabled(enabled);
+            element.style.opacity = enabled ? 1f : 0.45f;
+            return element;
+        }
+
+        /// <summary>
+        /// A square of <paramref name="colour"/> to tap; the <paramref name="chosen"/> one is drawn
+        /// full size with a white edge, and an <paramref name="unavailable"/> one small and untappable.
+        /// </summary>
+        public static VisualElement Swatch(Color colour, bool chosen, bool unavailable, Action onPick, float size = ButtonHeight)
+        {
+            var cell = new VisualElement();
+            cell.style.height = size;
+            cell.style.flexGrow = 1f;
+            cell.style.flexBasis = 0f;
+            cell.style.alignItems = Align.Center;
+            cell.style.justifyContent = Justify.Center;
+            var fill = new VisualElement();
+            float inset = chosen ? 3f : unavailable ? size * 0.3f : 6f;
+            fill.style.width = fill.style.height = size - 2f * inset;
+            fill.style.backgroundColor = colour;
+            fill.pickingMode = PickingMode.Ignore;
+            Round(fill, 6f);
+            if (chosen)
+            {
+                Border(fill, 3f, Color.white);
+            }
+
+            cell.Add(fill);
+            if (unavailable || chosen)
+            {
+                cell.pickingMode = PickingMode.Ignore;
+            }
+            else
+            {
+                cell.RegisterCallback<ClickEvent>(_ => onPick?.Invoke());
+            }
+
+            return cell;
+        }
+
         /// <summary>Makes <paramref name="element"/> fill its parent, ignoring the layout flow.</summary>
         public static T Fill<T>(T element) where T : VisualElement
         {
