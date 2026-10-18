@@ -88,6 +88,22 @@ namespace CarRacer.Core.Tests
             }
         }
 
+        [Theory]
+        [MemberData(nameof(Tracks))]
+        public void LowQualityGetsAboutHalfTheTrees(int track)
+        {
+            var spline = TrackCatalog.Layouts[track].Spline;
+            int Trees(float share) => TrackScenery.Place(spline, Width, treeShare: share).Count(p => p.Model == TrackScenery.TreeLarge || p.Model == TrackScenery.TreeSmall);
+            int all = Trees(1f);
+            int low = Trees(CarRacer.Core.Platform.QualityPresets.For(CarRacer.Core.Platform.QualityLevel.Low).TreeShare);
+            Assert.Equal(all / 2, low);
+
+            // The gantry, towers and stands stay whatever the quality.
+            Assert.Equal(
+                TrackScenery.Place(spline, Width).Count(p => p.Model != TrackScenery.TreeLarge && p.Model != TrackScenery.TreeSmall),
+                TrackScenery.Place(spline, Width, treeShare: 0.5f).Count(p => p.Model != TrackScenery.TreeLarge && p.Model != TrackScenery.TreeSmall));
+        }
+
         [Fact]
         public void PlacementIsTheSameEveryTime()
         {

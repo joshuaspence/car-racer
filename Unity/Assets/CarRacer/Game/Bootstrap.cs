@@ -31,6 +31,7 @@ namespace CarRacer.Game
             Application.targetFrameRate = 60;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             GraphicsQuality.Apply();
+            PerfOverlay.Install();
 
             // Fixed 50 Hz physics on every device (design doc §4).
             Time.fixedDeltaTime = 0.02f;

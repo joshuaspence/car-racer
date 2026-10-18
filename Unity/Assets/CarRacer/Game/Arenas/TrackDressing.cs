@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using CarRacer.Core.Art;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Platform;
 using CarRacer.Core.Track;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Arenas
@@ -25,7 +27,8 @@ namespace CarRacer.Game.Arenas
                 return;
             }
 
-            var placements = TrackScenery.Place(layout.Spline, model => _models.TryGetValue(model, out var m) ? m.Max.X - m.Min.X : 0f);
+            float trees = QualityPresets.For(GraphicsQuality.Current).TreeShare;
+            var placements = TrackScenery.Place(layout.Spline, model => _models.TryGetValue(model, out var m) ? m.Max.X - m.Min.X : 0f, treeShare: trees);
             foreach (var (colour, mesh) in SceneryMesh.Build(placements, _models, _colours))
             {
                 var piece = new GameObject($"{name} scenery {ColorUtility.ToHtmlStringRGB(ToColour(colour))}");

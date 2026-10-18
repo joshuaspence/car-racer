@@ -59,7 +59,8 @@ namespace CarRacer.Core.Art
         public const float MaxRoadHeight = 1.5f;
 
         /// <param name="modelWidth">A model's width (x extent) before scaling, to fit the gantry across the road.</param>
-        public static List<PropPlacement> Place(TrackSpline spline, Func<string, float> modelWidth, int seed = 1)
+        /// <param name="treeShare">The share of the trees to keep, from 0 to 1 (fewer on Low quality, design doc §14).</param>
+        public static List<PropPlacement> Place(TrackSpline spline, Func<string, float> modelWidth, int seed = 1, float treeShare = 1f)
         {
             var placements = new List<PropPlacement>();
             var footprints = new List<(Vec3 Centre, float Radius)>();
@@ -109,7 +110,31 @@ namespace CarRacer.Core.Art
                 }
             }
 
-            return placements;
+            return treeShare >= 1f ? placements : KeepShareOfTrees(placements, treeShare);
+        }
+
+        /// <summary>Keeps an even <paramref name="share"/> of the trees, so a lower quality's trees are some of the higher one's, in the same spots.</summary>
+        private static List<PropPlacement> KeepShareOfTrees(List<PropPlacement> placements, float share)
+        {
+            var kept = new List<PropPlacement>();
+            int tree = 0;
+            foreach (var p in placements)
+            {
+                if (p.Model == TreeLarge || p.Model == TreeSmall)
+                {
+                    // Keeps tree k when the running total of the share passes a whole number.
+                    bool keep = (int)MathF.Floor((tree + 1) * share) > (int)MathF.Floor(tree * share);
+                    tree++;
+                    if (!keep)
+                    {
+                        continue;
+                    }
+                }
+
+                kept.Add(p);
+            }
+
+            return kept;
         }
 
         /// <summary>Adds a piece on the ground at <paramref name="spot"/> unless it would be near the road, on a slope, or on another piece.</summary>

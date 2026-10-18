@@ -18,6 +18,9 @@ namespace CarRacer.Core.Platform
 
         /// <summary>MSAA samples: 0 (off), 2 or 4.</summary>
         public int Msaa;
+
+        /// <summary>The share of the trees a track gets (<see cref="Art.TrackScenery"/>), from 0 to 1.</summary>
+        public float TreeShare;
     }
 
     /// <summary>
@@ -35,11 +38,11 @@ namespace CarRacer.Core.Platform
             switch (level)
             {
                 case QualityLevel.High:
-                    return new QualitySettingsValues { RenderScale = 1f, Msaa = 4 };
+                    return new QualitySettingsValues { RenderScale = 1f, Msaa = 4, TreeShare = 1f };
                 case QualityLevel.Medium:
-                    return new QualitySettingsValues { RenderScale = 0.75f, Msaa = 2 };
+                    return new QualitySettingsValues { RenderScale = 0.75f, Msaa = 2, TreeShare = 1f };
                 default:
-                    return new QualitySettingsValues { RenderScale = 0.65f, Msaa = 0 };
+                    return new QualitySettingsValues { RenderScale = 0.65f, Msaa = 0, TreeShare = 0.5f };
             }
         }
 
