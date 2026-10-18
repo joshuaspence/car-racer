@@ -480,6 +480,11 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   native resolution, no MSAA). Adreno 600–639, Mali G72–G76 or under 7 GB is **Medium** (0.75,
   2× MSAA). Anything newer is **High** (full resolution, 4× MSAA). An unrecognised GPU goes by
   memory. The main menu's Graphics button cycles auto / Low / Medium / High (remembered).
+- **Only the current track is drawn.** Every track is built at once, and the 600 m view would
+  otherwise draw all of them; the others' road, walls and scenery are hidden (colliders kept)
+  until racing moves there. Their grass stays, so the world doesn't end at the track's edge.
+- **Low quality keeps half the trees** (`QualitySettingsValues.TreeShare`): every other tree that
+  higher levels place, in the same spots. Takes effect the next time a track screen is built.
 - Worst-case benchmark: **Pixel 2 XL hosting 6 cars with items**, plus a 20-minute session for
   thermal throttling.
 - Network: 30 Hz × 43 bytes × 6 cars is about 7.7 KB/s per phone, before transport overhead.
