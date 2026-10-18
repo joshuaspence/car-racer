@@ -63,6 +63,9 @@ jobs:
           testMode: all
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: Unity test results
+          # "latest" asks the GitHub API for the newest game-ci CLI on every run, and a 403 from
+          # that lookup fails the job before any test runs. A fixed version comes from the cache.
+          cliVersion: v0.1.72
 
       - uses: actions/upload-artifact@v4
         if: always()
