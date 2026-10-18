@@ -1,8 +1,8 @@
 using System.Collections;
 using CarRacer.Core.Driving;
 using CarRacer.Game;
-using CarRacer.Game.Screens;
 using CarRacer.Game.Driving;
+using CarRacer.Game.Screens;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;

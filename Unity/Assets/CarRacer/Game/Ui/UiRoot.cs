@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 namespace CarRacer.Game.Ui
 {
     /// <summary>
-    /// A UI Toolkit layer built from code (design doc §6): no UXML or USS assets, just elements made
+    /// A UI Toolkit layer built from code (design doc §3): no UXML or USS assets, just elements made
     /// by <see cref="UiKit"/>. Every layer shares one panel scaled so the screen is 720 reference pixels
     /// tall (<see cref="UiMetrics"/>), with a font on the root so text renders without a theme.
     /// <see cref="Full"/> covers the screen; <see cref="Safe"/> sits inside the safe area, clear of
