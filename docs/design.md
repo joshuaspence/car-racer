@@ -146,8 +146,11 @@ font set on the root so text renders without a theme. Its `Safe` container keeps
 containers never take touches, so only real controls block the game. `UiKit` makes elements in the
 house style (dark panels, 64-pixel buttons that darken as a finger lands, a yellow accent) with
 font sizes from the large-text option; a layer raises `Restyle` when that option changes so its
-screen rebuilds. The performance readout and the menus (`MainMenu`: each page an element tree, rebuilt when
-something on it changes) have moved; the lobby and HUD follow.
+screen rebuilds. The performance readout, the menus (`MainMenu`: each page an element tree, rebuilt when
+something on it changes) and the session screens (`SessionOverlay`, `CupPanel`: the lobby and
+results rebuild only when a signature of what they show changes; the race status, countdown and
+item slot update their text every frame) have moved; the driving HUD (`RaceHud`) and touch buttons
+follow.
 
 ## 4. Driving model
 
