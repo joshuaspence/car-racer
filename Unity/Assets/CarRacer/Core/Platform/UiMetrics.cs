@@ -20,7 +20,7 @@ namespace CarRacer.Core.Platform
     }
 
     /// <summary>
-    /// The UI's units (design doc §6): everything is laid out in reference pixels for a 720-pixel-tall
+    /// The UI's units (design doc §3): everything is laid out in reference pixels for a 720-pixel-tall
     /// screen and scaled to the device, so a button is the same physical share of the screen's
     /// height on every phone. These convert the device's pixels, and its safe area (clear of
     /// notches and rounded corners), into those units.

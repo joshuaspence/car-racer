@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace CarRacer.Game.Ui
 {
     /// <summary>
-    /// The house style for UI Toolkit elements (design doc §6, §11), built from code: a dark panel,
+    /// The house style for UI Toolkit elements (design doc §3), built from code: a dark panel,
     /// big touch-sized buttons (64 reference pixels tall, about 9 mm on a phone) that darken while
     /// pressed, and a yellow accent. Font sizes follow the large-text option when the element is made,
     /// so a screen rebuilds its elements on <see cref="UiRoot.Restyle"/>.
