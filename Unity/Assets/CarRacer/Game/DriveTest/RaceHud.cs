@@ -105,7 +105,9 @@ namespace CarRacer.Game.DriveTest
             bool inArena = _arena.CameraRig.ArenaCentre.HasValue;
             if (!inArena)
             {
-                DrawMiniMap(new Rect(width - MapSize - 24f, 184f, MapSize, MapSize));
+                // Opposite Look back, which moves top-right with left-handed controls (design doc §5).
+                bool left = Accessibility.LeftHanded;
+                DrawMiniMap(new Rect(left ? 24f : width - MapSize - 24f, left ? 184f + SessionOverlay.LeftCornerDrop : 184f, MapSize, MapSize));
             }
 
             DrawDriftMeter(width);

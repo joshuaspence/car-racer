@@ -15,16 +15,15 @@ namespace CarRacer.Core.Tests
             var left = new TouchControlLayout(2400f, 1080f, 100f, 0f, 2300f, 1080f, 400f, leftHanded: true);
 
             // Mirrored about the safe area's middle (x = 1200), so each button keeps its margin.
-            foreach (var (r, l) in new[] { (right.DriftCentre, left.DriftCentre), (right.BrakeCentre, left.BrakeCentre), (right.GasCentre, left.GasCentre), (right.ItemCentre, left.ItemCentre) })
+            foreach (var (r, l) in new[] { (right.DriftCentre, left.DriftCentre), (right.BrakeCentre, left.BrakeCentre), (right.GasCentre, left.GasCentre), (right.ItemCentre, left.ItemCentre), (right.LookBackCentre, left.LookBackCentre) })
             {
                 Assert.Equal(2400f - r.X, l.X, 2);
                 Assert.Equal(r.Y, l.Y, 2);
             }
 
-            // Look back stays top-left, clear of the HUD on the right, which is now the buttons' side.
-            Assert.Equal(right.LookBackCentre.X, left.LookBackCentre.X, 2);
-            Assert.False(left.InSteerZone(left.LookBackCentre.X));
-
+            // Look back is on the steering side in both, as the right-handed layout has it.
+            Assert.True(right.InSteerZone(right.LookBackCentre.X));
+            Assert.True(left.InSteerZone(left.LookBackCentre.X));
             Assert.True(left.DriftCentre.X - left.ButtonRadius >= 100f);
             Assert.True(left.InSteerZone(1800f));
             Assert.False(left.InSteerZone(600f));
@@ -55,16 +54,45 @@ namespace CarRacer.Core.Tests
             Assert.False(fresh.Steering);
         }
 
-        [Fact]
-        public void LargeControlsAreBiggerAndStillFit()
+        [Theory]
+        [InlineData(false, 1f)]
+        [InlineData(true, 1f)]
+        [InlineData(false, TouchControlLayout.LargeButtonScale)]
+        [InlineData(true, TouchControlLayout.LargeButtonScale)]
+        public void NoTwoButtonsOverlap(bool leftHanded, float scale)
         {
-            var standard = new TouchControlLayout(1920f, 1080f, 0f, 0f, 1920f, 1080f, 400f);
-            var large = new TouchControlLayout(1920f, 1080f, 0f, 0f, 1920f, 1080f, 400f, buttonScale: TouchControlLayout.LargeButtonScale);
-            Assert.Equal(standard.ButtonRadius * 1.25f, large.ButtonRadius, 2);
-            Assert.True(large.DriftCentre.X + large.ButtonRadius <= 1920f);
-            Assert.True(large.GasCentre.Y + large.ButtonRadius <= 1080f);
+            foreach (var (width, height, dpi) in new[] { (1920f, 1080f, 400f), (2880f, 1440f, 538f), (2400f, 1080f, 420f) })
+            {
+                var layout = new TouchControlLayout(width, height, 0f, 0f, width, height, dpi, leftHanded, scale);
+                var all = new[] { layout.DriftCentre, layout.BrakeCentre, layout.GasCentre, layout.ItemCentre, layout.LookBackCentre };
+                for (int i = 0; i < all.Length; i++)
+                {
+                    for (int j = i + 1; j < all.Length; j++)
+                    {
+                        float dx = all[i].X - all[j].X;
+                        float dy = all[i].Y - all[j].Y;
+                        Assert.True(dx * dx + dy * dy >= 4f * layout.ButtonRadius * layout.ButtonRadius, $"buttons {i} and {j} overlap at {width}x{height}, left-handed {leftHanded}, scale {scale}");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void LargeControlsAreBiggerAsFarAsTheyFit()
+        {
+            // A tall screen has room for the full 25%.
+            var tallStandard = new TouchControlLayout(1920f, 1440f, 0f, 0f, 1920f, 1440f, 400f);
+            var tallLarge = new TouchControlLayout(1920f, 1440f, 0f, 0f, 1920f, 1440f, 400f, buttonScale: TouchControlLayout.LargeButtonScale);
+            Assert.Equal(tallStandard.ButtonRadius * 1.25f, tallLarge.ButtonRadius, 2);
+
+            // A phone held sideways (Pixel 2 XL: 1440 px at 538 dpi) has less, but still gets bigger buttons.
+            var standard = new TouchControlLayout(2880f, 1440f, 0f, 0f, 2880f, 1440f, 538f);
+            var large = new TouchControlLayout(2880f, 1440f, 0f, 0f, 2880f, 1440f, 538f, buttonScale: TouchControlLayout.LargeButtonScale);
+            Assert.InRange(large.ButtonRadius, standard.ButtonRadius * 1.1f, standard.ButtonRadius * 1.25f);
+            Assert.True(large.DriftCentre.X + large.ButtonRadius <= 2880f);
+            Assert.True(large.ItemCentre.Y + large.ButtonRadius <= 1440f);
             Assert.True(large.BrakeCentre.X > large.SteerZoneRight);
-            Assert.True(large.HitsButton(new Vec2(large.DriftCentre.X + standard.ButtonRadius * 1.4f, large.DriftCentre.Y), large.DriftCentre));
+            Assert.True(large.HitsButton(new Vec2(large.DriftCentre.X + standard.ButtonRadius * 1.3f, large.DriftCentre.Y), large.DriftCentre));
         }
 
         [Fact]

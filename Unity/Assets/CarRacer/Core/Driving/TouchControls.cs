@@ -31,9 +31,9 @@ namespace CarRacer.Core.Driving
     /// Brake, Item and (with auto-accelerate off) Gas buttons sit on the right, inside the safe area.
     /// In a race a Look back button sits in the top-left corner, below the HUD's text.
     /// Sizes are in physical inches so they suit any screen density. The left-handed layout is the
-    /// mirror image (buttons on the left, the right half steers), except Look back, which stays
-    /// top-left (clear of the HUD's position, lap and mini-map on the right, and on the buttons'
-    /// side). Large controls make every button bigger (accessibility, design doc §5).
+    /// whole mirror image: buttons on the left, the right half steers, and Look back in the top-right
+    /// corner (the HUD moves its mini-map, position and lap to the left to match). Large controls
+    /// make every button bigger (accessibility, design doc §5).
     /// </summary>
     public sealed class TouchControlLayout
     {
@@ -50,7 +50,7 @@ namespace CarRacer.Core.Driving
         /// <summary>Assumed screen height in inches when the device doesn't report its DPI.</summary>
         public const float FallbackScreenHeightInches = 2.8f;
 
-        /// <summary>How much bigger the buttons are with large controls.</summary>
+        /// <summary>How much bigger the buttons are with large controls, as far as the screen's height allows.</summary>
         public const float LargeButtonScale = 1.25f;
 
         /// <param name="leftHanded">Mirror the layout: buttons on the left, the right half steers.</param>
@@ -62,9 +62,14 @@ namespace CarRacer.Core.Driving
             LeftHanded = leftHanded;
             ButtonScale = buttonScale;
             float pixelsPerInch = dpi > 0f ? dpi : screenHeight / FallbackScreenHeightInches;
-            ButtonRadius = ButtonRadiusInches * buttonScale * pixelsPerInch;
             SteerRange = SteerRangeInches * pixelsPerInch;
             float margin = MarginInches * pixelsPerInch;
+
+            // Bigger buttons only grow as far as Brake and Item still fit one above the other
+            // (4.4 radii plus the margins); the standard size is never shrunk.
+            float standard = ButtonRadiusInches * pixelsPerInch;
+            float fits = (safeTop - safeBottom - 2f * margin) / 4.4f;
+            ButtonRadius = Math.Min(standard * buttonScale, Math.Max(standard, fits));
 
             SteerZoneRight = screenWidth / 2f;
             DriftCentre = new Vec2(safeRight - margin - ButtonRadius, safeBottom + margin + ButtonRadius);
@@ -80,6 +85,7 @@ namespace CarRacer.Core.Driving
                 BrakeCentre = Mirror(BrakeCentre, mirror);
                 GasCentre = Mirror(GasCentre, mirror);
                 ItemCentre = Mirror(ItemCentre, mirror);
+                LookBackCentre = Mirror(LookBackCentre, mirror);
             }
         }
 

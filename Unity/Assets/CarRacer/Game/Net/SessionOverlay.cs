@@ -336,9 +336,9 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = new GUIStyle(_small) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
-            GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), position, style);
-            GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), $"Lap {lap} / {race.LapCount}", style);
+            var style = CornerStyle();
+            GUI.Label(Corner(width, 84f), position, style);
+            GUI.Label(Corner(width, 128f), $"Lap {lap} / {race.LapCount}", style);
             DrawItemSlot(width, style);
         }
 
@@ -368,17 +368,35 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = new GUIStyle(_small) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
-            GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), status, style);
-            GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), total > 0 ? $"{left} / {total} left" : string.Empty, style);
+            var style = CornerStyle();
+            GUI.Label(Corner(width, 84f), status, style);
+            GUI.Label(Corner(width, 128f), total > 0 ? $"{left} / {total} left" : string.Empty, style);
             if (race.Mode == GameMode.Battle && race.Phase == RacePhase.Racing)
             {
                 long remaining = System.Math.Max(0L, BattleRules.TimeLimitMs + msToGo);
-                GUI.Label(new Rect(width - 424f, 172f, 400f, 44f), RaceFormat.Time(remaining), style);
+                GUI.Label(Corner(width, 172f), RaceFormat.Time(remaining), style);
             }
 
             DrawItemSlot(width, style);
         }
+
+        /// <summary>
+        /// A line of the race status in the top corner opposite Look back: the top right, or the
+        /// top left with left-handed controls, whose Look back sits top-right (design doc §5). On
+        /// the left it starts a little lower, below the session's status line.
+        /// </summary>
+        private static Rect Corner(float width, float y) =>
+            Accessibility.LeftHanded ? new Rect(UiStyle.SafeArea.x + 24f, y + LeftCornerDrop, 400f, 44f) : new Rect(width - 424f, y, 400f, 44f);
+
+        /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
+        public const float LeftCornerDrop = 16f;
+
+        private GUIStyle CornerStyle() => new GUIStyle(_small)
+        {
+            fontSize = Accessibility.Text(34),
+            fontStyle = FontStyle.Bold,
+            alignment = Accessibility.LeftHanded ? TextAnchor.UpperLeft : TextAnchor.UpperRight,
+        };
 
         /// <summary>The item slot, top centre (design doc §6).</summary>
         private void DrawItemSlot(float width, GUIStyle style)

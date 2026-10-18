@@ -178,9 +178,11 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.
 - **Accessibility** (Settings → Accessibility, `Accessibility`; each applies at once and is remembered):
-  - **Left-handed controls:** the buttons mirror to the left and the right half steers. Look back
-    stays top-left, clear of the HUD on the right.
-  - **Large controls:** every button 25% bigger (`TouchControlLayout.LargeButtonScale`).
+  - **Left-handed controls:** the whole layout mirrors: buttons on the left, the right half
+    steers, and Look back in the top-right corner. The HUD's mini-map, position and lap move to
+    the top left to make room.
+  - **Large controls:** buttons up to 25% bigger (`TouchControlLayout.LargeButtonScale`), as far
+    as Brake and Item still fit one above the other; on a phone held sideways that is about 15–20%.
   - **Large text:** menu, lobby and HUD text 20% bigger.
   - **Reduced motion:** see §6.
 
