@@ -105,6 +105,7 @@ TEMPLATES = {
     ".json": TEXT_SCRIPT,
     ".txt": TEXT_SCRIPT,
     ".md": TEXT_SCRIPT,
+    ".bytes": TEXT_SCRIPT,
     ".ogg": AUDIO,
     ".wav": AUDIO,
 }

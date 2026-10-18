@@ -4,7 +4,7 @@ using UnityEngine;
 namespace CarRacer.Game
 {
     /// <summary>
-    /// Flat-coloured materials and collider-free primitive parts for placeholder geometry.
+    /// Flat-coloured and textured materials, and collider-free primitive parts for placeholder geometry.
     /// </summary>
     public static class SimpleMaterials
     {
@@ -25,6 +25,17 @@ namespace CarRacer.Game
                 return material;
             }
 
+            material = new Material(Template()) { name = "Colour " + ColorUtility.ToHtmlStringRGB(colour), color = colour };
+            Cache[colour] = material;
+            return material;
+        }
+
+        /// <summary>A new material showing <paramref name="texture"/> untinted, e.g. a car's painted palette.</summary>
+        public static Material Textured(Texture2D texture) =>
+            new Material(Template()) { name = texture.name, color = Color.white, mainTexture = texture };
+
+        private static Material Template()
+        {
             if (_template == null)
             {
                 var shader = Shader.Find(ShaderName);
@@ -41,9 +52,7 @@ namespace CarRacer.Game
                 }
             }
 
-            material = new Material(_template) { name = "Colour " + ColorUtility.ToHtmlStringRGB(colour), color = colour };
-            Cache[colour] = material;
-            return material;
+            return _template;
         }
 
         /// <summary>A primitive shape for show only (no collider), parented under <paramref name="parent"/>.</summary>

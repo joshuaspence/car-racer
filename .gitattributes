@@ -17,3 +17,6 @@
 *.mp3  binary
 *.ttf  binary
 *.otf  binary
+
+# Assets the game reads itself (Kenney OBJ models and PNGs, kept byte for byte)
+*.bytes binary
