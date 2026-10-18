@@ -22,7 +22,7 @@ namespace CarRacer.Game.Menu
         private CarModel _model;
         private Color _colour;
 
-        /// <summary>What the preview camera sees, for <c>GUI.DrawTexture</c>.</summary>
+        /// <summary>What the preview camera sees, shown in the garage page's <c>Image</c>.</summary>
         public RenderTexture Texture { get; private set; }
 
         private void Awake()
