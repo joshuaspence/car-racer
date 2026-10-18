@@ -1,14 +1,17 @@
 using CarRacer.Core.Platform;
+using CarRacer.Game.Ui;
 using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CarRacer.Game.Platform
 {
     /// <summary>
     /// The performance readout (design doc §14): frame rate, the slowest recent frame, frames that
     /// missed 30 fps, draw calls, memory and this phone's network traffic, in small text at the top
-    /// of the screen over every screen. On by default in development builds; Settings turns it on
-    /// or off (remembered). The draw-call and memory counters only report in development builds.
+    /// of the screen over every screen (a UI Toolkit layer above the others). On by default in
+    /// development builds; Settings turns it on or off (remembered). The draw-call and memory
+    /// counters only report in development builds.
     /// </summary>
     public sealed class PerfOverlay : MonoBehaviour
     {
@@ -23,9 +26,7 @@ namespace CarRacer.Game.Platform
         private readonly FrameStats _frames = new FrameStats();
         private ProfilerRecorder _drawCalls;
         private ProfilerRecorder _memory;
-        private GUIStyle _style;
-        private Texture2D _backdrop;
-        private string _text = string.Empty;
+        private TextElement _readout;
         private float _nextText;
 
         public static bool Visible
@@ -52,6 +53,27 @@ namespace CarRacer.Game.Platform
             var host = new GameObject(nameof(PerfOverlay));
             DontDestroyOnLoad(host);
             _instance = host.AddComponent<PerfOverlay>();
+            _instance.Build(UiRoot.Create(host.transform, "Perf readout", order: 100));
+        }
+
+        /// <summary>Small text just under the item slot at the top centre, on a dark backdrop; it never takes touches.</summary>
+        private void Build(UiRoot layer)
+        {
+            var strip = UiKit.Row();
+            strip.style.position = Position.Absolute;
+            strip.style.top = 76f;
+            strip.style.left = strip.style.right = 0f;
+            strip.style.justifyContent = Justify.Center;
+            _readout = UiKit.Centred(UiKit.Text(string.Empty, 16, Color.white, wrap: true));
+
+            // A fixed size for a testing tool, as before, so it needn't rebuild when large text changes.
+            _readout.style.fontSize = 16;
+            _readout.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
+            _readout.style.paddingLeft = _readout.style.paddingRight = 8f;
+            _readout.style.paddingTop = _readout.style.paddingBottom = 4f;
+            _readout.style.width = 340f;
+            strip.Add(_readout);
+            layer.Full.Add(strip);
         }
 
         private void OnEnable()
@@ -66,14 +88,6 @@ namespace CarRacer.Game.Platform
             _memory.Dispose();
         }
 
-        private void OnDestroy()
-        {
-            if (_backdrop != null)
-            {
-                Destroy(_backdrop);
-            }
-        }
-
         private void Update()
         {
             _frames.Add(Time.unscaledDeltaTime);
@@ -84,33 +98,10 @@ namespace CarRacer.Game.Platform
                 _nextText = Time.unscaledTime + 0.25f;
                 int draws = _drawCalls.Valid ? (int)_drawCalls.LastValue : -1;
                 int memoryMb = _memory.Valid ? (int)(_memory.LastValue / (1024 * 1024)) : -1;
-                _text = PerfReadout.Format(_frames, draws, memoryMb, CarRacer.Game.Net.NetworkSession.Active ? Traffic : null);
-            }
-        }
-
-        private void OnGUI()
-        {
-            if (!Visible)
-            {
-                return;
+                _readout.text = PerfReadout.Format(_frames, draws, memoryMb, CarRacer.Game.Net.NetworkSession.Active ? Traffic : null);
             }
 
-            if (_style == null)
-            {
-                _backdrop = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
-                _backdrop.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.55f));
-                _backdrop.Apply();
-                _style = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.UpperCenter, padding = new RectOffset(8, 8, 4, 4) };
-                _style.normal.textColor = Color.white;
-                _style.normal.background = _backdrop;
-            }
-
-            // Drawn last, over every other screen, just under the item slot at the top centre.
-            GUI.depth = -100;
-            float scale = Screen.height / CarRacer.Game.Menu.UiStyle.ReferenceHeight;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            float width = Screen.width / scale;
-            GUI.Label(new Rect((width - 340f) / 2f, 76f, 340f, 64f), _text, _style);
+            _readout.style.display = Visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

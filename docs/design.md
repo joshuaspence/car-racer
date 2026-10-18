@@ -115,6 +115,7 @@ metre, then converge within a few frames.
 | Engine | **Unity 6.3 LTS** (`6000.3.26f1`), **URP** |
 | Networking | `com.unity.netcode.gameobjects` 2.13.x, `com.unity.transport` 2.7.x |
 | Input | `com.unity.inputsystem` (touch + gamepad) |
+| UI | **UI Toolkit**, built from code (no UXML/USS assets); moving over from IMGUI in M10 |
 | Language | C# 9 (Unity's compiler) |
 | Licence | Unity Personal (free while revenue and funding are under US$200k a year) |
 
@@ -138,6 +139,14 @@ covers protocol, rules, scoring, track geometry, bot decisions and physics formu
 stays a thin layer of Unity glue. Core has its own `Vec3`/`Vec2`; `UnityConversions` bridges them.
 
 Player settings live in code (`ProjectConfigurator`), not hand-edited in `ProjectSettings/`.
+
+**UI** (`Game/Ui`): each screen makes a `UiRoot` layer, a UI Toolkit document on one shared
+panel that is scaled so the screen is 720 reference pixels tall (`UiMetrics`), with the built-in
+font set on the root so text renders without a theme. Its `Safe` container keeps clear of notches;
+containers never take touches, so only real controls block the game. `UiKit` makes elements in the
+house style (dark panels, 64-pixel buttons that darken as a finger lands, a yellow accent) with
+font sizes from the large-text option; a layer raises `Restyle` when that option changes so its
+screen rebuilds. The performance readout was the first to move; the menus, lobby and HUD follow.
 
 ## 4. Driving model
 
