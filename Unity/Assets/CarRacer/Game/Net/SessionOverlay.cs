@@ -63,6 +63,7 @@ namespace CarRacer.Game.Net
         private Label _banner;
         private Label _countdown;
         private VisualElement _view;
+        private ScrollView _lobbyScroll;
         private VisualElement _raceHud;
         private Label _corner1;
         private Label _corner2;
@@ -266,6 +267,29 @@ namespace CarRacer.Game.Net
             build?.Invoke();
         }
 
+        /// <summary>
+        /// The lobby rebuilds whenever anyone readies up, changes car or votes; carry the scroll
+        /// position over so the host isn't thrown back to the top, away from Start. The offset is
+        /// applied once the new list has been laid out, as until then there is nothing to scroll.
+        /// </summary>
+        private void KeepScroll(ScrollView scroll)
+        {
+            float offset = _lobbyScroll != null ? _lobbyScroll.scrollOffset.y : 0f;
+            _lobbyScroll = scroll;
+            if (offset <= 0f)
+            {
+                return;
+            }
+
+            EventCallback<GeometryChangedEvent> restore = null;
+            restore = _ =>
+            {
+                scroll.contentContainer.UnregisterCallback(restore);
+                scroll.scrollOffset = new Vector2(0f, offset);
+            };
+            scroll.contentContainer.RegisterCallback(restore);
+        }
+
         /// <summary>Forces the current view to rebuild next frame, after a button changed what it shows.</summary>
         private void Changed() => _shownView = null;
 
@@ -341,6 +365,7 @@ namespace CarRacer.Game.Net
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             scroll.style.flexGrow = 0f;
             scroll.style.flexShrink = 1f;
+            KeepScroll(scroll);
             var content = scroll.contentContainer;
             panel.Add(scroll);
             column.Add(panel);
