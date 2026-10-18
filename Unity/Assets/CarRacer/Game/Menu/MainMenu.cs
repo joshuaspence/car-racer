@@ -237,7 +237,10 @@ namespace CarRacer.Game.Menu
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Back", UiStyle.Button, GUILayout.Width(140f)))
             {
+                // Leaving destroys the preview, so the rest of this pass would no longer match its
+                // layout; stop here rather than draw a page that is gone.
                 GoTo(Page.Main);
+                GUIUtility.ExitGUI();
             }
 
             GUILayout.EndHorizontal();
