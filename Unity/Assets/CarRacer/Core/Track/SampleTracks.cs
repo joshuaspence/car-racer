@@ -132,7 +132,7 @@ namespace CarRacer.Core.Track
 
         /// <summary>
         /// A hill climb (about 480 m): up a long ramp, round a tight switchback near the top,
-        /// along the ridge 9 m up, and down the far side through a second switchback.
+        /// along the ridge 9 m up, and down the far side through a long, sweeping bend.
         /// </summary>
         public static TrackDefinition Switchbacks() => new TrackDefinition
         {

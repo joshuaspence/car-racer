@@ -412,7 +412,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   - **Seaside Sweepers** (`sweepers`, ~500 m): wide and flat; a long straight into a banked
     right-hander, a run of left-right sweepers, and a wide hairpin home.
   - **Switchback Hill** (`switchbacks`, ~480 m): up a long ramp, round a switchback near the top,
-    along a ridge 9 m up, and down through a second switchback.
+    along a ridge 9 m up, and down through a long, sweeping bend.
   - The cups use the first three tracks; the newer two are for single events.
 - **In the scene** (`TrackCatalog`): every track is built at once, each moved to its own patch
   of grass clear of the others and of the arenas. The host picks the track in the lobby
