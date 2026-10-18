@@ -415,6 +415,12 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   road, and checkpoint gates only reach 2 m below and 5 m above the road, so a car on the bridge
   doesn't cross the gate below it.
 - **Art:** CC0 low-poly packs (Kenney Car Kit, Racing Kit), flat-shaded, bright toy-like look.
+  - **Cars** are Kenney's race car (`CarModels`), read from its OBJ in `Resources/Models` by the
+    game itself (`ObjModel`, mirroring x for Unity) rather than a model importer, so nothing
+    depends on import settings or the pipeline's default shader. The kit's cars share one palette
+    texture; each player's copy has the bodywork's strip of it recoloured to their colour, keeping
+    its shading (`PaintRecolour`). A car is one mesh and one material, shared by every car of that
+    colour. If the files can't be loaded the primitive placeholder is built instead.
 - **Audio:** CC0 sound effects (Kenney's Impact, Sci-fi and Interface packs, mono 22 kHz in
   `Resources/Audio`; see `docs/credits.md`), a crunch scaled by impact (light, medium or heavy, on
   the same range as the bump's haptic pulse), per-item sounds where each is used, a bang where a

@@ -1,5 +1,16 @@
 # Credits
 
+## Models
+
+From Kenney's [Car Kit](https://kenney.nl/assets/car-kit), released under
+[CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/), unchanged except for the
+`.bytes` extension, so Unity treats them as plain data.
+
+| File in `Unity/Assets/CarRacer/Resources/Models` | Source |
+| --- | --- |
+| `race.obj.bytes` | Car Kit: `Models/OBJ format/race.obj` |
+| `colormap.png.bytes` | Car Kit: `Models/OBJ format/Textures/colormap.png` |
+
 ## Sound effects
 
 From [Kenney](https://www.kenney.nl), released under

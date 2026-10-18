@@ -1,3 +1,4 @@
+using CarRacer.Core.Art;
 using CarRacer.Game.Audio;
 using CarRacer.Game.Net;
 using UnityEngine;
@@ -5,8 +6,8 @@ using UnityEngine;
 namespace CarRacer.Game.Driving
 {
     /// <summary>
-    /// Builds a car from code: the physics sphere plus a placeholder body made of primitives,
-    /// until the CC0 car models arrive (design doc §13).
+    /// Builds a car from code: the physics sphere plus Kenney's race car body in the player's colour
+    /// (design doc §13), or a placeholder made of primitives if the model can't be loaded.
     /// </summary>
     public static class CarFactory
     {
@@ -70,6 +71,11 @@ namespace CarRacer.Game.Driving
 
         private static void BuildBody(Transform visual, Color colour)
         {
+            if (CarBodies.TryBuild(visual, colour, CarModels.Race))
+            {
+                return;
+            }
+
             var paint = SimpleMaterials.Get(colour);
             var dark = SimpleMaterials.Get(new Color(0.12f, 0.12f, 0.14f));
             var glass = SimpleMaterials.Get(new Color(0.55f, 0.75f, 0.9f));

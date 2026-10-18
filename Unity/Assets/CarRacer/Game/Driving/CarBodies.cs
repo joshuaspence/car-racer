@@ -1,0 +1,157 @@
+using System.Collections.Generic;
+using CarRacer.Core.Art;
+using UnityEngine;
+
+namespace CarRacer.Game.Driving
+{
+    /// <summary>
+    /// Kenney Car Kit bodies (design doc §13), built from the OBJ and palette in
+    /// <c>Resources/Models</c> by <see cref="ObjModel"/> rather than a model importer, and painted
+    /// in each player's colour (<see cref="PaintRecolour"/>). Each model's mesh and each colour's
+    /// material are made once and shared.
+    /// </summary>
+    public static class CarBodies
+    {
+        private static readonly Dictionary<string, Mesh> Meshes = new Dictionary<string, Mesh>();
+        private static readonly Dictionary<(string, Color), Material> Materials = new Dictionary<(string, Color), Material>();
+        private static Color32[] _palette;
+        private static int _paletteWidth;
+        private static int _paletteHeight;
+
+        /// <summary>Puts <paramref name="model"/> under <paramref name="visual"/> in <paramref name="colour"/>; false if its files can't be loaded.</summary>
+        public static bool TryBuild(Transform visual, Color colour, CarModel model)
+        {
+            var mesh = MeshFor(model);
+            var material = mesh != null ? MaterialFor(model, colour) : null;
+            if (material == null)
+            {
+                return false;
+            }
+
+            var body = new GameObject(model.Name);
+            body.transform.SetParent(visual, false);
+            body.transform.localScale = Vector3.one * model.Scale;
+            body.AddComponent<MeshFilter>().sharedMesh = mesh;
+            body.AddComponent<MeshRenderer>().sharedMaterial = material;
+            return true;
+        }
+
+        private static Mesh MeshFor(CarModel model)
+        {
+            if (Meshes.TryGetValue(model.Name, out var mesh))
+            {
+                return mesh;
+            }
+
+            var asset = Resources.Load<TextAsset>("Models/" + model.Name + ".obj");
+            if (asset != null)
+            {
+                mesh = Build(ObjModel.Parse(asset.text), model.Name);
+            }
+            else
+            {
+                Debug.LogError($"Car model '{model.Name}' is missing; using the placeholder body.");
+            }
+
+            Meshes[model.Name] = mesh;
+            return mesh;
+        }
+
+        /// <summary>All the model's parts in one mesh, so a car is one draw call.</summary>
+        private static Mesh Build(ObjModel obj, string name)
+        {
+            var positions = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var triangles = new List<int>();
+            foreach (var part in obj.Parts)
+            {
+                int start = positions.Count;
+                foreach (var p in part.Positions)
+                {
+                    positions.Add(p.ToUnity());
+                }
+
+                foreach (var n in part.Normals)
+                {
+                    normals.Add(n.ToUnity());
+                }
+
+                foreach (var uv in part.Uvs)
+                {
+                    uvs.Add(new Vector2(uv.X, uv.Y));
+                }
+
+                foreach (int i in part.Triangles)
+                {
+                    triangles.Add(start + i);
+                }
+            }
+
+            var mesh = new Mesh { name = name };
+            if (positions.Count > ushort.MaxValue)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+
+            mesh.SetVertices(positions);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+            mesh.UploadMeshData(true);
+            return mesh;
+        }
+
+        private static Material MaterialFor(CarModel model, Color colour)
+        {
+            if (Materials.TryGetValue((model.Name, colour), out var material))
+            {
+                return material;
+            }
+
+            if (_palette == null)
+            {
+                var asset = Resources.Load<TextAsset>("Models/" + CarModels.Palette + ".png");
+                var source = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (asset == null || !source.LoadImage(asset.bytes))
+                {
+                    Debug.LogError("The car palette is missing; using the placeholder body.");
+                    Object.DestroyImmediate(source);
+                    return null;
+                }
+
+                _palette = source.GetPixels32();
+                _paletteWidth = source.width;
+                _paletteHeight = source.height;
+                Object.DestroyImmediate(source);
+            }
+
+            // Color32 is laid out as RGBA bytes, rows from the bottom up, as PaintRecolour expects.
+            var bytes = new byte[_palette.Length * 4];
+            for (int i = 0; i < _palette.Length; i++)
+            {
+                var c = _palette[i];
+                bytes[i * 4] = c.r;
+                bytes[i * 4 + 1] = c.g;
+                bytes[i * 4 + 2] = c.b;
+                bytes[i * 4 + 3] = c.a;
+            }
+
+            Color32 paint = colour;
+            PaintRecolour.Recolour(bytes, _paletteWidth, _paletteHeight, model.Paint, paint.r, paint.g, paint.b);
+            var texture = new Texture2D(_paletteWidth, _paletteHeight, TextureFormat.RGBA32, false)
+            {
+                name = $"{model.Name} {ColorUtility.ToHtmlStringRGB(colour)}",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+            texture.LoadRawTextureData(bytes);
+            texture.Apply(false, true);
+
+            material = SimpleMaterials.Textured(texture);
+            Materials[(model.Name, colour)] = material;
+            return material;
+        }
+    }
+}
