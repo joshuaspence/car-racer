@@ -201,7 +201,7 @@ namespace CarRacer.Core.Session
             return true;
         }
 
-        /// <summary>Withdraws every vote, e.g. when an event starts from them. Returns true if there were any.</summary>
+        /// <summary>Withdraws every vote, e.g. when the lobby reopens after an event. Returns true if there were any.</summary>
         public bool ClearVotes()
         {
             bool any = false;
