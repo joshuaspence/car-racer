@@ -3,14 +3,15 @@ using CarRacer.Core.Audio;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Session;
 using CarRacer.Game.Audio;
+using CarRacer.Game.Driving;
 using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Menu
 {
     /// <summary>
-    /// The menus before a game (design doc §11): your name on first launch, then Host game, Join game
-    /// and Practice. The Join page lists the games announced on this Wi-Fi as cards, and takes an IP
+    /// The menus before a game (design doc §11): your name on first launch, then Host game, Join game,
+    /// Practice and Settings. The Join page lists the games announced on this Wi-Fi as cards, and takes an IP
     /// address for networks that block discovery. Discovery and the Android multicast lock run only
     /// while the Join page is open (design doc §1.1).
     /// </summary>
@@ -24,6 +25,7 @@ namespace CarRacer.Game.Menu
             Name,
             Main,
             Join,
+            Settings,
         }
 
         private readonly DiscoveredHostList _hosts = new DiscoveredHostList();
@@ -117,6 +119,9 @@ namespace CarRacer.Game.Menu
                 case Page.Join:
                     DrawJoinPage();
                     break;
+                case Page.Settings:
+                    DrawSettingsPage();
+                    break;
             }
         }
 
@@ -152,7 +157,7 @@ namespace CarRacer.Game.Menu
 
         private void DrawMainPage()
         {
-            GUILayout.BeginArea(UiStyle.CentredPanel(480f, 40f, 680f), UiStyle.Panel);
+            GUILayout.BeginArea(UiStyle.CentredPanel(480f, 70f, 600f), UiStyle.Panel);
             GUILayout.Label("Car Racer", UiStyle.Title);
             GUILayout.Label($"Racing as {_name}", UiStyle.HintCentred);
             if (!string.IsNullOrEmpty(Notice))
@@ -184,11 +189,27 @@ namespace CarRacer.Game.Menu
                 GoTo(Page.Name);
             }
 
-            // Graphics is automatic by default (design doc §14); tap to choose a level instead.
-            if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
+            if (GUILayout.Button("Settings", UiStyle.Button))
             {
-                GraphicsQuality.Cycle();
+                GoTo(Page.Settings);
             }
+
+            GUILayout.EndArea();
+        }
+
+        /// <summary>Every setting in one place (design doc §11); each is remembered as soon as it changes.</summary>
+        private void DrawSettingsPage()
+        {
+            GUILayout.BeginArea(UiStyle.CentredPanel(760f, 24f, 680f), UiStyle.Panel);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Settings", UiStyle.Heading);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Back", UiStyle.Button, GUILayout.Width(140f)))
+            {
+                GoTo(Page.Main);
+            }
+
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(GameAudio.Label, UiStyle.Button))
@@ -204,6 +225,33 @@ namespace CarRacer.Game.Menu
 
             GUILayout.EndHorizontal();
 
+            // Graphics is automatic by default (design doc §14); tap to choose a level instead.
+            if (GUILayout.Button(GraphicsQuality.Label, UiStyle.Button))
+            {
+                GraphicsQuality.Cycle();
+            }
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(Vibration.Enabled ? "Haptics: on" : "Haptics: off", UiStyle.Button))
+            {
+                Vibration.Enabled = !Vibration.Enabled;
+            }
+
+            GUILayout.Space(12f);
+            bool auto = PlayerPrefs.GetInt(PlayerCarInput.AutoAccelerateKey, 1) != 0;
+            if (GUILayout.Button(auto ? "Auto-accelerate: on" : "Auto-accelerate: off", UiStyle.Button))
+            {
+                PlayerPrefs.SetInt(PlayerCarInput.AutoAccelerateKey, auto ? 0 : 1);
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button(PlayerCarInput.TiltEnabled ? "Tilt steering: on" : "Tilt steering: off", UiStyle.Button))
+            {
+                PlayerCarInput.TiltEnabled = !PlayerCarInput.TiltEnabled;
+            }
+
+            GUILayout.Label("With tilt steering on, turn the phone like a steering wheel; the left thumb can still steer.", UiStyle.Hint);
             GUILayout.EndArea();
         }
 

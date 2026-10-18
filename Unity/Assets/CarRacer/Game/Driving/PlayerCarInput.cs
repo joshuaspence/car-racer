@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CarRacer.Core.Driving;
+using CarRacer.Core.Numerics;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -8,8 +9,8 @@ using UnityEngine.InputSystem;
 namespace CarRacer.Game.Driving
 {
     /// <summary>
-    /// The local player's controls (design doc §5): on-screen touch controls, keyboard and gamepad,
-    /// all usable at once. Reads devices every frame; the car samples <see cref="Read"/> each physics step.
+    /// The local player's controls (design doc §5): on-screen touch controls, keyboard, gamepad and
+    /// (if turned on) tilt, all usable at once. Reads devices every frame; the car samples <see cref="Read"/> each physics step.
     /// Uses the Input System when it is the active input handler, otherwise the legacy Input Manager.
     /// </summary>
     public sealed class PlayerCarInput : MonoBehaviour, ICarInputSource
@@ -20,6 +21,7 @@ namespace CarRacer.Game.Driving
         private readonly List<TouchPoint> _touches = new List<TouchPoint>();
         private CarInput _current;
         private bool _autoAccelerate;
+        private bool _useTilt;
         private bool _itemPressed;
 
         public TouchControls TouchState => _touchControls;
@@ -44,6 +46,13 @@ namespace CarRacer.Game.Driving
             }
         }
 
+        /// <summary>Tilt steering (design doc §5): off by default; the choice is remembered.</summary>
+        public static bool TiltEnabled
+        {
+            get => PlayerPrefs.GetInt(TiltSteering.PreferenceKey, 0) != 0;
+            set => PlayerPrefs.SetInt(TiltSteering.PreferenceKey, value ? 1 : 0);
+        }
+
         public CarInput Read() => _current;
 
         /// <summary>True once per press of the use-item control (Item button, E, or a gamepad's Y/X), then false until the next press.</summary>
@@ -57,6 +66,7 @@ namespace CarRacer.Game.Driving
         private void Awake()
         {
             _autoAccelerate = PlayerPrefs.GetInt(AutoAccelerateKey, 1) != 0;
+            _useTilt = TiltEnabled;
         }
 
         private void Update()
@@ -70,6 +80,16 @@ namespace CarRacer.Game.Driving
             ReadTouches(_touches);
             var touch = _touchControls.Update(_touches, Layout, showGas: !_autoAccelerate, showItem: ShowItem, showLookBack: ShowLookBack);
             var devices = ReadDevices();
+            if (_useTilt)
+            {
+                // Tilt is one more device: the strongest steer wins, so a thumb can still correct it.
+                float tilt = ReadTilt();
+                if (Mathf.Abs(tilt) > Mathf.Abs(devices.Steer))
+                {
+                    devices.Steer = tilt;
+                }
+            }
+
             _current = DriverInput.Combine(touch, devices, _autoAccelerate);
             _itemPressed |= touch.UseItem || devices.UseItem;
             LookingBack = touch.LookBack || devices.LookBack;
@@ -99,6 +119,27 @@ namespace CarRacer.Game.Driving
                 var position = touch.position.ReadValue();
                 touches.Add(new TouchPoint(touch.touchId.ReadValue(), position.x, position.y, stage));
             }
+        }
+
+        private static float ReadTilt()
+        {
+            var accelerometer = Accelerometer.current;
+            if (accelerometer == null)
+            {
+                return 0f;
+            }
+
+            if (!accelerometer.enabled)
+            {
+                InputSystem.EnableDevice(accelerometer);
+            }
+
+            // With orientation compensation on, the Input System already reports in screen axes.
+            var a = accelerometer.acceleration.ReadValue();
+            var screen = InputSystem.settings.compensateForScreenOrientation
+                ? new Vec2(a.x, a.y)
+                : TiltSteering.ToScreen(a.x, a.y, Screen.orientation == ScreenOrientation.LandscapeLeft);
+            return TiltSteering.Steer(screen);
         }
 
         private static DriverControls ReadDevices()
@@ -149,6 +190,13 @@ namespace CarRacer.Game.Driving
                     : TouchStage.Held;
                 touches.Add(new TouchPoint(touch.fingerId, touch.position.x, touch.position.y, stage));
             }
+        }
+
+        private static float ReadTilt()
+        {
+            // The Input Manager reports in the device's own axes, whatever way round the screen is.
+            var a = Input.acceleration;
+            return TiltSteering.Steer(TiltSteering.ToScreen(a.x, a.y, Screen.orientation == ScreenOrientation.LandscapeLeft));
         }
 
         private static DriverControls ReadDevices()

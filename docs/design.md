@@ -156,7 +156,10 @@ Player settings live in code (`ProjectConfigurator`), not hand-edited in `Projec
   centre is wherever the thumb first lands.
 - **Right half:** large **Drift** and **Brake/Reverse** buttons; item use is also on the right.
 - **Auto-accelerate on by default** (settings toggle).
-- **Tilt steering** is optional in settings.
+- **Tilt steering** is optional in settings (off by default; `TiltSteering`): turn the phone like a
+  steering wheel, full lock at 30°, with 3° of dead zone, and straight ahead while the phone lies
+  flat. It reads gravity in screen axes, so either landscape way round works, and it is one more
+  device: the strongest steer wins, so the left thumb can still correct it.
 - **Gamepad support** through the Input System: left stick steers, A or the right trigger
   accelerates, B or the left trigger brakes, either shoulder drifts, Y or X uses the item, and
   clicking the left stick looks back. The keyboard (arrows/WASD, Space to drift, E to use the
@@ -367,9 +370,13 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 ## 11. Lobby and identity
 
 1. First launch: choose a display name (stored on the device; no accounts).
-2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**.
-   Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards + join by IP) and
-   Practice (a free drive), and joining from the host's QR code. The garage comes later.
+2. Menu: **Host Game**, **Join Game** (discovered list + join by IP/QR), **Practice**, **Garage**,
+   **Settings**. Built so far (`MainMenu`): name entry on first launch, Host, Join (game cards +
+   join by IP) and Practice (a free drive), joining from the host's QR code, and Settings. The
+   garage comes later.
+   - **Settings** gathers sound and music volume, graphics quality, haptics, auto-accelerate and
+     tilt steering on one page; each choice is remembered as soon as it changes. Haptics and
+     auto-accelerate can also be switched while driving.
 3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
 4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
