@@ -4,6 +4,7 @@ using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Bots;
 using CarRacer.Game.Net;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.DriveTest
@@ -40,6 +41,7 @@ namespace CarRacer.Game.DriveTest
         private NetworkedCars _cars;
         private BotCars _bots;
         private GUIStyle _warning;
+        private GUIStyle _meterLabel;
         private Texture2D _arrow;
         private readonly List<Vec3> _rivalPositions = new List<Vec3>();
         private readonly List<Color> _rivalColours = new List<Color>();
@@ -182,7 +184,8 @@ namespace CarRacer.Game.DriveTest
                 return;
             }
 
-            bool lit = Mathf.Repeat(Time.unscaledTime * 4f, 1f) < 0.6f;
+            // Reduced motion (design doc §6) keeps the warning up instead of flashing it.
+            bool lit = Accessibility.ReducedMotion || Mathf.Repeat(Time.unscaledTime * 4f, 1f) < 0.6f;
             DrawArrow(HudIndicators.Bearing(position, ViewHeading(), missile.Position), ArrowMax, MissileColour, width);
             if (lit)
             {
@@ -251,6 +254,11 @@ namespace CarRacer.Game.DriveTest
 
             Fill(bar, new Color(0f, 0f, 0f, 0.5f));
             Fill(new Rect(bar.x, bar.y, bar.width * charge, bar.height), TierColours[Mathf.Clamp(tier, 0, TierColours.Length - 1)]);
+
+            // The tier in words too, so the colour isn't the only way to tell (design doc §6).
+            _meterLabel = _meterLabel ?? new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerCenter };
+            _meterLabel.fontSize = Accessibility.Text(20);
+            GUI.Label(new Rect(bar.x, bar.y - 40f, bar.width, 34f), tier > 0 ? $"BOOST {tier}" : "DRIFT", _meterLabel);
 
             // A tick at each tier's threshold.
             float full = tuning.DriftTierSeconds[tuning.DriftTierSeconds.Length - 1];

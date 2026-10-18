@@ -1,3 +1,4 @@
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Menu
@@ -24,6 +25,9 @@ namespace CarRacer.Game.Menu
         private static Texture2D _primary;
         private static Texture2D _primaryPressed;
         private static Texture2D _field;
+
+        /// <summary>The large-text setting the styles were last built for.</summary>
+        private static bool _builtLargeText;
 
         public static GUIStyle Title { get; private set; }
         public static GUIStyle Heading { get; private set; }
@@ -55,34 +59,39 @@ namespace CarRacer.Game.Menu
         public static void Begin()
         {
             GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, 1f));
-            if (Title != null && _panel != null)
+            if (Title != null && _panel != null && _builtLargeText == Accessibility.LargeText)
             {
                 return;
             }
 
-            _panel = Solid(PanelColour);
-            _button = Solid(new Color(0.22f, 0.26f, 0.36f));
-            _buttonPressed = Solid(new Color(0.32f, 0.38f, 0.52f));
-            _primary = Solid(Accent);
-            _primaryPressed = Solid(new Color(1f, 0.88f, 0.45f));
-            _field = Solid(new Color(0.16f, 0.18f, 0.25f));
+            // Rebuilt when large text is switched (design doc §11), so it applies at once.
+            _builtLargeText = Accessibility.LargeText;
+            if (_panel == null)
+            {
+                _panel = Solid(PanelColour);
+                _button = Solid(new Color(0.22f, 0.26f, 0.36f));
+                _buttonPressed = Solid(new Color(0.32f, 0.38f, 0.52f));
+                _primary = Solid(Accent);
+                _primaryPressed = Solid(new Color(1f, 0.88f, 0.45f));
+                _field = Solid(new Color(0.16f, 0.18f, 0.25f));
+            }
 
-            Title = new GUIStyle(GUI.skin.label) { fontSize = 64, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            Title = new GUIStyle(GUI.skin.label) { fontSize = Accessibility.Text(64), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             Title.normal.textColor = Accent;
-            Heading = new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold };
+            Heading = new GUIStyle(GUI.skin.label) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold };
             Heading.normal.textColor = Color.white;
-            Body = new GUIStyle(GUI.skin.label) { fontSize = 26, wordWrap = true };
+            Body = new GUIStyle(GUI.skin.label) { fontSize = Accessibility.Text(26), wordWrap = true };
             Body.normal.textColor = Color.white;
-            Hint = new GUIStyle(Body) { fontSize = 21 };
+            Hint = new GUIStyle(Body) { fontSize = Accessibility.Text(21) };
             Hint.normal.textColor = Muted;
             HintCentred = new GUIStyle(Hint) { alignment = TextAnchor.MiddleCenter };
 
-            Button = new GUIStyle(GUI.skin.button) { fontSize = 28, fontStyle = FontStyle.Bold, fixedHeight = ButtonHeight, margin = new RectOffset(0, 0, 8, 8) };
+            Button = new GUIStyle(GUI.skin.button) { fontSize = Accessibility.Text(28), fontStyle = FontStyle.Bold, fixedHeight = ButtonHeight, margin = new RectOffset(0, 0, 8, 8) };
             SetBackgrounds(Button, _button, _buttonPressed, Color.white);
             PrimaryButton = new GUIStyle(Button);
             SetBackgrounds(PrimaryButton, _primary, _primaryPressed, new Color(0.08f, 0.08f, 0.1f));
 
-            Field = new GUIStyle(GUI.skin.textField) { fontSize = 28, fixedHeight = ButtonHeight, padding = new RectOffset(16, 16, 12, 12), alignment = TextAnchor.MiddleLeft };
+            Field = new GUIStyle(GUI.skin.textField) { fontSize = Accessibility.Text(28), fixedHeight = ButtonHeight, padding = new RectOffset(16, 16, 12, 12), alignment = TextAnchor.MiddleLeft };
             Field.normal.background = Field.focused.background = Field.hover.background = Field.active.background = _field;
             Field.normal.textColor = Field.focused.textColor = Field.hover.textColor = Color.white;
 

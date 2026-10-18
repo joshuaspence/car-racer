@@ -30,7 +30,10 @@ namespace CarRacer.Core.Driving
     /// Where the on-screen controls sit (design doc §5): the left half steers, and round Drift,
     /// Brake, Item and (with auto-accelerate off) Gas buttons sit on the right, inside the safe area.
     /// In a race a Look back button sits in the top-left corner, below the HUD's text.
-    /// Sizes are in physical inches so they suit any screen density.
+    /// Sizes are in physical inches so they suit any screen density. The left-handed layout is the
+    /// mirror image (buttons on the left, the right half steers), except Look back, which stays
+    /// top-left (clear of the HUD's position, lap and mini-map on the right, and on the buttons'
+    /// side). Large controls make every button bigger (accessibility, design doc §5).
     /// </summary>
     public sealed class TouchControlLayout
     {
@@ -47,12 +50,19 @@ namespace CarRacer.Core.Driving
         /// <summary>Assumed screen height in inches when the device doesn't report its DPI.</summary>
         public const float FallbackScreenHeightInches = 2.8f;
 
-        public TouchControlLayout(float screenWidth, float screenHeight, float safeLeft, float safeBottom, float safeRight, float safeTop, float dpi)
+        /// <summary>How much bigger the buttons are with large controls.</summary>
+        public const float LargeButtonScale = 1.25f;
+
+        /// <param name="leftHanded">Mirror the layout: buttons on the left, the right half steers.</param>
+        /// <param name="buttonScale">Button size relative to the standard (see <see cref="LargeButtonScale"/>).</param>
+        public TouchControlLayout(float screenWidth, float screenHeight, float safeLeft, float safeBottom, float safeRight, float safeTop, float dpi, bool leftHanded = false, float buttonScale = 1f)
         {
             ScreenWidth = screenWidth;
             ScreenHeight = screenHeight;
+            LeftHanded = leftHanded;
+            ButtonScale = buttonScale;
             float pixelsPerInch = dpi > 0f ? dpi : screenHeight / FallbackScreenHeightInches;
-            ButtonRadius = ButtonRadiusInches * pixelsPerInch;
+            ButtonRadius = ButtonRadiusInches * buttonScale * pixelsPerInch;
             SteerRange = SteerRangeInches * pixelsPerInch;
             float margin = MarginInches * pixelsPerInch;
 
@@ -62,17 +72,31 @@ namespace CarRacer.Core.Driving
             GasCentre = new Vec2(DriftCentre.X, Math.Min(safeTop - margin - ButtonRadius, DriftCentre.Y + 2.6f * ButtonRadius));
             ItemCentre = new Vec2(BrakeCentre.X, Math.Min(safeTop - margin - ButtonRadius, BrakeCentre.Y + 2.4f * ButtonRadius));
             LookBackCentre = new Vec2(safeLeft + margin + ButtonRadius, safeTop - TopTextInches * pixelsPerInch - ButtonRadius);
+            if (leftHanded)
+            {
+                // Mirrored about the safe area's middle, so the buttons keep their margin from a notch.
+                float mirror = safeLeft + safeRight;
+                DriftCentre = Mirror(DriftCentre, mirror);
+                BrakeCentre = Mirror(BrakeCentre, mirror);
+                GasCentre = Mirror(GasCentre, mirror);
+                ItemCentre = Mirror(ItemCentre, mirror);
+            }
         }
 
         public float ScreenWidth { get; }
+        public bool LeftHanded { get; }
+        public float ButtonScale { get; }
         public float ScreenHeight { get; }
         public float ButtonRadius { get; }
 
         /// <summary>How far, in pixels, the steering thumb drags for full lock.</summary>
         public float SteerRange { get; }
 
-        /// <summary>Touches starting left of this x steer.</summary>
+        /// <summary>The line between the steering half and the buttons' half: touches starting left of it steer (right of it, left-handed).</summary>
         public float SteerZoneRight { get; }
+
+        /// <summary>True if a touch starting at <paramref name="x"/> is on the steering half.</summary>
+        public bool InSteerZone(float x) => LeftHanded ? x > SteerZoneRight : x < SteerZoneRight;
 
         public Vec2 DriftCentre { get; }
         public Vec2 BrakeCentre { get; }
@@ -87,6 +111,8 @@ namespace CarRacer.Core.Driving
             float reach = ButtonRadius * HitSlack;
             return dx * dx + dy * dy <= reach * reach;
         }
+
+        private static Vec2 Mirror(Vec2 point, float mirror) => new Vec2(mirror - point.X, point.Y);
     }
 
     /// <summary>
@@ -266,7 +292,7 @@ namespace CarRacer.Core.Driving
                 return button;
             }
 
-            if (touch.Position.X < layout.SteerZoneRight && _steeringFinger < 0)
+            if (layout.InSteerZone(touch.Position.X) && _steeringFinger < 0)
             {
                 _steeringFinger = touch.Id;
                 _steering.Begin(touch.Position.X);

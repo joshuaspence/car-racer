@@ -28,6 +28,7 @@ namespace CarRacer.Game.Menu
             Join,
             Settings,
             Garage,
+            Accessibility,
         }
 
         private readonly DiscoveredHostList _hosts = new DiscoveredHostList();
@@ -140,6 +141,9 @@ namespace CarRacer.Game.Menu
                     break;
                 case Page.Garage:
                     DrawGaragePage();
+                    break;
+                case Page.Accessibility:
+                    DrawAccessibilityPage();
                     break;
             }
         }
@@ -352,12 +356,59 @@ namespace CarRacer.Game.Menu
 
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button(PlayerCarInput.TiltEnabled ? "Tilt steering: on" : "Tilt steering: off", UiStyle.Button))
             {
                 PlayerCarInput.TiltEnabled = !PlayerCarInput.TiltEnabled;
             }
 
-            GUILayout.Label("With tilt steering on, turn the phone like a steering wheel; the left thumb can still steer.", UiStyle.Hint);
+            GUILayout.Space(12f);
+            if (GUILayout.Button("Accessibility", UiStyle.Button))
+            {
+                GoTo(Page.Accessibility);
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.Label("With tilt steering on, turn the phone like a steering wheel; the steering thumb can still steer.", UiStyle.Hint);
+            GUILayout.EndArea();
+        }
+
+        /// <summary>The accessibility options (design doc §5, §6, §11); each applies at once and is remembered.</summary>
+        private void DrawAccessibilityPage()
+        {
+            GUILayout.BeginArea(UiStyle.CentredPanel(760f, 24f, 680f), UiStyle.Panel);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Accessibility", UiStyle.Heading);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Back", UiStyle.Button, GUILayout.Width(140f)))
+            {
+                GoTo(Page.Settings);
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button(Accessibility.LeftHanded ? "Controls: left-handed" : "Controls: right-handed", UiStyle.Button))
+            {
+                Accessibility.LeftHanded = !Accessibility.LeftHanded;
+            }
+
+            GUILayout.Label(Accessibility.LeftHanded ? "Buttons on the left; drag on the right half to steer." : "Buttons on the right; drag on the left half to steer.", UiStyle.Hint);
+            if (GUILayout.Button(Accessibility.LargeControls ? "Control size: large" : "Control size: standard", UiStyle.Button))
+            {
+                Accessibility.LargeControls = !Accessibility.LargeControls;
+            }
+
+            if (GUILayout.Button(Accessibility.LargeText ? "Text size: large" : "Text size: standard", UiStyle.Button))
+            {
+                Accessibility.LargeText = !Accessibility.LargeText;
+            }
+
+            if (GUILayout.Button(Accessibility.ReducedMotion ? "Reduced motion: on" : "Reduced motion: off", UiStyle.Button))
+            {
+                Accessibility.ReducedMotion = !Accessibility.ReducedMotion;
+            }
+
+            GUILayout.Label("Reduced motion keeps the camera steady at speed, stops the car leaning and stops warnings flashing.", UiStyle.Hint);
             GUILayout.EndArea();
         }
 

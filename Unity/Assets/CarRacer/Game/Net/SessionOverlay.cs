@@ -7,6 +7,7 @@ using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Menu;
+using CarRacer.Game.Platform;
 using UnityEngine;
 
 namespace CarRacer.Game.Net
@@ -84,7 +85,8 @@ namespace CarRacer.Game.Net
             UiStyle.Begin();
             float width = UiStyle.Width;
             float left = UiStyle.SafeArea.x + 24f;
-            _small = _small ?? new GUIStyle(GUI.skin.label) { fontSize = 20 };
+            _small = _small ?? new GUIStyle(GUI.skin.label);
+            _small.fontSize = Accessibility.Text(20);
             _big = _big ?? new GUIStyle(GUI.skin.label) { fontSize = 96, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
             GUI.Label(new Rect(left, 64f, 700f, 30f), _session.Status, _small);
@@ -334,7 +336,7 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = new GUIStyle(_small) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
+            var style = new GUIStyle(_small) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
             GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), position, style);
             GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), $"Lap {lap} / {race.LapCount}", style);
             DrawItemSlot(width, style);
@@ -366,7 +368,7 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            var style = new GUIStyle(_small) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
+            var style = new GUIStyle(_small) { fontSize = Accessibility.Text(34), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };
             GUI.Label(new Rect(width - 424f, 84f, 400f, 44f), status, style);
             GUI.Label(new Rect(width - 424f, 128f, 400f, 44f), total > 0 ? $"{left} / {total} left" : string.Empty, style);
             if (race.Mode == GameMode.Battle && race.Phase == RacePhase.Racing)
