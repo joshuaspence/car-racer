@@ -70,7 +70,7 @@ namespace CarRacer.Core.Tests
 
     public class BotSessionTests
     {
-        private const ushort Version = 14;
+        private const ushort Version = 15;
 
         private sealed class Transport : ISessionTransport
         {
