@@ -410,8 +410,15 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   road, and checkpoint gates only reach 2 m below and 5 m above the road, so a car on the bridge
   doesn't cross the gate below it.
 - **Art:** CC0 low-poly packs (Kenney Car Kit, Racing Kit), flat-shaded, bright toy-like look.
-- **Audio:** CC0 sound effects (Kenney), engine loops that change pitch with speed, a crunch
-  scaled by impact, per-item sounds, CC0 music per track, and separate music and sound-effects volume.
+- **Audio:** CC0 sound effects (Kenney's Impact, Sci-fi and Interface packs, mono 22 kHz in
+  `Resources/Audio`; see `docs/credits.md`), a crunch scaled by impact (light, medium or heavy, on
+  the same range as the bump's haptic pulse), per-item sounds where each is used, a bang where a
+  Missile ends or a Bomb goes off, a chime on picking up an item, a whoosh on each boost, CC0 music
+  per track, and separate music and sound-effects volume (Off, Low, Medium, High).
+  - **Engines** are made in code, not recorded, so they loop without a click (`EngineTone`): a
+    stack of harmonics pulsing like an engine's firing. Every car has one, its pitch and loudness
+    rising with speed (`SoundRules`) and a touch higher while boosting; other cars' fade with
+    distance, and each car's note is slightly different so several don't drone in unison.
 
 ## 14. Devices and performance
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
+using CarRacer.Game.Audio;
 using CarRacer.Game.Net;
 using UnityEngine;
 
@@ -9,7 +10,8 @@ namespace CarRacer.Game.Items
     /// <summary>
     /// Shows what items leave on the track (design doc §8): a dark disc for each oil slick, kept in
     /// step with the session's hazards; Missiles and Bombs in flight, eased towards the positions the
-    /// host sends; and a quickly expanding ring where a Shockwave or a Bomb goes off.
+    /// host sends; a quickly expanding ring where a Shockwave or a Bomb goes off; and each item's
+    /// sound where it is used, plus a bang where a Missile ends or a Bomb goes off.
     /// </summary>
     public sealed class ItemEffectViews : MonoBehaviour
     {
@@ -27,6 +29,7 @@ namespace CarRacer.Game.Items
         private readonly Dictionary<ushort, Transform> _oil = new Dictionary<ushort, Transform>();
         private readonly Dictionary<ushort, Transform> _projectiles = new Dictionary<ushort, Transform>();
         private readonly HashSet<ushort> _seen = new HashSet<ushort>();
+        private readonly HashSet<ushort> _missiles = new HashSet<ushort>();
         private readonly List<ushort> _gone = new List<ushort>();
         private readonly List<(Transform Ring, float Age, float Radius)> _rings = new List<(Transform, float, float)>();
         private IItemView _items;
@@ -53,11 +56,39 @@ namespace CarRacer.Game.Items
             {
                 AddRing(used.Position.ToUnity(), ItemEffects.ShockwaveRadius, ShockwaveColour);
             }
+
+            string sound = UseSound(used.Item);
+            if (sound != null)
+            {
+                GameAudio.PlayAt(sound, used.Position.ToUnity());
+            }
+        }
+
+        private static string UseSound(ItemKind item)
+        {
+            switch (item)
+            {
+                case ItemKind.Boost:
+                    return "boost";
+                case ItemKind.Shield:
+                    return "shield";
+                case ItemKind.Shockwave:
+                    return "shockwave";
+                case ItemKind.Missile:
+                    return "missile";
+                case ItemKind.OilSlick:
+                    return "oil";
+                case ItemKind.Bomb:
+                    return "bomb_throw";
+                default:
+                    return null;
+            }
         }
 
         private void OnBombExploded(CarRacer.Core.Numerics.Vec3 position)
         {
             AddRing(position.ToUnity(), ProjectileRules.BombBlastRadius, BlastColour);
+            GameAudio.PlayAt("explosion", position.ToUnity());
         }
 
         private void AddRing(Vector3 centre, float radius, Color colour)
@@ -109,6 +140,11 @@ namespace CarRacer.Game.Items
                         : SimpleMaterials.Part(PrimitiveType.Sphere, transform, Vector3.zero, Vector3.one * 0.8f, SimpleMaterials.Get(BombColour));
                     view.position = target;
                     _projectiles[snapshot.EffectId] = view;
+                    if (snapshot.Kind == ItemKind.Missile)
+                    {
+                        _missiles.Add(snapshot.EffectId);
+                    }
+
                     continue;
                 }
 
@@ -123,7 +159,17 @@ namespace CarRacer.Game.Items
                 view.position = next;
             }
 
+            // A Missile that has gone has hit someone or run out of time: either way, a bang.
+            foreach (var pair in _projectiles)
+            {
+                if (!_seen.Contains(pair.Key) && _missiles.Contains(pair.Key))
+                {
+                    GameAudio.PlayAt("explosion", pair.Value.position, 0.8f);
+                }
+            }
+
             RemoveUnseen(_projectiles);
+            _missiles.IntersectWith(_projectiles.Keys);
         }
 
         private void SyncOil()
