@@ -49,3 +49,5 @@ re-encoded to 32 kHz stereo Ogg Vorbis.
 | `canyon.ogg` | The canyon | [Fever Stadium](https://opengameart.org/content/fever-stadium) (165 bpm) by mintodog |
 | `figure_eight.ogg` | The figure-eight | [Winning the Race](https://opengameart.org/content/winning-the-race) by Section 31 |
 | `arena.ogg` | Sumo and Battle | [Midnight Cruiser](https://opengameart.org/content/midnight-cruiser) by Zane Little Music |
+| `sweepers.ogg` | Seaside Sweepers | [The World Is Ours](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
+| `switchbacks.ogg` | Switchback Hill | [100 Victories](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |

@@ -23,7 +23,7 @@ namespace CarRacer.Core.Tests
 
         public HostSilenceTests()
         {
-            _guest = new GuestSession(new NullLink(), "Guest", 13, () => _now);
+            _guest = new GuestSession(new NullLink(), "Guest", 14, () => _now);
             _guest.OnConnected();
             _guest.OnMessage(new JoinReplyMessage { Result = JoinResult.Accepted, PlayerId = 1 });
         }
@@ -62,7 +62,7 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void BeforeJoiningThereIsNothingToLose()
         {
-            var connecting = new GuestSession(new NullLink(), "Guest", 13, () => _now);
+            var connecting = new GuestSession(new NullLink(), "Guest", 14, () => _now);
             connecting.OnConnected();
             _now += GuestSession.GiveUpAfterMs * 2;
             Assert.False(connecting.HostQuiet);
