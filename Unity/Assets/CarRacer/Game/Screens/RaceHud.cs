@@ -1,23 +1,29 @@
 using System.Collections.Generic;
+using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
+using CarRacer.Core.Platform;
 using CarRacer.Core.Race;
 using CarRacer.Core.Track;
 using CarRacer.Game.Bots;
+using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
+using CarRacer.Game.Ui;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CarRacer.Game.Screens
 {
     /// <summary>
-    /// The driving HUD (design doc §6): a drift charge meter, the "Wrong way!" warning, a mini-map
-    /// with a dot for every car, arrows at the screen's edge for cars behind or beside you, and a
-    /// warning when a Missile is chasing you. Works alone and in a session. Temporary IMGUI until
-    /// the real UI.
+    /// The driving HUD (design doc §5, §6), on a UI Toolkit layer under the session screens: the
+    /// touch controls, a drift charge meter, the "Wrong way!" warning, a mini-map with a dot for
+    /// every car, arrows at the screen's edge for cars behind or beside you, a warning when a
+    /// Missile is chasing you, and a top bar with the speed, Back and quick toggles. Shapes are
+    /// drawn with the vector painter on one full-screen canvas, repainted every frame; text is
+    /// labels. Works alone and in a session.
     /// </summary>
     public sealed class RaceHud : MonoBehaviour
     {
-        private const float ReferenceHeight = 720f;
         private const float MapSize = 160f;
         private const float MeterWidth = 300f;
         private const float ArrowMin = 26f;
@@ -25,6 +31,7 @@ namespace CarRacer.Game.Screens
         private const float ArrowInset = 12f;
 
         private static readonly Color MissileColour = new Color(1f, 0.2f, 0.15f);
+        private static readonly Color WrongWayColour = new Color(1f, 0.25f, 0.2f);
 
         private static readonly Color[] TierColours =
         {
@@ -34,18 +41,28 @@ namespace CarRacer.Game.Screens
             new Color(0.9f, 0.35f, 1f),   // tier 3
         };
 
+        private readonly List<Vec3> _rivalPositions = new List<Vec3>();
+        private readonly List<Color> _rivalColours = new List<Color>();
+        private readonly List<EdgeIndicator> _arrows = new List<EdgeIndicator>();
+        private readonly List<(Vector2 At, float Size, float Bearing, Color Colour)> _arrowShapes = new List<(Vector2, float, float, Color)>();
+        private readonly List<(Vector2 At, float Radius, bool Held)> _buttonShapes = new List<(Vector2, float, bool)>();
+        private readonly List<Label> _buttonLabels = new List<Label>();
+
         private TrackScreen _screen;
         private TrackProgress _progress;
         private MiniMap _map;
         private TrackLayout _mapTrack;
         private NetworkedCars _cars;
         private BotCars _bots;
-        private GUIStyle _warning;
-        private GUIStyle _meterLabel;
-        private Texture2D _arrow;
-        private readonly List<Vec3> _rivalPositions = new List<Vec3>();
-        private readonly List<Color> _rivalColours = new List<Color>();
-        private readonly List<EdgeIndicator> _arrows = new List<EdgeIndicator>();
+
+        private UiRoot _layer;
+        private VisualElement _canvas;
+        private Label _driftLabel;
+        private Label _wrongWay;
+        private Label _missile;
+        private Label _speed;
+        private Button _auto;
+        private Button _haptics;
 
         /// <summary>True while this phone's car has been facing backwards for a while.</summary>
         public bool IsWrongWay => _progress != null && _progress.IsWrongWay;
@@ -54,6 +71,9 @@ namespace CarRacer.Game.Screens
         {
             _screen = screen;
             FollowTrack();
+            _layer = UiRoot.Create(transform, "HUD", order: 5);
+            _layer.Restyle += Build;
+            Build();
         }
 
         /// <summary>Rebuilds the wrong-way detector and mini-map when racing moves to another track.</summary>
@@ -69,73 +89,207 @@ namespace CarRacer.Game.Screens
             _map = new MiniMap(_mapTrack.Spline);
         }
 
-        private void OnDestroy()
+        private void Build()
         {
-            if (_arrow != null)
+            _layer.Safe.Clear();
+            _layer.Full.Clear();
+
+            _canvas = UiKit.Fill(new VisualElement { name = "HUD canvas" });
+            _canvas.generateVisualContent += Draw;
+            _layer.Full.Add(_canvas);
+            _layer.Full.Add(_layer.Safe);
+
+            _buttonLabels.Clear();
+            for (int i = 0; i < 5; i++)
             {
-                Destroy(_arrow);
+                var label = UiKit.Centred(UiKit.Text(string.Empty, 20, Color.white, bold: true));
+                label.style.position = Position.Absolute;
+                label.style.display = DisplayStyle.None;
+                _buttonLabels.Add(label);
+                _layer.Full.Add(label);
             }
+
+            _driftLabel = UiKit.Centred(UiKit.Text(string.Empty, 20, Color.white, bold: true));
+            _driftLabel.style.position = Position.Absolute;
+            _driftLabel.style.unityTextAlign = TextAnchor.LowerCenter;
+            _layer.Full.Add(_driftLabel);
+            _wrongWay = Warning("Wrong way!", WrongWayColour, 340f);
+            _missile = Warning("Missile!", MissileColour, 140f);
+
+            // The top bar: the speed on the left; quick toggles and Back on the right.
+            _speed = UiKit.Text(string.Empty, 26, Color.white);
+            _speed.style.position = Position.Absolute;
+            _speed.style.left = 24f;
+            _speed.style.top = 20f;
+            _layer.Safe.Add(_speed);
+
+            var bar = UiKit.Row();
+            bar.style.position = Position.Absolute;
+            bar.style.top = 12f;
+            bar.style.right = 24f;
+            var input = _screen.PlayerInput;
+            if (input != null)
+            {
+                _haptics = TopButton(string.Empty, 168f, () => Vibration.Enabled = !Vibration.Enabled);
+                bar.Add(_haptics);
+                bar.Add(UiKit.Space(12f));
+                _auto = TopButton(string.Empty, 248f, () => input.AutoAccelerate = !input.AutoAccelerate);
+                bar.Add(_auto);
+                bar.Add(UiKit.Space(12f));
+            }
+
+            bar.Add(TopButton("Back", 136f, () => Bootstrap.ShowMainMenu()));
+            _layer.Safe.Add(bar);
+        }
+
+        private Label Warning(string text, Color colour, float top)
+        {
+            var label = UiKit.Centred(UiKit.Text(text, 56, colour, bold: true));
+            label.style.position = Position.Absolute;
+            label.style.left = label.style.right = 0f;
+            label.style.top = top;
+            label.style.height = 80f;
+            label.style.display = DisplayStyle.None;
+            _layer.Full.Add(label);
+            return label;
+        }
+
+        private static Button TopButton(string text, float width, System.Action onClick)
+        {
+            var button = UiKit.Button(text, onClick);
+            button.style.width = width;
+            button.style.height = 52f;
+            button.style.fontSize = Accessibility.Text(22);
+            return button;
         }
 
         private void Update()
         {
             FollowTrack();
             var car = _screen.Car;
-            if (car == null)
+            if (car != null)
+            {
+                _progress.Update(car.BodyPosition.ToCore(), car.State.Heading, car.ForwardSpeed, Time.deltaTime);
+            }
+
+            if (_layer == null)
             {
                 return;
             }
 
-            _progress.Update(car.BodyPosition.ToCore(), car.State.Heading, car.ForwardSpeed, Time.deltaTime);
-        }
-
-        private void OnGUI()
-        {
-            var car = _screen.Car;
-            if (car == null)
-            {
-                return;
-            }
-
-            float scale = Screen.height / ReferenceHeight;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            float width = Screen.width / scale;
-
-            // The track's map and wrong-way warning mean nothing in an arena, which has the overhead camera instead.
+            _arrowShapes.Clear();
+            _buttonShapes.Clear();
+            float width = UiMetrics.Width(Screen.width, Screen.height);
             bool inArena = _screen.CameraRig.ArenaCentre.HasValue;
-            if (!inArena)
+            UpdateTouchControls();
+            UpdateTopBar(car);
+            if (car == null)
             {
-                // Opposite Look back, which moves top-right with left-handed controls (design doc §5).
-                bool left = Accessibility.LeftHanded;
-                DrawMiniMap(new Rect(left ? 24f : width - MapSize - 24f, left ? 184f + SessionOverlay.LeftCornerDrop : 184f, MapSize, MapSize));
+                Hide(_driftLabel);
+                Hide(_wrongWay);
+                Hide(_missile);
+                _canvas.MarkDirtyRepaint();
+                return;
             }
 
-            DrawDriftMeter(width);
-
+            // The overhead camera shows every car in an arena; a chase camera needs the arrows and the warnings.
             if (!inArena)
             {
-                // The overhead camera shows every car in an arena; a chase camera needs the arrows.
-                DrawRivalArrows(width);
-                DrawMissileWarning(width);
+                CollectRivalArrows(width);
+                CollectMissileWarning(width);
+            }
+            else
+            {
+                Hide(_missile);
             }
 
-            if (_progress.IsWrongWay && !inArena)
+            UpdateDriftLabel(car, width);
+            _wrongWay.style.display = _progress.IsWrongWay && !inArena ? DisplayStyle.Flex : DisplayStyle.None;
+            _canvas.MarkDirtyRepaint();
+        }
+
+        private static void Hide(VisualElement element) => element.style.display = DisplayStyle.None;
+
+        private void UpdateTopBar(CarController car)
+        {
+            string speed = string.Empty;
+            if (car != null)
             {
-                Warn(new Rect(0f, 340f, width, 80f), "Wrong way!", new Color(1f, 0.25f, 0.2f));
+                var state = car.State;
+                int tier = state.DriftTier(car.Tuning);
+                string drift = state.Drifting ? $"Drift {tier}/{car.Tuning.DriftTierSeconds.Length}" : string.Empty;
+                string boost = state.BoostSecondsLeft > 0f ? $"BOOST +{state.BoostSpeed:0}" : string.Empty;
+                speed = $"{Mathf.Abs(car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}";
+            }
+
+            if (_speed.text != speed)
+            {
+                _speed.text = speed;
+            }
+
+            var input = _screen.PlayerInput;
+            if (input != null && _auto != null)
+            {
+                _auto.text = input.AutoAccelerate ? "Auto-accelerate: on" : "Auto-accelerate: off";
+                _haptics.text = Vibration.Enabled ? "Haptics: on" : "Haptics: off";
             }
         }
 
-        private void Warn(Rect area, string text, Color colour)
+        /// <summary>The on-screen buttons (design doc §5): where <see cref="TouchControlLayout"/> puts them, lit while pressed.</summary>
+        private void UpdateTouchControls()
         {
-            _warning = _warning ?? new GUIStyle(GUI.skin.label) { fontSize = 56, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            var previous = GUI.contentColor;
-            GUI.contentColor = colour;
-            GUI.Label(area, text, _warning);
-            GUI.contentColor = previous;
+            int used = 0;
+            var input = _screen.PlayerInput;
+            var layout = input != null ? input.Layout : null;
+            if (layout != null)
+            {
+                var touch = input.TouchState;
+                AddButton(layout, layout.DriftCentre, "DRIFT", touch.DriftHeld, ref used);
+                AddButton(layout, layout.BrakeCentre, "BRAKE", touch.BrakeHeld, ref used);
+                if (!input.AutoAccelerate)
+                {
+                    AddButton(layout, layout.GasCentre, "GAS", touch.GasHeld, ref used);
+                }
+
+                if (_screen.ShowItemButton)
+                {
+                    AddButton(layout, layout.ItemCentre, _screen.ItemButtonLabel, touch.ItemHeld, ref used);
+                }
+
+                if (input.ShowLookBack)
+                {
+                    AddButton(layout, layout.LookBackCentre, "LOOK BACK", touch.LookBackHeld, ref used);
+                }
+            }
+
+            for (int i = used; i < _buttonLabels.Count; i++)
+            {
+                Hide(_buttonLabels[i]);
+            }
+        }
+
+        private void AddButton(TouchControlLayout layout, Vec2 centre, string text, bool held, ref int used)
+        {
+            // Touch coordinates are device pixels from the bottom-left; the HUD is reference pixels from the top-left.
+            float scale = UiMetrics.Scale(Screen.height);
+            var at = new Vector2(centre.X / scale, (Screen.height - centre.Y) / scale);
+            float radius = layout.ButtonRadius / scale;
+            _buttonShapes.Add((at, radius, held));
+
+            var label = _buttonLabels[used++];
+            label.style.display = DisplayStyle.Flex;
+            label.style.left = at.x - radius;
+            label.style.top = at.y - radius;
+            label.style.width = label.style.height = 2f * radius;
+            label.style.fontSize = Mathf.RoundToInt(radius * 0.32f);
+            if (label.text != text)
+            {
+                label.text = text;
+            }
         }
 
         /// <summary>A coloured arrow at the screen's edge for each nearby car the camera can't show, growing as it closes in.</summary>
-        private void DrawRivalArrows(float width)
+        private void CollectRivalArrows(float width)
         {
             _rivalPositions.Clear();
             _rivalColours.Clear();
@@ -166,83 +320,102 @@ namespace CarRacer.Game.Screens
             HudIndicators.Rivals(car.BodyPosition.ToCore(), ViewHeading(), _rivalPositions, _arrows);
             foreach (var arrow in _arrows)
             {
-                DrawArrow(arrow.Bearing, Mathf.Lerp(ArrowMin, ArrowMax, arrow.Closeness), _rivalColours[arrow.Index], width);
+                AddArrow(arrow.Bearing, Mathf.Lerp(ArrowMin, ArrowMax, arrow.Closeness), _rivalColours[arrow.Index], width);
             }
         }
 
-        /// <summary>A flashing "Missile!" and a red arrow towards it while a Missile is chasing this phone's car.</summary>
-        private void DrawMissileWarning(float width)
+        /// <summary>A flashing "Missile!" (steady with reduced motion) and a red arrow towards it while a Missile is chasing this phone's car.</summary>
+        private void CollectMissileWarning(float width)
         {
             var session = _screen.Session;
             if (session == null || session.Items == null || !session.TryGetLocalPlayerId(out byte me))
             {
+                Hide(_missile);
                 return;
             }
 
-            var car = _screen.Car;
-            var position = car.BodyPosition.ToCore();
+            var position = _screen.Car.BodyPosition.ToCore();
             if (!HudIndicators.TryIncomingMissile(session.Items.Projectiles, me, position, out var missile, out _))
             {
+                Hide(_missile);
                 return;
             }
 
             // Reduced motion (design doc §6) keeps the warning up instead of flashing it.
             bool lit = Accessibility.ReducedMotion || Mathf.Repeat(Time.unscaledTime * 4f, 1f) < 0.6f;
-            DrawArrow(HudIndicators.Bearing(position, ViewHeading(), missile.Position), ArrowMax, MissileColour, width);
-            if (lit)
-            {
-                Warn(new Rect(0f, 140f, width, 80f), "Missile!", MissileColour);
-            }
+            AddArrow(HudIndicators.Bearing(position, ViewHeading(), missile.Position), ArrowMax, MissileColour, width);
+            _missile.style.display = lit ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         /// <summary>The way the camera faces: the car's heading, or the opposite during the rear-view glance, so arrows match the screen.</summary>
         private float ViewHeading() => _screen.Car.State.Heading + (_screen.CameraRig.LookingBack ? Mathf.PI : 0f);
 
-        private void DrawArrow(float bearing, float size, Color colour, float width)
+        private void AddArrow(float bearing, float size, Color colour, float width)
         {
-            _arrow = _arrow != null ? _arrow : BuildArrow();
-            Vec2 at = HudIndicators.EdgePoint(bearing, width, ReferenceHeight, size / 2f + ArrowInset);
-            var pivot = new Vector3(at.X, at.Y, 0f);
-
-            // Turn the up-pointing arrow to face the car, about its own centre, before the HUD's scaling.
-            var previousMatrix = GUI.matrix;
-            GUI.matrix = previousMatrix
-                * Matrix4x4.Translate(pivot)
-                * Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, bearing * Mathf.Rad2Deg))
-                * Matrix4x4.Translate(-pivot);
-            var previousColour = GUI.color;
-            GUI.color = colour;
-            GUI.DrawTexture(new Rect(at.X - size / 2f, at.Y - size / 2f, size, size), _arrow);
-            GUI.color = previousColour;
-            GUI.matrix = previousMatrix;
+            Vec2 at = HudIndicators.EdgePoint(bearing, width, UiMetrics.ReferenceHeight, size / 2f + ArrowInset);
+            _arrowShapes.Add((new Vector2(at.X, at.Y), size, bearing, colour));
         }
 
-        /// <summary>A white triangle pointing up, tinted per arrow.</summary>
-        private static Texture2D BuildArrow()
+        /// <summary>The drift tier in words above the meter, so the colour isn't the only way to tell (design doc §6).</summary>
+        private void UpdateDriftLabel(CarController car, float width)
         {
-            const int size = 32;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-            var pixels = new Color32[size * size];
-            float centre = (size - 1) / 2f;
-            for (int y = 0; y < size; y++)
+            var state = car.State;
+            if (!state.Drifting)
             {
-                // Row 0 is the bottom of the texture: the arrow's base, full width; the tip is at the top.
-                float halfWidth = (size - 1 - y) / 2f;
-                for (int x = 0; x < size; x++)
-                {
-                    bool inside = Mathf.Abs(x - centre) <= halfWidth;
-                    pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
-                }
+                Hide(_driftLabel);
+                return;
             }
 
-            texture.SetPixels32(pixels);
-            texture.Apply();
-            return texture;
+            int tier = state.DriftTier(car.Tuning);
+            _driftLabel.style.display = DisplayStyle.Flex;
+            _driftLabel.style.left = (width - MeterWidth) / 2f;
+            _driftLabel.style.top = UiMetrics.ReferenceHeight - 64f - 40f;
+            _driftLabel.style.width = MeterWidth;
+            _driftLabel.style.height = 34f;
+            string text = tier > 0 ? $"BOOST {tier}" : "DRIFT";
+            if (_driftLabel.text != text)
+            {
+                _driftLabel.text = text;
+            }
         }
 
-        private void DrawDriftMeter(float width)
+        /// <summary>Draws this frame's shapes: touch buttons, the mini-map, the drift meter and the edge arrows.</summary>
+        private void Draw(MeshGenerationContext context)
         {
-            var car = _screen.Car;
+            var paint = context.painter2D;
+            foreach (var (at, radius, held) in _buttonShapes)
+            {
+                paint.fillColor = held ? new Color(1f, 1f, 1f, 0.55f) : new Color(1f, 1f, 1f, 0.25f);
+                paint.BeginPath();
+                paint.Arc(at, radius, new Angle(0f, AngleUnit.Degree), new Angle(360f, AngleUnit.Degree));
+                paint.Fill();
+            }
+
+            var car = _screen != null ? _screen.Car : null;
+            if (car == null)
+            {
+                return;
+            }
+
+            float width = UiMetrics.Width(Screen.width, Screen.height);
+
+            // The track's map means nothing in an arena, which has the overhead camera instead.
+            if (!_screen.CameraRig.ArenaCentre.HasValue)
+            {
+                // Opposite Look back, which moves top-right with left-handed controls (design doc §5).
+                bool left = Accessibility.LeftHanded;
+                DrawMiniMap(paint, new Rect(left ? 24f : width - MapSize - 24f, left ? 184f + SessionOverlay.LeftCornerDrop : 184f, MapSize, MapSize));
+            }
+
+            DrawDriftMeter(paint, car, width);
+            foreach (var (at, size, bearing, colour) in _arrowShapes)
+            {
+                DrawArrow(paint, at, size, bearing, colour);
+            }
+        }
+
+        private void DrawDriftMeter(Painter2D paint, CarController car, float width)
+        {
             var state = car.State;
             if (!state.Drifting)
             {
@@ -252,32 +425,26 @@ namespace CarRacer.Game.Screens
             var tuning = car.Tuning;
             float charge = state.DriftCharge(tuning);
             int tier = state.DriftTier(tuning);
-            var bar = new Rect((width - MeterWidth) / 2f, ReferenceHeight - 64f, MeterWidth, 18f);
-
-            Fill(bar, new Color(0f, 0f, 0f, 0.5f));
-            Fill(new Rect(bar.x, bar.y, bar.width * charge, bar.height), TierColours[Mathf.Clamp(tier, 0, TierColours.Length - 1)]);
-
-            // The tier in words too, so the colour isn't the only way to tell (design doc §6).
-            _meterLabel = _meterLabel ?? new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerCenter };
-            _meterLabel.fontSize = Accessibility.Text(20);
-            GUI.Label(new Rect(bar.x, bar.y - 40f, bar.width, 34f), tier > 0 ? $"BOOST {tier}" : "DRIFT", _meterLabel);
+            var bar = new Rect((width - MeterWidth) / 2f, UiMetrics.ReferenceHeight - 64f, MeterWidth, 18f);
+            Box(paint, bar, new Color(0f, 0f, 0f, 0.5f));
+            Box(paint, new Rect(bar.x, bar.y, bar.width * charge, bar.height), TierColours[Mathf.Clamp(tier, 0, TierColours.Length - 1)]);
 
             // A tick at each tier's threshold.
             float full = tuning.DriftTierSeconds[tuning.DriftTierSeconds.Length - 1];
             foreach (float seconds in tuning.DriftTierSeconds)
             {
                 float x = bar.x + bar.width * (seconds / full);
-                Fill(new Rect(x - 1.5f, bar.y - 4f, 3f, bar.height + 8f), Color.white);
+                Box(paint, new Rect(x - 1.5f, bar.y - 4f, 3f, bar.height + 8f), Color.white);
             }
         }
 
-        private void DrawMiniMap(Rect area)
+        private void DrawMiniMap(Painter2D paint, Rect area)
         {
-            Fill(area, new Color(0f, 0f, 0f, 0.35f));
+            Box(paint, area, new Color(0f, 0f, 0f, 0.35f));
             var outline = new Color(1f, 1f, 1f, 0.8f);
             foreach (var point in _map.Outline)
             {
-                Dot(area, point, 3f, outline);
+                Dot(paint, area, point, 3f, outline);
             }
 
             _cars = _cars != null ? _cars : GetComponent<NetworkedCars>();
@@ -287,7 +454,7 @@ namespace CarRacer.Game.Screens
                 {
                     if (remote.HasState)
                     {
-                        Dot(area, _map.ToMap(remote.transform.position.ToCore()), 10f, remote.Colour);
+                        Dot(paint, area, _map.ToMap(remote.transform.position.ToCore()), 10f, remote.Colour);
                     }
                 }
             }
@@ -297,30 +464,50 @@ namespace CarRacer.Game.Screens
             {
                 foreach (var (position, colour) in _bots.Dots)
                 {
-                    Dot(area, _map.ToMap(position.ToCore()), 10f, colour);
+                    Dot(paint, area, _map.ToMap(position.ToCore()), 10f, colour);
                 }
             }
 
             // This phone's car on top, with a white ring so it stands out.
             Vec2 me = _map.ToMap(_screen.Car.BodyPosition.ToCore());
-            Dot(area, me, 14f, Color.white);
-            Dot(area, me, 10f, _screen.CarColour);
+            Dot(paint, area, me, 14f, Color.white);
+            Dot(paint, area, me, 10f, _screen.CarColour);
         }
 
-        /// <summary>Map points run 0..1 from the bottom-left; IMGUI runs from the top-left.</summary>
-        private static void Dot(Rect area, Vec2 point, float size, Color colour)
+        /// <summary>A triangle pointing at <paramref name="bearing"/> (0 is up the screen), centred on <paramref name="at"/>.</summary>
+        private static void DrawArrow(Painter2D paint, Vector2 at, float size, float bearing, Color colour)
+        {
+            float sin = Mathf.Sin(bearing);
+            float cos = Mathf.Cos(bearing);
+            Vector2 Turn(float x, float y) => at + new Vector2(x * cos - y * sin, x * sin + y * cos);
+            float half = size / 2f;
+            paint.fillColor = colour;
+            paint.BeginPath();
+            paint.MoveTo(Turn(0f, -half));
+            paint.LineTo(Turn(half, half));
+            paint.LineTo(Turn(-half, half));
+            paint.ClosePath();
+            paint.Fill();
+        }
+
+        /// <summary>Map points run 0..1 from the bottom-left; the HUD runs from the top-left.</summary>
+        private static void Dot(Painter2D paint, Rect area, Vec2 point, float size, Color colour)
         {
             float x = area.x + point.X * area.width;
             float y = area.y + (1f - point.Y) * area.height;
-            Fill(new Rect(x - size / 2f, y - size / 2f, size, size), colour);
+            Box(paint, new Rect(x - size / 2f, y - size / 2f, size, size), colour);
         }
 
-        private static void Fill(Rect rect, Color colour)
+        private static void Box(Painter2D paint, Rect rect, Color colour)
         {
-            var previous = GUI.color;
-            GUI.color = colour;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = previous;
+            paint.fillColor = colour;
+            paint.BeginPath();
+            paint.MoveTo(new Vector2(rect.xMin, rect.yMin));
+            paint.LineTo(new Vector2(rect.xMax, rect.yMin));
+            paint.LineTo(new Vector2(rect.xMax, rect.yMax));
+            paint.LineTo(new Vector2(rect.xMin, rect.yMax));
+            paint.ClosePath();
+            paint.Fill();
         }
     }
 }

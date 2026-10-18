@@ -115,7 +115,7 @@ metre, then converge within a few frames.
 | Engine | **Unity 6.3 LTS** (`6000.3.26f1`), **URP** |
 | Networking | `com.unity.netcode.gameobjects` 2.13.x, `com.unity.transport` 2.7.x |
 | Input | `com.unity.inputsystem` (touch + gamepad) |
-| UI | **UI Toolkit**, built from code (no UXML/USS assets); moving over from IMGUI in M10 |
+| UI | **UI Toolkit**, built from code (no UXML/USS assets) for every screen and the HUD; shapes (mini-map, meters, touch buttons) drawn with the vector painter |
 | Language | C# 9 (Unity's compiler) |
 | Licence | Unity Personal (free while revenue and funding are under US$200k a year) |
 
@@ -146,11 +146,12 @@ font set on the root so text renders without a theme. Its `Safe` container keeps
 containers never take touches, so only real controls block the game. `UiKit` makes elements in the
 house style (dark panels, 64-pixel buttons that darken as a finger lands, a yellow accent) with
 font sizes from the large-text option; a layer raises `Restyle` when that option changes so its
-screen rebuilds. The performance readout, the menus (`MainMenu`: each page an element tree, rebuilt when
-something on it changes) and the session screens (`SessionOverlay`, `CupPanel`: the lobby and
-results rebuild only when a signature of what they show changes; the race status, countdown and
-item slot update their text every frame) have moved; the driving HUD (`RaceHud`) and touch buttons
-follow.
+screen rebuilds. The menus (`MainMenu`) build each page as an element tree, rebuilt when something
+on it changes; the session screens (`SessionOverlay`, `CupPanel`) rebuild the lobby and results only
+when a signature of what they show changes, and update the race status, countdown and item slot
+text every frame. The driving HUD (`RaceHud`) draws its shapes (touch buttons, mini-map, drift
+meter, edge arrows) with the vector painter on one full-screen element repainted every frame, with
+labels for its text and the top bar's buttons. Nothing uses IMGUI any more.
 
 ## 4. Driving model
 
@@ -553,7 +554,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M7: Art and settings** | Kenney Car Kit cars and Racing Kit track dressing in place of the primitive placeholders; a settings screen gathering sound and music volume, graphics, haptics, auto-accelerate and tilt steering. |
 | **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
 | **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
-| **M10: UI and tidy-up** | The menus, lobby, results and HUD move from IMGUI to UI Toolkit (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
+| **M10: UI and tidy-up** | Every screen and the driving HUD on UI Toolkit instead of IMGUI (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

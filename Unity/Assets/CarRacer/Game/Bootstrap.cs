@@ -3,6 +3,7 @@ using CarRacer.Game.Menu;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
 using CarRacer.Game.Screens;
+using CarRacer.Game.Ui;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -79,7 +80,7 @@ namespace CarRacer.Game
             camera.transform.SetParent(root.transform, false);
             camera.tag = "MainCamera";
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = UiStyle.Background;
+            camera.backgroundColor = UiKit.Background;
             root.AddComponent<MainMenu>().Notice = notice;
             Show(root);
         }

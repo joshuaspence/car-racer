@@ -26,8 +26,6 @@ namespace CarRacer.Game.Screens
     /// </summary>
     public sealed class TrackScreen : MonoBehaviour
     {
-        private const float ReferenceHeight = 720f;
-
         /// <summary>Each track's grass reaches this far beyond its road (and stays clear of the others; see <c>TrackCatalogPlacementTests</c>).</summary>
         private const float GroundMargin = 60f;
 
@@ -42,7 +40,6 @@ namespace CarRacer.Game.Screens
         private ICarInputSource _inputSource;
         private PlayerCarInput _playerInput;
         private NetworkSession _session;
-        private Texture2D _circle;
 
         public CarController Car { get; private set; }
         public Color CarColour { get; private set; }
@@ -302,127 +299,10 @@ namespace CarRacer.Game.Screens
                 Destroy(owned);
             }
 
-            if (_circle != null)
-            {
-                Destroy(_circle);
-            }
-
             if (_session != null)
             {
                 Destroy(_session.gameObject);
             }
-        }
-
-        private void OnGUI()
-        {
-            if (_playerInput != null)
-            {
-                DrawTouchControls();
-            }
-
-            float scale = Screen.height / ReferenceHeight;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            var safe = Screen.safeArea;
-            float left = safe.x / scale + 24f;
-            float width = Screen.width / scale;
-
-            GUI.skin.label.fontSize = 26;
-            GUI.skin.button.fontSize = 22;
-
-            if (Car != null)
-            {
-                var state = Car.State;
-                int tier = state.DriftTier(Car.Tuning);
-                string drift = state.Drifting ? $"Drift {tier}/{Car.Tuning.DriftTierSeconds.Length}" : string.Empty;
-                string boost = state.BoostSecondsLeft > 0f ? $"BOOST +{state.BoostSpeed:0}" : string.Empty;
-                GUI.Label(new Rect(left, 20f, 600f, 40f), $"{Mathf.Abs(Car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}");
-            }
-
-            if (GUI.Button(new Rect(width - 160f, 20f, 136f, 52f), "Back"))
-            {
-                Bootstrap.ShowMainMenu();
-            }
-
-            if (_playerInput != null)
-            {
-                string label = _playerInput.AutoAccelerate ? "Auto-accelerate: on" : "Auto-accelerate: off";
-                if (GUI.Button(new Rect(width - 420f, 20f, 248f, 52f), label))
-                {
-                    _playerInput.AutoAccelerate = !_playerInput.AutoAccelerate;
-                }
-
-                if (GUI.Button(new Rect(width - 600f, 20f, 168f, 52f), Vibration.Enabled ? "Haptics: on" : "Haptics: off"))
-                {
-                    Vibration.Enabled = !Vibration.Enabled;
-                }
-            }
-        }
-
-        private void DrawTouchControls()
-        {
-            var layout = _playerInput.Layout;
-            if (layout == null)
-            {
-                return;
-            }
-
-            GUI.matrix = Matrix4x4.identity;
-            var touch = _playerInput.TouchState;
-            DrawButton(layout, layout.DriftCentre, "DRIFT", touch.DriftHeld);
-            DrawButton(layout, layout.BrakeCentre, "BRAKE", touch.BrakeHeld);
-            if (!_playerInput.AutoAccelerate)
-            {
-                DrawButton(layout, layout.GasCentre, "GAS", touch.GasHeld);
-            }
-
-            if (ShowItemButton)
-            {
-                DrawButton(layout, layout.ItemCentre, ItemButtonLabel, touch.ItemHeld);
-            }
-
-            if (_playerInput.ShowLookBack)
-            {
-                DrawButton(layout, layout.LookBackCentre, "LOOK BACK", touch.LookBackHeld);
-            }
-        }
-
-        private void DrawButton(TouchControlLayout layout, Vec2 centre, string label, bool held)
-        {
-            // Touch coordinates start bottom-left; IMGUI's start top-left.
-            float r = layout.ButtonRadius;
-            var rect = new Rect(centre.X - r, Screen.height - centre.Y - r, 2f * r, 2f * r);
-            var previous = GUI.color;
-            GUI.color = held ? new Color(1f, 1f, 1f, 0.55f) : new Color(1f, 1f, 1f, 0.25f);
-            GUI.DrawTexture(rect, Circle());
-            GUI.color = previous;
-
-            var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(r * 0.32f), fontStyle = FontStyle.Bold };
-            GUI.Label(rect, label, style);
-        }
-
-        private Texture2D Circle()
-        {
-            if (_circle == null)
-            {
-                const int size = 128;
-                _circle = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-                var pixels = new Color32[size * size];
-                float c = (size - 1) / 2f;
-                for (int y = 0; y < size; y++)
-                {
-                    for (int x = 0; x < size; x++)
-                    {
-                        float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
-                        byte alpha = (byte)(Mathf.Clamp01(c - d) * 255f);
-                        pixels[y * size + x] = new Color32(255, 255, 255, alpha);
-                    }
-                }
-
-                _circle.SetPixels32(pixels);
-                _circle.Apply();
-            }
-
-            return _circle;
         }
     }
 }

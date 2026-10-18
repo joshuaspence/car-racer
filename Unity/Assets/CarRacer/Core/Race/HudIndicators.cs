@@ -100,7 +100,7 @@ namespace CarRacer.Core.Race
         /// <summary>
         /// Where an arrow for <paramref name="bearing"/> sits on a <paramref name="width"/> by
         /// <paramref name="height"/> screen, <paramref name="inset"/> in from its edge, with ahead up
-        /// the screen and y running down (IMGUI's way).
+        /// the screen and y running down (the HUD's way).
         /// </summary>
         public static Vec2 EdgePoint(float bearing, float width, float height, float inset)
         {
