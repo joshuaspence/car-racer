@@ -73,8 +73,9 @@ namespace CarRacer.Game.Ui
         private void Build()
         {
             _font = _font != null ? _font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            var top = _document.rootVisualElement;
-            top.pickingMode = PickingMode.Ignore;
+            // The document's root only grows to fit its content, and everything in it is positioned
+            // absolutely, so it must be told to fill the screen or the whole layer is 0 pixels tall.
+            var top = UiKit.Fill(_document.rootVisualElement);
             top.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(_font));
 
             Full = UiKit.Fill(new VisualElement { name = "full" });
