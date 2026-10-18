@@ -11,6 +11,7 @@ using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
 using UnityEngine;
+using CarModel = CarRacer.Core.Art.CarModel;
 
 namespace CarRacer.Game.DriveTest
 {
