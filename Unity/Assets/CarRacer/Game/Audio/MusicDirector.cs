@@ -1,7 +1,7 @@
 using CarRacer.Core.Arena;
 using CarRacer.Core.Audio;
 using CarRacer.Core.Race;
-using CarRacer.Game.DriveTest;
+using CarRacer.Game.Screens;
 using UnityEngine;
 
 namespace CarRacer.Game.Audio
@@ -9,22 +9,22 @@ namespace CarRacer.Game.Audio
     /// <summary>Picks the tune for the driving screen (<see cref="MusicChoice"/>): the menu tune in a lobby, the track's or the arena's in an event or practice.</summary>
     public sealed class MusicDirector : MonoBehaviour
     {
-        private DriveTestArena _arena;
+        private TrackScreen _screen;
 
-        public void Initialise(DriveTestArena arena) => _arena = arena;
+        public void Initialise(TrackScreen screen) => _screen = screen;
 
         private void Update()
         {
-            if (_arena == null)
+            if (_screen == null)
             {
                 return;
             }
 
             // Practice has no session: it is always under way, on the track.
-            var race = _arena.Session != null ? _arena.Session.Race : null;
-            bool inEvent = _arena.Session == null || (race != null && race.Phase != RacePhase.Lobby);
+            var race = _screen.Session != null ? _screen.Session.Race : null;
+            bool inEvent = _screen.Session == null || (race != null && race.Phase != RacePhase.Lobby);
             var mode = race != null ? race.Mode : GameMode.Race;
-            MusicPlayer.Play(MusicChoice.For(inEvent, mode, _arena.TrackIndex));
+            MusicPlayer.Play(MusicChoice.For(inEvent, mode, _screen.TrackIndex));
         }
     }
 }

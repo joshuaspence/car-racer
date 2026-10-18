@@ -7,7 +7,7 @@ using CarRacer.Game.Net;
 using CarRacer.Game.Platform;
 using UnityEngine;
 
-namespace CarRacer.Game.DriveTest
+namespace CarRacer.Game.Screens
 {
     /// <summary>
     /// The driving HUD (design doc §6): a drift charge meter, the "Wrong way!" warning, a mini-map
@@ -34,7 +34,7 @@ namespace CarRacer.Game.DriveTest
             new Color(0.9f, 0.35f, 1f),   // tier 3
         };
 
-        private DriveTestArena _arena;
+        private TrackScreen _screen;
         private TrackProgress _progress;
         private MiniMap _map;
         private TrackLayout _mapTrack;
@@ -50,21 +50,21 @@ namespace CarRacer.Game.DriveTest
         /// <summary>True while this phone's car has been facing backwards for a while.</summary>
         public bool IsWrongWay => _progress != null && _progress.IsWrongWay;
 
-        public void Initialise(DriveTestArena arena)
+        public void Initialise(TrackScreen screen)
         {
-            _arena = arena;
+            _screen = screen;
             FollowTrack();
         }
 
         /// <summary>Rebuilds the wrong-way detector and mini-map when racing moves to another track.</summary>
         private void FollowTrack()
         {
-            if (_mapTrack == _arena.Track)
+            if (_mapTrack == _screen.Track)
             {
                 return;
             }
 
-            _mapTrack = _arena.Track;
+            _mapTrack = _screen.Track;
             _progress = new TrackProgress(_mapTrack.Spline);
             _map = new MiniMap(_mapTrack.Spline);
         }
@@ -80,7 +80,7 @@ namespace CarRacer.Game.DriveTest
         private void Update()
         {
             FollowTrack();
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -91,7 +91,7 @@ namespace CarRacer.Game.DriveTest
 
         private void OnGUI()
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             if (car == null)
             {
                 return;
@@ -102,7 +102,7 @@ namespace CarRacer.Game.DriveTest
             float width = Screen.width / scale;
 
             // The track's map and wrong-way warning mean nothing in an arena, which has the overhead camera instead.
-            bool inArena = _arena.CameraRig.ArenaCentre.HasValue;
+            bool inArena = _screen.CameraRig.ArenaCentre.HasValue;
             if (!inArena)
             {
                 // Opposite Look back, which moves top-right with left-handed controls (design doc §5).
@@ -162,7 +162,7 @@ namespace CarRacer.Game.DriveTest
                 }
             }
 
-            var car = _arena.Car;
+            var car = _screen.Car;
             HudIndicators.Rivals(car.BodyPosition.ToCore(), ViewHeading(), _rivalPositions, _arrows);
             foreach (var arrow in _arrows)
             {
@@ -173,13 +173,13 @@ namespace CarRacer.Game.DriveTest
         /// <summary>A flashing "Missile!" and a red arrow towards it while a Missile is chasing this phone's car.</summary>
         private void DrawMissileWarning(float width)
         {
-            var session = _arena.Session;
+            var session = _screen.Session;
             if (session == null || session.Items == null || !session.TryGetLocalPlayerId(out byte me))
             {
                 return;
             }
 
-            var car = _arena.Car;
+            var car = _screen.Car;
             var position = car.BodyPosition.ToCore();
             if (!HudIndicators.TryIncomingMissile(session.Items.Projectiles, me, position, out var missile, out _))
             {
@@ -196,7 +196,7 @@ namespace CarRacer.Game.DriveTest
         }
 
         /// <summary>The way the camera faces: the car's heading, or the opposite during the rear-view glance, so arrows match the screen.</summary>
-        private float ViewHeading() => _arena.Car.State.Heading + (_arena.CameraRig.LookingBack ? Mathf.PI : 0f);
+        private float ViewHeading() => _screen.Car.State.Heading + (_screen.CameraRig.LookingBack ? Mathf.PI : 0f);
 
         private void DrawArrow(float bearing, float size, Color colour, float width)
         {
@@ -242,7 +242,7 @@ namespace CarRacer.Game.DriveTest
 
         private void DrawDriftMeter(float width)
         {
-            var car = _arena.Car;
+            var car = _screen.Car;
             var state = car.State;
             if (!state.Drifting)
             {
@@ -302,9 +302,9 @@ namespace CarRacer.Game.DriveTest
             }
 
             // This phone's car on top, with a white ring so it stands out.
-            Vec2 me = _map.ToMap(_arena.Car.BodyPosition.ToCore());
+            Vec2 me = _map.ToMap(_screen.Car.BodyPosition.ToCore());
             Dot(area, me, 14f, Color.white);
-            Dot(area, me, 10f, _arena.CarColour);
+            Dot(area, me, 10f, _screen.CarColour);
         }
 
         /// <summary>Map points run 0..1 from the bottom-left; IMGUI runs from the top-left.</summary>

@@ -1,7 +1,7 @@
 using System.Collections;
 using CarRacer.Core.Driving;
 using CarRacer.Game;
-using CarRacer.Game.DriveTest;
+using CarRacer.Game.Screens;
 using CarRacer.Game.Driving;
 using NUnit.Framework;
 using UnityEngine;
@@ -13,7 +13,7 @@ namespace CarRacer.Tests
     /// Drives the real Unity car (rigidbody, colliders, generated track) to check the glue between
     /// <see cref="CarModel"/> and the physics engine. The handling itself is tested by `dotnet test`.
     /// </summary>
-    public class DriveTestArenaTests
+    public class TrackScreenTests
     {
         private sealed class ScriptedInput : ICarInputSource
         {
@@ -23,21 +23,21 @@ namespace CarRacer.Tests
         }
 
         private ScriptedInput _input;
-        private DriveTestArena _arena;
+        private TrackScreen _screen;
 
-        private CarController Car => _arena.Car;
+        private CarController Car => _screen.Car;
 
         [SetUp]
         public void SetUp()
         {
             _input = new ScriptedInput();
-            _arena = DriveTestArena.Create(_input);
+            _screen = TrackScreen.Create(_input);
         }
 
         [TearDown]
         public void TearDown()
         {
-            Object.Destroy(_arena.gameObject);
+            Object.Destroy(_screen.gameObject);
         }
 
         [UnityTest]
