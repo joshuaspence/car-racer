@@ -7,6 +7,7 @@ using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
+using CarRacer.Core.Scoring;
 using CarRacer.Core.Session;
 using CarRacer.Core.Track;
 using CarRacer.Game.Driving;
@@ -20,20 +21,14 @@ namespace CarRacer.Game.Net
 {
     /// <summary>
     /// The session screens drawn over the track (design doc §6, §11), on a UI Toolkit layer: the
-    /// lobby (players, Ready, mode, track, laps, bots, votes, the car picker and Start), the
+    /// lobby (players, Ready, votes and the car picker, and for the room leader mode, track, laps,
+    /// bots, rules and Start, which go to the host as commands, design doc §2.3), the
     /// countdown, the race HUD (position and lap, or lives and who is left in an arena, and the
     /// item slot) and the results with a rematch or the cup table. The lobby and results are
     /// rebuilt only when what they show changes; the race HUD's text is updated every frame.
     /// </summary>
     public sealed class SessionOverlay : MonoBehaviour
     {
-        public const int MaxLaps = 9;
-        public const string BotFillKey = "botFill";
-        public const string BotDifficultyKey = "botDifficulty";
-        public const string ModeKey = "mode";
-        public const string TrackKey = "track";
-        public const string RulesKey = "eventRules";
-
         /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
         public const float LeftCornerDrop = 16f;
 
@@ -43,17 +38,11 @@ namespace CarRacer.Game.Net
         /// <summary>How often the host's own addresses are re-read, in case Wi-Fi or the hotspot comes up (or changes) after the lobby opens.</summary>
         private const float AddressRefreshSeconds = 3f;
 
-        /// <summary>The bot fill choices (design doc §9): off, or fill the grid to 4 or 6 cars.</summary>
-        private static readonly int[] BotFills = { 0, 4, 6 };
-
         private static string[] _trackNames;
 
         private readonly StringBuilder _signature = new StringBuilder();
         private NetworkSession _session;
         private NetworkedCars _cars;
-        private int _laps = 3;
-        private GameMode _mode = GameMode.Race;
-        private int _track;
         private CupPanel _cup;
         private string _hostAddresses = string.Empty;
         private string _joinLink;
@@ -75,19 +64,12 @@ namespace CarRacer.Game.Net
         private string _shownView;
         private bool _hudLeftHanded;
 
-        public void Initialise(NetworkSession session, NetworkedCars cars)
+        /// <param name="host">The host's lobby, on the host; null on a guest.</param>
+        public void Initialise(NetworkSession session, NetworkedCars cars, HostLobby host)
         {
             _session = session;
             _cars = cars;
-            _cup = new CupPanel(session);
-            if (session.IsHost)
-            {
-                session.HostSide.BotFill = PlayerPrefs.GetInt(BotFillKey, 0);
-                session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
-                _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
-                _track = TrackCatalog.Clamp(PlayerPrefs.GetInt(TrackKey, 0));
-                ((HostRace)session.Race).NextRules = EventRules.FromByte((byte)PlayerPrefs.GetInt(RulesKey, 0));
-            }
+            _cup = new CupPanel(session, host);
 
             _layer = UiRoot.Create(transform, "Session", order: 10);
             _layer.Restyle += Build;
@@ -198,11 +180,6 @@ namespace CarRacer.Game.Net
             if (_session == null || _layer == null)
             {
                 return;
-            }
-
-            if (!_session.Ended && _session.Race != null)
-            {
-                _cup.Tick();
             }
 
             if (_hudLeftHanded != Accessibility.LeftHanded)
@@ -332,12 +309,12 @@ namespace CarRacer.Game.Net
                     .Append(p.Ready).Append(p.IsHost).Append(p.IsBot).Append(p.TrackVote).Append('|');
             }
 
-            if (_session.IsHost)
+            var settings = _session.Settings;
+            _signature.Append(_session.LeaderId).Append('/').Append(settings.Mode).Append(settings.Laps).Append(settings.Track)
+                .Append(settings.BotFill).Append(settings.BotDifficulty).Append(settings.Rules.ToByte()).Append(_cup.Signature);
+            if (_session.LeadsRoom)
             {
-                var host = _session.HostSide;
-                _signature.Append(_mode).Append(_laps).Append(_track).Append(host.BotFill).Append(host.BotDifficulty)
-                    .Append(((HostRace)_session.Race).NextRules.ToByte())
-                    .Append(_cup.Signature).Append(_hostAddresses).Append(_joinLink).Append(CanStart());
+                _signature.Append(_hostAddresses).Append(_joinLink).Append(_session.CanStart);
             }
             else
             {
@@ -346,8 +323,6 @@ namespace CarRacer.Game.Net
 
             return _signature.ToString();
         }
-
-        private bool CanStart() => _session.HostSide.Roster.EveryoneReady || _session.HostSide.Roster.Count == 1;
 
         private void BuildLobby(byte me)
         {
@@ -376,9 +351,10 @@ namespace CarRacer.Game.Net
             _view.Add(column);
 
             content.Add(UiKit.Heading("Lobby"));
+            byte leader = _session.LeaderId;
             foreach (var player in _session.Players)
             {
-                string state = player.IsHost ? "host" : player.IsBot ? "bot" : player.Ready ? "ready" : "not ready";
+                string state = player.IsHost ? "host" : player.IsBot ? "bot" : player.PlayerId == leader ? "runs the room" : player.Ready ? "ready" : "not ready";
                 string you = player.PlayerId == me ? " (you)" : string.Empty;
                 var row = UiKit.Row();
                 row.Add(Dot(player.ColourIndex));
@@ -390,15 +366,16 @@ namespace CarRacer.Game.Net
             }
 
             content.Add(UiKit.Space(8f));
-            if (_session.IsHost)
+            var settings = _session.Settings;
+            if (_session.LeadsRoom)
             {
-                if (_hostAddresses.Length > 0)
+                if (_session.IsHost && _hostAddresses.Length > 0)
                 {
                     content.Add(UiKit.Hint(_hostAddresses));
                 }
 
-                _cup.AddLobbyChoice(content, Changed);
-                if (!_cup.CupChosen)
+                _cup.AddLobbyChoice(content);
+                if (!settings.CupChosen)
                 {
                     AddSingleEventSettings(content);
                 }
@@ -406,19 +383,19 @@ namespace CarRacer.Game.Net
                 AddBotSettings(content);
                 AddRules(content);
 
-                // The host decides (design doc §11); alone, it's a practice race.
-                bool canStart = CanStart();
-                if (_cup.CupChosen)
+                // The room leader decides (design doc §11, §2.3); alone, it's a practice race.
+                bool canStart = _session.CanStart;
+                if (settings.CupChosen)
                 {
                     _cup.AddStartButtons(content, canStart);
                 }
                 else
                 {
-                    content.Add(UiKit.Enabled(UiKit.Button(canStart ? $"Start {ModeName(_mode)}" : "Waiting for everyone to be ready", () =>
+                    content.Add(UiKit.Enabled(UiKit.Button(canStart ? $"Start {ModeName(settings.Mode)}" : "Waiting for everyone to be ready", () =>
                     {
-                        if (CanStart())
+                        if (_session.CanStart)
                         {
-                            ((HostRace)_session.Race).Start(_laps, _mode, _track);
+                            _session.Command(LobbyCommand.Start);
                         }
                     }, primary: true), canStart));
                 }
@@ -431,7 +408,8 @@ namespace CarRacer.Game.Net
                     _session.GuestSide.SetReady(!_session.GuestSide.Ready);
                     Changed();
                 }, primary: !ready));
-                content.Add(UiKit.Hint(ready ? "Waiting for the host to start the race." : "Drive around, then tap Ready."));
+                content.Add(UiKit.Hint(ready ? "Waiting for the race to start." : "Drive around, then tap Ready."));
+                content.Add(UiKit.Hint("Next: " + SettingsSummary(settings)));
                 AddTrackVote(content, me);
             }
 
@@ -519,62 +497,63 @@ namespace CarRacer.Game.Net
             return false;
         }
 
-        /// <summary>The host's settings for a single event: mode, laps and track, and the guests' track votes.</summary>
+        /// <summary>The leader's settings for a single event: mode, laps and track, and the guests' track votes.</summary>
         private void AddSingleEventSettings(VisualElement panel)
         {
+            var settings = _session.Settings;
+            void Change(System.Func<LobbySettings, LobbySettings> edit) => _session.ChangeSettings(edit(_session.Settings));
+
             var row = UiKit.Row();
-            var mode = UiKit.Button(ModeName(_mode), () =>
+            var mode = UiKit.Button(ModeName(settings.Mode), () => Change(s =>
             {
-                _mode = (GameMode)(((int)_mode + 1) % 3);
-                PlayerPrefs.SetInt(ModeKey, (int)_mode);
-                Changed();
-            });
+                s.Mode = (GameMode)(((int)s.Mode + 1) % 3);
+                return s;
+            }));
             mode.style.width = 150f;
             row.Add(mode);
             row.Add(UiKit.Space(12f));
-            if (_mode == GameMode.Race)
+            if (settings.Mode == GameMode.Race)
             {
-                var laps = UiKit.Body($"Laps: {_laps}");
+                var laps = UiKit.Body($"Laps: {settings.Laps}");
                 laps.style.width = 130f;
                 row.Add(laps);
-                var fewer = UiKit.Button("-", () =>
+                var fewer = UiKit.Button("-", () => Change(s =>
                 {
-                    _laps = Mathf.Max(1, _laps - 1);
-                    Changed();
-                });
+                    s.Laps = Mathf.Max(1, s.Laps - 1);
+                    return s;
+                }));
                 fewer.style.width = 80f;
                 row.Add(fewer);
                 row.Add(UiKit.Space(8f));
-                var more = UiKit.Button("+", () =>
+                var more = UiKit.Button("+", () => Change(s =>
                 {
-                    _laps = Mathf.Min(MaxLaps, _laps + 1);
-                    Changed();
-                });
+                    s.Laps = Mathf.Min(LobbySettings.MaxLaps, s.Laps + 1);
+                    return s;
+                }));
                 more.style.width = 80f;
                 row.Add(more);
             }
             else
             {
-                var hint = UiKit.Hint(_mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only");
+                var hint = UiKit.Hint(settings.Mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only");
                 hint.style.flexShrink = 1f;
                 row.Add(hint);
             }
 
             panel.Add(row);
-            if (_mode != GameMode.Race)
+            if (settings.Mode != GameMode.Race)
             {
                 return;
             }
 
-            // The host picks the track (design doc §11); everyone moves to it at the countdown.
-            panel.Add(UiKit.Button("Track: " + TrackCatalog.Layouts[_track].Definition.DisplayName, () =>
+            // The leader picks the track (design doc §11); everyone moves to it at the countdown.
+            panel.Add(UiKit.Button("Track: " + TrackCatalog.Layouts[settings.Track].Definition.DisplayName, () => Change(s =>
             {
-                _track = (_track + 1) % TrackCatalog.Count;
-                PlayerPrefs.SetInt(TrackKey, _track);
-                Changed();
-            }));
+                s.Track = (s.Track + 1) % TrackCatalog.Count;
+                return s;
+            })));
 
-            // Guests' votes only suggest; the host can go with them in one tap, or not.
+            // Guests' votes only suggest; the leader can go with them in one tap, or not.
             var votes = TrackVotes.Count(_session.Players, TrackCatalog.Count);
             string summary = TrackVotes.Summary(votes, TrackNames());
             if (summary.Length == 0)
@@ -587,15 +566,14 @@ namespace CarRacer.Game.Net
             count.style.flexShrink = 1f;
             count.style.flexGrow = 1f;
             voteRow.Add(count);
-            int leader = TrackVotes.Leader(votes, _track);
-            if (leader != _track)
+            int leader = TrackVotes.Leader(votes, settings.Track);
+            if (leader != settings.Track)
             {
-                var go = UiKit.Button("Go with it", () =>
+                var go = UiKit.Button("Go with it", () => Change(s =>
                 {
-                    _track = leader;
-                    PlayerPrefs.SetInt(TrackKey, _track);
-                    Changed();
-                });
+                    s.Track = leader;
+                    return s;
+                }));
                 go.style.width = 180f;
                 voteRow.Add(go);
             }
@@ -626,48 +604,47 @@ namespace CarRacer.Game.Net
             panel.Add(UiKit.Hint(summary.Length > 0 ? "Votes: " + summary : "The host picks the track; votes help them decide."));
         }
 
-        /// <summary>The host's bot fill and difficulty (design doc §9), remembered between sessions.</summary>
+        /// <summary>The bot fill and difficulty (design doc §9), remembered on the host between sessions.</summary>
         private void AddBotSettings(VisualElement panel)
         {
-            var host = _session.HostSide;
-            var fill = UiKit.Button(host.BotFill == 0 ? "Bots: off" : $"Bots: fill to {host.BotFill}", () =>
+            var settings = _session.Settings;
+            var fill = UiKit.Button(settings.BotFill == 0 ? "Bots: off" : $"Bots: fill to {settings.BotFill}", () =>
             {
-                int next = (System.Array.IndexOf(BotFills, host.BotFill) + 1) % BotFills.Length;
-                host.BotFill = BotFills[next];
-                PlayerPrefs.SetInt(BotFillKey, host.BotFill);
-                Changed();
+                var next = _session.Settings;
+                next.BotFill = LobbySettings.BotFills[(System.Array.IndexOf(LobbySettings.BotFills, next.BotFill) + 1) % LobbySettings.BotFills.Length];
+                _session.ChangeSettings(next);
             });
-            var difficulty = UiKit.Enabled(UiKit.Button(host.BotDifficulty.ToString(), () =>
+            var difficulty = UiKit.Enabled(UiKit.Button(settings.BotDifficulty.ToString(), () =>
             {
-                if (host.BotFill == 0)
+                var next = _session.Settings;
+                if (next.BotFill == 0)
                 {
                     return;
                 }
 
-                host.BotDifficulty = (BotDifficulty)(((int)host.BotDifficulty + 1) % 3);
-                PlayerPrefs.SetInt(BotDifficultyKey, (int)host.BotDifficulty);
-                Changed();
-            }), host.BotFill > 0);
+                next.BotDifficulty = (BotDifficulty)(((int)next.BotDifficulty + 1) % 3);
+                _session.ChangeSettings(next);
+            }), settings.BotFill > 0);
             panel.Add(UiKit.EvenRow(fill, difficulty));
         }
 
         /// <summary>
-        /// The host's rules for the next event (design doc §11, host controls): damage, items and car
-        /// stats, each a toggle, remembered between sessions. Battle always has items, so its button
-        /// says so and can't be changed.
+        /// The rules for the next event (design doc §11, host controls): damage, items and car stats,
+        /// each a toggle, remembered on the host between sessions. Battle always has items, so its
+        /// button says so and can't be changed.
         /// </summary>
         private void AddRules(VisualElement panel)
         {
-            var race = (HostRace)_session.Race;
-            var rules = race.NextRules;
+            var settings = _session.Settings;
+            var rules = settings.Rules;
             void Choose(EventRules next)
             {
-                race.NextRules = next;
-                PlayerPrefs.SetInt(RulesKey, next.ToByte());
-                Changed();
+                var changed = _session.Settings;
+                changed.Rules = next;
+                _session.ChangeSettings(changed);
             }
 
-            bool battle = !_cup.CupChosen && _mode == GameMode.Battle;
+            bool battle = !settings.CupChosen && settings.Mode == GameMode.Battle;
             var damage = UiKit.Button(rules.Damage ? "Damage: on" : "Damage: off", () => Choose(rules.WithDamage(!rules.Damage)));
             var items = UiKit.Enabled(UiKit.Button(battle ? "Items: always" : rules.Items ? "Items: on" : "Items: off", () =>
             {
@@ -687,6 +664,18 @@ namespace CarRacer.Game.Net
 
             panel.Add(UiKit.EvenRow(damage, items, stats));
             panel.Add(UiKit.Hint("Car stats off makes every car drive the same. Damage only counts in races."));
+        }
+
+        /// <summary>What the next event will be, for guests who don't run the room: "Race, 3 laps, Canyon" or the cup, and any rules turned off.</summary>
+        private static string SettingsSummary(LobbySettings settings)
+        {
+            string what = settings.CupChosen
+                ? Cups.All[settings.Cup - 1].Name
+                : settings.Mode == GameMode.Race
+                    ? $"Race, {settings.Laps} laps, {TrackCatalog.Layouts[settings.Track].Definition.DisplayName}"
+                    : ModeName(settings.Mode);
+            string rules = RulesNote(settings.Rules);
+            return rules.Length == 0 ? what : what + ". " + rules;
         }
 
         /// <summary>The rules the event under way is played by, for guests who weren't in the lobby's settings: only what's off.</summary>
@@ -854,7 +843,7 @@ namespace CarRacer.Game.Net
                 _signature.Append(r.PlayerId).Append(r.Position).Append(r.RaceTimeMs).Append(r.DidNotFinish).Append('|');
             }
 
-            _signature.Append(_session.Players.Count).Append(_cup.Run != null);
+            _signature.Append(_session.Players.Count).Append(_session.LeadsRoom).Append(_session.LeaderId);
             if (table != null)
             {
                 _signature.Append(_cup.StandingsSignature(table));
@@ -893,13 +882,15 @@ namespace CarRacer.Game.Net
             }
 
             panel.Add(UiKit.Space(16f));
-            if (_session.IsHost && _cup.Run == null)
+            if (_session.LeadsRoom && table == null)
             {
-                panel.Add(UiKit.Button("Back to lobby", () => ((HostRace)race).ReturnToLobby(), primary: true, sound: UiSound.Back));
+                panel.Add(UiKit.Button("Back to lobby", () => _session.Command(LobbyCommand.BackToLobby), primary: true, sound: UiSound.Back));
             }
-            else if (!_session.IsHost && table == null)
+            else if (table == null)
             {
-                panel.Add(UiKit.Text("Waiting for the host...", 20, UiKit.Muted));
+                // On a server the room leader moves things on; on a phone host, the host does.
+                bool leaderIsGuest = TryFind(_session.LeaderId, out var leader) && !leader.IsHost;
+                panel.Add(UiKit.Text(leaderIsGuest ? "Waiting for the room leader..." : "Waiting for the host...", 20, UiKit.Muted));
             }
 
             row.Add(panel);
@@ -907,7 +898,7 @@ namespace CarRacer.Game.Net
             {
                 row.Add(UiKit.Space(40f));
                 string self = TryFind(me, out var mine) ? mine.Name : string.Empty;
-                row.Add(_cup.BuildStandings(table, self, Changed, out _cupCountdown));
+                row.Add(_cup.BuildStandings(table, self, out _cupCountdown));
             }
 
             _view.Add(row);

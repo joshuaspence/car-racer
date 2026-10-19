@@ -88,6 +88,11 @@ namespace CarRacer.Core.Session
         /// <summary>The next event's settings (design doc §11), as every phone sees them.</summary>
         public LobbySettings Settings => _settings;
 
+        /// <summary>The cup saved on the host, as <see cref="LobbySettings.Cup"/> (0 for none), and how many of its events are done.</summary>
+        public int SavedCup => _savedCup;
+
+        public int SavedCupDone => _savedCupDone;
+
         /// <summary>True when the leader may start: everyone else is ready (the leader starting counts as their Ready).</summary>
         public bool CanStart => LobbyRoster.ReadyToStart(RosterMessage());
 

@@ -44,6 +44,10 @@ namespace CarRacer.Game.Net
         private DiscoveryAnnouncement _announcement;
 
         public bool IsHost { get; private set; }
+
+        /// <summary>True on a dedicated host (a server, design doc §2.3): hosting with no player, car or screens of its own.</summary>
+        public bool IsDedicated => IsHost && HostSide.IsDedicated;
+
         public HostSession HostSide { get; private set; }
         public GuestSession GuestSide { get; private set; }
 
@@ -78,13 +82,13 @@ namespace CarRacer.Game.Net
 
         public static long NowMs => (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
 
-        /// <summary>This phone's player id, once it has one.</summary>
+        /// <summary>This phone's player id, once it has one; a dedicated host never has one.</summary>
         public bool TryGetLocalPlayerId(out byte playerId)
         {
             if (IsHost)
             {
                 playerId = HostSide.HostPlayerId;
-                return true;
+                return !HostSide.IsDedicated;
             }
 
             playerId = GuestSide?.PlayerId ?? 0;
@@ -92,6 +96,44 @@ namespace CarRacer.Game.Net
         }
 
         public IReadOnlyList<RosterEntry> Players => IsHost ? HostSide.Roster.ToMessage().Players : GuestSide.Roster.Players;
+
+        /// <summary>True when this phone runs the room (design doc §2.3): it hosts, or a dedicated host made it the leader.</summary>
+        public bool LeadsRoom => IsHost ? !HostSide.IsDedicated : GuestSide.IsLeader;
+
+        /// <summary>The next event's settings (design doc §11), as the host keeps them.</summary>
+        public LobbySettings Settings => IsHost ? HostSide.Settings : GuestSide.Lobby.Settings;
+
+        /// <summary>Who runs the room, or <see cref="HostSession.NoPlayer"/>.</summary>
+        public byte LeaderId => IsHost ? HostSide.LeaderId : GuestSide.Roster.LeaderId;
+
+        /// <summary>The cup saved on the host, as <see cref="LobbySettings.Cup"/> (0 for none), and how many of its events are done.</summary>
+        public int SavedCup => IsHost ? HostSide.SavedCup : GuestSide.Lobby.SavedCup;
+
+        public int SavedCupDone => IsHost ? HostSide.SavedCupDone : GuestSide.Lobby.SavedCupDone;
+
+        /// <summary>True when the room leader may start the event (everyone else is ready).</summary>
+        public bool CanStart => IsHost ? HostSide.CanStart : LobbyRoster.ReadyToStart(GuestSide.Roster);
+
+        /// <summary>Changes the next event's settings, if this phone runs the room; the host tells every phone.</summary>
+        public void ChangeSettings(LobbySettings settings) => Command(LobbyCommand.ChangeSettings, settings);
+
+        /// <summary>A lobby or results button pressed by the room leader: carried out on the host, or sent to it.</summary>
+        public void Command(LobbyCommand command, LobbySettings settings = default)
+        {
+            if (!LeadsRoom)
+            {
+                return;
+            }
+
+            if (IsHost)
+            {
+                HostSide.RunCommand(command, settings);
+            }
+            else
+            {
+                GuestSide.SendLobbyCommand(command, settings);
+            }
+        }
 
         /// <summary>One-way latency estimate for showing <paramref name="playerId"/>'s car (guest cars reach other guests via the host).</summary>
         public float LatencyMsFor(byte playerId)
@@ -180,31 +222,45 @@ namespace CarRacer.Game.Net
         public static NetworkSession StartHosting(string playerName, ushort port = DiscoveryConstants.DefaultGamePort)
         {
             var session = Create();
-            session.IsHost = true;
             session.HostSide = new HostSession(session, playerName, DiscoveryConstants.ProtocolVersion, () => NowMs, Garage.Choice);
-            session.HostSide.CarStateReceived += session.RaiseCarState;
-            session.HostSide.HitReceived += session.RaiseHit;
+            return session.Host(playerName, port);
+        }
 
-            session.Port = port;
-            var transport = session.GetComponent<UnityTransport>();
+        /// <summary>Hosts with no player of its own (design doc §2.3), announced as <paramref name="serverName"/>; the first guest in runs the room.</summary>
+        public static NetworkSession StartServer(string serverName, ushort port = DiscoveryConstants.DefaultGamePort)
+        {
+            var session = Create();
+            session.HostSide = HostSession.Dedicated(session, DiscoveryConstants.ProtocolVersion, () => NowMs);
+            return session.Host(serverName, port);
+        }
+
+        private NetworkSession Host(string name, ushort port)
+        {
+            IsHost = true;
+            HostSide.CarStateReceived += RaiseCarState;
+            HostSide.HitReceived += RaiseHit;
+
+            Port = port;
+            var transport = GetComponent<UnityTransport>();
             transport.SetConnectionData("127.0.0.1", port, "0.0.0.0");
-            if (!session._network.StartHost())
+            bool started = HostSide.IsDedicated ? _network.StartServer() : _network.StartHost();
+            if (!started)
             {
-                session.Fail($"Couldn't host on port {port}");
-                return session;
+                Fail($"Couldn't host on port {port}");
+                return this;
             }
 
-            session.RegisterHandler();
-            session._announcement = new DiscoveryAnnouncement
+            RegisterHandler();
+            _announcement = new DiscoveryAnnouncement
             {
                 SessionId = (uint)new System.Random().Next(1, int.MaxValue),
-                HostName = LobbyRoster.CleanName(playerName),
+                HostName = LobbyRoster.CleanName(name),
                 GamePort = port,
                 MaxPlayers = LobbyRoster.MaxPlayers,
             };
-            session._announcer = new DiscoveryAnnouncer(DiscoveryAnnouncer.DefaultTargets());
-            session.Status = "Hosting";
-            return session;
+            _announcer = new DiscoveryAnnouncer(DiscoveryAnnouncer.DefaultTargets());
+            Status = "Hosting";
+            return this;
         }
 
         public static NetworkSession Join(string playerName, string address, ushort port)
@@ -431,7 +487,8 @@ namespace CarRacer.Game.Net
                 }
             }
 
-            return 0;
+            // A dedicated host has no car: every other car comes through it.
+            return HostSession.NoPlayer;
         }
 
         private static string RefusalText(JoinResult result)

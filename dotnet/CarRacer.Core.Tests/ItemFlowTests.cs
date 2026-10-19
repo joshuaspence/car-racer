@@ -176,7 +176,9 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void TheHostsRulesReachEveryPhoneInTheCountdown()
         {
-            _hostRace.NextRules = new EventRules(damage: false, items: true, carStats: false);
+            var settings = _host.Settings;
+            settings.Rules = new EventRules(damage: false, items: true, carStats: false);
+            _host.ChangeSettings(settings);
             StartRacing();
             Assert.False(_hostRace.Rules.Damage);
             Assert.False(_guestRace.Rules.Damage);
@@ -188,7 +190,9 @@ namespace CarRacer.Core.Tests
         public void WithItemsOffBoxesGiveNothingAndAreHidden()
         {
             Assert.True(_hostItems.BoxesShown, "boxes show in the lobby");
-            _hostRace.NextRules = EventRules.Default.WithItems(false);
+            var settings = _host.Settings;
+            settings.Rules = EventRules.Default.WithItems(false);
+            _host.ChangeSettings(settings);
             StartRacing();
             Assert.False(_hostItems.BoxesShown);
             Assert.False(_guestItems.BoxesShown);

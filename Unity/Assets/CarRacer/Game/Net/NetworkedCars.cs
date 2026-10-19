@@ -88,7 +88,19 @@ namespace CarRacer.Game.Net
             _session.CreateRace(checkpointCounts, FractionToNextCheckpoint, boxes, TryGetCarPosition);
             gameObject.AddComponent<ItemBoxes>().Initialise(_session.Items);
             gameObject.AddComponent<ItemEffectViews>().Initialise(_session.Items);
-            gameObject.AddComponent<SessionOverlay>().Initialise(session, this);
+            HostLobby host = null;
+            if (session.IsHost)
+            {
+                host = gameObject.AddComponent<HostLobby>();
+                host.Initialise(session);
+            }
+
+            // A dedicated host (a server, design doc §2.3) has nobody looking at it.
+            if (!session.IsDedicated)
+            {
+                gameObject.AddComponent<SessionOverlay>().Initialise(session, this, host);
+            }
+
             if (session.IsHost)
             {
                 _botCars = gameObject.AddComponent<BotCars>();
@@ -133,7 +145,8 @@ namespace CarRacer.Game.Net
 
         private void Update()
         {
-            if (_session.Ended || !_session.TryGetLocalPlayerId(out _me))
+            // A dedicated host has no car of its own (its id is NoPlayer) but still shows every car, for item hits and standings.
+            if (_session.Ended || (!_session.TryGetLocalPlayerId(out _me) && !_session.IsDedicated))
             {
                 return;
             }
@@ -368,16 +381,27 @@ namespace CarRacer.Game.Net
         private void FollowRacePhase()
         {
             var phase = _session.Race.Phase;
-            if (phase == _phase || _screen.Car == null)
+            if (phase == _phase)
             {
                 return;
             }
 
             // Line up for the countdown (or straight away if GO came before the countdown was seen),
-            // and come back to the track from an arena for the lobby.
-            if (phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown))
+            // and come back to the track from an arena for the lobby. With no car of its own yet (or
+            // ever, on a dedicated host), the screen still moves to the event's track, which standings use.
+            bool lineUp = phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown);
+            if (lineUp)
             {
                 _screen.FollowEventTrack(_session.Race);
+            }
+
+            if (_screen.Car == null)
+            {
+                return;
+            }
+
+            if (lineUp)
+            {
                 if (_detectorTrack != _screen.TrackIndex)
                 {
                     _detector = new CheckpointDetector(_screen.Track.CheckpointGates());
