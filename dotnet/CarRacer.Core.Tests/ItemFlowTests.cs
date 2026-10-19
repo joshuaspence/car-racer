@@ -174,6 +174,34 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void TheHostsRulesReachEveryPhoneInTheCountdown()
+        {
+            _hostRace.NextRules = new EventRules(damage: false, items: true, carStats: false);
+            StartRacing();
+            Assert.False(_hostRace.Rules.Damage);
+            Assert.False(_guestRace.Rules.Damage);
+            Assert.False(_guestRace.Rules.CarStats);
+            Assert.True(_guestRace.Rules.Items);
+        }
+
+        [Fact]
+        public void WithItemsOffBoxesGiveNothingAndAreHidden()
+        {
+            Assert.True(_hostItems.BoxesShown, "boxes show in the lobby");
+            _hostRace.NextRules = EventRules.Default.WithItems(false);
+            StartRacing();
+            Assert.False(_hostItems.BoxesShown);
+            Assert.False(_guestItems.BoxesShown);
+
+            Assert.False(_hostItems.ClaimTouchedBox(BoxPositions[0]));
+            Assert.False(_guestItems.ClaimTouchedBox(BoxPositions[1]));
+
+            // Even a claim that gets through is refused.
+            _host.OnMessage(GuestConnection, new ItemBoxClaimMessage { PlayerId = GuestId, BoxIndex = 1 });
+            Assert.Empty(_hostLink.Sent.OfType<ItemBoxTakenMessage>());
+        }
+
+        [Fact]
         public void NoClaimsOutsideARace()
         {
             Assert.False(_hostItems.ClaimTouchedBox(BoxPositions[0]));

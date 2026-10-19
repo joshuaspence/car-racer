@@ -32,6 +32,7 @@ namespace CarRacer.Game.Net
         public const string BotDifficultyKey = "botDifficulty";
         public const string ModeKey = "mode";
         public const string TrackKey = "track";
+        public const string RulesKey = "eventRules";
 
         /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
         public const float LeftCornerDrop = 16f;
@@ -85,6 +86,7 @@ namespace CarRacer.Game.Net
                 session.HostSide.BotDifficulty = (BotDifficulty)Mathf.Clamp(PlayerPrefs.GetInt(BotDifficultyKey, (int)BotDifficulty.Normal), 0, 2);
                 _mode = (GameMode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, (int)GameMode.Race), 0, 2);
                 _track = TrackCatalog.Clamp(PlayerPrefs.GetInt(TrackKey, 0));
+                ((HostRace)session.Race).NextRules = EventRules.FromByte((byte)PlayerPrefs.GetInt(RulesKey, 0));
             }
 
             _layer = UiRoot.Create(transform, "Session", order: 10);
@@ -334,6 +336,7 @@ namespace CarRacer.Game.Net
             {
                 var host = _session.HostSide;
                 _signature.Append(_mode).Append(_laps).Append(_track).Append(host.BotFill).Append(host.BotDifficulty)
+                    .Append(((HostRace)_session.Race).NextRules.ToByte())
                     .Append(_cup.Signature).Append(_hostAddresses).Append(_joinLink).Append(CanStart());
             }
             else
@@ -401,6 +404,7 @@ namespace CarRacer.Game.Net
                 }
 
                 AddBotSettings(content);
+                AddRules(content);
 
                 // The host decides (design doc §11); alone, it's a practice race.
                 bool canStart = CanStart();
@@ -647,6 +651,66 @@ namespace CarRacer.Game.Net
             panel.Add(UiKit.EvenRow(fill, difficulty));
         }
 
+        /// <summary>
+        /// The host's rules for the next event (design doc §11, host controls): damage, items and car
+        /// stats, each a toggle, remembered between sessions. Battle always has items, so its button
+        /// says so and can't be changed.
+        /// </summary>
+        private void AddRules(VisualElement panel)
+        {
+            var race = (HostRace)_session.Race;
+            var rules = race.NextRules;
+            void Choose(EventRules next)
+            {
+                race.NextRules = next;
+                PlayerPrefs.SetInt(RulesKey, next.ToByte());
+                Changed();
+            }
+
+            bool battle = !_cup.CupChosen && _mode == GameMode.Battle;
+            var damage = UiKit.Button(rules.Damage ? "Damage: on" : "Damage: off", () => Choose(rules.WithDamage(!rules.Damage)));
+            var items = UiKit.Enabled(UiKit.Button(battle ? "Items: always" : rules.Items ? "Items: on" : "Items: off", () =>
+            {
+                if (!battle)
+                {
+                    Choose(rules.WithItems(!rules.Items));
+                }
+            }), !battle);
+            var stats = UiKit.Button(rules.CarStats ? "Car stats: on" : "Car stats: off", () => Choose(rules.WithCarStats(!rules.CarStats)));
+
+            // Three to a row in the lobby panel, so smaller text than a full-width button.
+            foreach (var button in new[] { damage, items, stats })
+            {
+                button.style.fontSize = Accessibility.Text(21);
+                button.style.paddingLeft = button.style.paddingRight = 6f;
+            }
+
+            panel.Add(UiKit.EvenRow(damage, items, stats));
+            panel.Add(UiKit.Hint("Car stats off makes every car drive the same. Damage only counts in races."));
+        }
+
+        /// <summary>The rules the event under way is played by, for guests who weren't in the lobby's settings: only what's off.</summary>
+        private static string RulesNote(EventRules rules)
+        {
+            var off = new System.Collections.Generic.List<string>();
+            if (!rules.Damage)
+            {
+                off.Add("no damage");
+            }
+
+            if (!rules.Items)
+            {
+                off.Add("no items");
+            }
+
+            if (!rules.CarStats)
+            {
+                off.Add("equal cars");
+            }
+
+            return off.Count == 0 ? string.Empty : "Rules: " + string.Join(", ", off);
+        }
+
         private static string[] TrackNames()
         {
             if (_trackNames == null)
@@ -746,7 +810,7 @@ namespace CarRacer.Game.Net
 
             Set(_corner1, position);
             Set(_corner2, $"Lap {lap} / {race.LapCount}");
-            Set(_corner3, string.Empty);
+            Set(_corner3, RulesNote(race.Rules));
         }
 
         /// <summary>The arena HUD (design doc §7.0): this phone's lives (Battle) or place once out, how many are left, and Battle's clock.</summary>

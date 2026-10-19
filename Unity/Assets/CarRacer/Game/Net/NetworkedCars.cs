@@ -397,8 +397,11 @@ namespace CarRacer.Game.Net
 
             _screen.Car.InputLocked = phase == RacePhase.Countdown;
 
-            // Damage counts in a race (design doc §4); the arenas have their own rules, and the lobby is for messing about.
-            _screen.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
+            // Damage counts in a race unless the host turned it off (design doc §4, §11); the arenas have
+            // their own rules, and the lobby is for messing about. Car stats follow the host's rules too.
+            var rules = _session.Race.Rules;
+            _screen.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race && rules.Damage;
+            _screen.Car.UseBodyStats(phase == RacePhase.Lobby || rules.CarStats);
             _phase = phase;
         }
 

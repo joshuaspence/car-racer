@@ -475,8 +475,14 @@ leader).
      `ChangeCarMessage`; the host takes any body, and the colour unless someone else has it, then
      sends the roster, and every phone swaps that car's body where it stands. Not mid-event. The
      pick is remembered in the garage too.
-4. Host lobby: mode, track/arena (or random), laps, items on/off and frequency, bots and
-   difficulty. **The host decides**, but guests can vote for the track: a "Vote for a track"
+4. Host lobby: mode, track/arena (or random), laps, bots and difficulty, and the event's
+   **rules** (`EventRules`, remembered on the host's phone): **Damage**, **Items** and **Car stats**,
+   each on or off. They go out in every countdown (`RaceCountdownMessage.Rules`, a byte where zero
+   means everything on), so each phone plays the event by the same rules: with damage off no car is
+   damaged; with items off boxes vanish for the event and the host grants no claims; with car
+   stats off every car drives like the balanced 3/3/3 and goes back to its body's ratings in the
+   lobby. Battle always has items, so its Items button reads "Items: always". During a race the
+   corner shows what's off ("Rules: no damage, equal cars"). **The host decides**, but guests can vote for the track: a "Vote for a track"
    button steps through the tracks and back to no vote (`VoteTrackMessage`), every lobby shows the
    count ("Votes: Canyon 2 · Oval 1", `TrackVotes`), and the host gets a "Go with it" button when
    the most-voted track isn't their pick. A tie never overrides the host's pick. Votes go in the
@@ -617,6 +623,7 @@ leader).
 | **M12: More items** | Lightning (strikes everyone ahead), Fake box (a decoy hazard) and Seeker (hunts the leader), with catch-up odds, bot use and visuals. |
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
+| **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

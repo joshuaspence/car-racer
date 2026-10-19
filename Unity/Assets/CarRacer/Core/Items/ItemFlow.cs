@@ -13,6 +13,9 @@ namespace CarRacer.Core.Items
         /// <summary>Which boxes are up, in this phone's clock.</summary>
         ItemBoxField Boxes { get; }
 
+        /// <summary>Whether item boxes are on the track: not during an event the host has turned items off for.</summary>
+        bool BoxesShown { get; }
+
         /// <summary>The item this phone's player holds.</summary>
         ItemKind Held { get; }
 
@@ -83,6 +86,7 @@ namespace CarRacer.Core.Items
         }
 
         public ItemBoxField Boxes { get; }
+        public bool BoxesShown => _race.Phase == RacePhase.Lobby || _race.Rules.Items;
         public ItemSlots Slots { get; } = new ItemSlots();
         public ItemKind Held => Slots.Held(_session.HostPlayerId);
         public HazardField Hazards { get; } = new HazardField();
@@ -162,7 +166,7 @@ namespace CarRacer.Core.Items
         private bool Grant(byte playerId, int box)
         {
             long now = _clockMs();
-            if (_race.Phase != RacePhase.Racing || !Slots.CanPickUp(playerId) || !Boxes.TryTake(box, now, out long respawnAt))
+            if (_race.Phase != RacePhase.Racing || !_race.Rules.Items || !Slots.CanPickUp(playerId) || !Boxes.TryTake(box, now, out long respawnAt))
             {
                 return false;
             }
@@ -483,6 +487,7 @@ namespace CarRacer.Core.Items
         }
 
         public ItemBoxField Boxes { get; }
+        public bool BoxesShown => _race.Phase == RacePhase.Lobby || _race.Rules.Items;
         public ItemKind Held { get; private set; }
         public HazardField Hazards { get; } = new HazardField();
         public IReadOnlyList<ProjectileSnapshot> Projectiles => _snapshots;
@@ -515,7 +520,7 @@ namespace CarRacer.Core.Items
                 _pendingBox = -1;
             }
 
-            if (_race.Phase != RacePhase.Racing || Held != ItemKind.None || _pendingBox >= 0)
+            if (_race.Phase != RacePhase.Racing || !_race.Rules.Items || Held != ItemKind.None || _pendingBox >= 0)
             {
                 return false;
             }

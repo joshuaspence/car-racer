@@ -345,7 +345,9 @@ namespace CarRacer.Game.Bots
                 }
 
                 bot.Car.InputLocked = phase != RacePhase.Racing;
-                bot.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
+                var rules = _session.Race.Rules;
+                bot.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race && rules.Damage;
+                bot.Car.UseBodyStats(phase == RacePhase.Lobby || rules.CarStats);
             }
 
             _phase = phase;
@@ -385,7 +387,9 @@ namespace CarRacer.Game.Bots
             bot.Detector.Resume(racer != null ? racer.CheckpointsPassed : 0);
             bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
             bot.Car.InputLocked = _session.Race.Phase != RacePhase.Racing;
-            bot.Car.DamageEnabled = _session.Race.Phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
+            var rules = _session.Race.Rules;
+            bot.Car.DamageEnabled = _session.Race.Phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race && rules.Damage;
+            bot.Car.UseBodyStats(_session.Race.Phase == RacePhase.Lobby || rules.CarStats);
         }
 
         /// <summary>The mode of the event under way, or Race in the lobby.</summary>
