@@ -141,11 +141,18 @@ namespace CarRacer.Game.Driving
             _state = CarModel.SpinOut(_state, Tuning);
         }
 
-        /// <summary>Damage from a bump with another car that pushed this one by <paramref name="impulse"/> (mass × Δv).</summary>
+        /// <summary>
+        /// Damage from a bump with another car that pushed this one by <paramref name="impulse"/>
+        /// (mass × Δv), as <c>BumpMonitor</c> resolved it. <c>BumpResolver</c> sizes and clamps bumps
+        /// per unit of reduced mass, which for two cars of equal mass is half a car's, so the impulse
+        /// is measured the same way here; that puts it on the same scale as a closing speed (see
+        /// <see cref="OnCollisionEnter"/>) and lets the hardest bump do the full damage.
+        /// </summary>
         public void TakeBump(Vector3 impulse)
         {
             impulse.y = 0f;
-            Damaged(_damageEnabled && Damage.AddBump(impulse.magnitude / _body.mass, BumpScale));
+            float reducedMass = _body.mass / 2f;
+            Damaged(_damageEnabled && Damage.AddBump(impulse.magnitude / reducedMass, BumpScale));
         }
 
         /// <summary>Damage from an item hit that landed (not one a Shield soaked up).</summary>
