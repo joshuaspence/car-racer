@@ -1,6 +1,8 @@
 using System.Collections;
 using CarRacer.Core.Driving;
+using CarRacer.Core.Net;
 using CarRacer.Core.Race;
+using CarRacer.Core.Session;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Screens;
@@ -75,6 +77,66 @@ namespace CarRacer.Tests
                 // Driving off the grid crosses the start line, checkpoint 0.
                 yield return new WaitForSeconds(1.5f);
                 Assert.AreEqual(1, race.Tracker.Get(0).CheckpointsPassed);
+            }
+            finally
+            {
+                Object.Destroy(screen.gameObject);
+            }
+
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AServerHostsWithNoCarOfItsOwn()
+        {
+            var screen = TrackScreen.CreateServer(() => NetworkSession.StartServer("Test server", TestPort + 2));
+            try
+            {
+                yield return null;
+                yield return null;
+
+                var session = screen.Session;
+                Assert.IsFalse(session.Ended, session.Status);
+                Assert.IsTrue(session.IsHost);
+                Assert.IsTrue(session.IsDedicated);
+                Assert.IsFalse(session.TryGetLocalPlayerId(out _));
+                Assert.AreEqual(0, session.Players.Count);
+                Assert.IsNull(screen.Car, "a server has no car");
+                Assert.IsFalse(session.LeadsRoom, "nobody runs an empty room");
+                Assert.IsFalse(session.CanStart);
+                Assert.IsNotNull(screen.GetComponent<HostLobby>());
+                Assert.IsNull(screen.GetComponent<SessionOverlay>(), "nothing is drawn on a server");
+            }
+            finally
+            {
+                Object.Destroy(screen.gameObject);
+            }
+
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator TheStartCommandStartsTheEventTheSettingsSay()
+        {
+            var screen = TrackScreen.Create(new NoInput(), () => NetworkSession.StartHosting("Host", TestPort + 3));
+            try
+            {
+                yield return null;
+                yield return null;
+
+                var session = screen.Session;
+                var settings = LobbySettings.Default;
+                settings.Laps = 2;
+                settings.Track = 1;
+                session.ChangeSettings(settings);
+                session.Command(LobbyCommand.Start);
+
+                var race = session.Race;
+                Assert.AreEqual(RacePhase.Countdown, race.Phase);
+                Assert.AreEqual(2, race.LapCount);
+                Assert.AreEqual(1, race.TrackIndex);
             }
             finally
             {

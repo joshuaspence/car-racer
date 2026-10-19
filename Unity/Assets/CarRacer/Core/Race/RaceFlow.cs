@@ -110,9 +110,6 @@ namespace CarRacer.Core.Race
         public GameMode Mode { get; private set; }
         public int TrackIndex { get; private set; }
 
-        /// <summary>The rules the next <see cref="Start"/> uses (the host's lobby choices, design doc §11).</summary>
-        public EventRules NextRules { get; set; } = EventRules.Default;
-
         public EventRules Rules { get; private set; } = EventRules.Default;
 
         /// <summary>Player ids from pole back, for the current event.</summary>
@@ -193,7 +190,7 @@ namespace CarRacer.Core.Race
             _nextStandingsMs = StartAtLocalMs;
             _session.EventInProgress = true;
             Phase = RacePhase.Countdown;
-            Rules = NextRules.For(mode);
+            Rules = _session.Settings.Rules.For(mode);
             _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex, GridOrder = new List<byte>(_gridOrder), Rules = Rules.ToByte() }, reliable: true);
             return true;
         }

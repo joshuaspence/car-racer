@@ -79,11 +79,23 @@ namespace CarRacer.Game.Screens
         public static TrackScreen Create(ICarInputSource inputOverride = null, System.Func<NetworkSession> startSession = null)
         {
             var screen = new GameObject("Track screen").AddComponent<TrackScreen>();
-            screen.Build(inputOverride, startSession);
+            screen.Build(inputOverride, startSession, server: false);
             return screen;
         }
 
-        private void Build(ICarInputSource inputOverride, System.Func<NetworkSession> startSession)
+        /// <summary>
+        /// Builds the screen for a dedicated host (a server, design doc §2.3): the tracks, arenas and
+        /// everyone's cars, which the host needs for bots, item hits and standings, but no car,
+        /// camera, controls or HUD of its own.
+        /// </summary>
+        public static TrackScreen CreateServer(System.Func<NetworkSession> startSession)
+        {
+            var screen = new GameObject("Track screen").AddComponent<TrackScreen>();
+            screen.Build(null, startSession, server: true);
+            return screen;
+        }
+
+        private void Build(ICarInputSource inputOverride, System.Func<NetworkSession> startSession, bool server)
         {
             Time.fixedDeltaTime = 0.02f;
 
@@ -99,6 +111,13 @@ namespace CarRacer.Game.Screens
             }
 
             DrawOnlyCurrentTrack();
+            if (server)
+            {
+                _session = startSession();
+                ArenaVenues.Build(transform, _session);
+                gameObject.AddComponent<NetworkedCars>().Initialise(this, _session);
+                return;
+            }
 
             if (inputOverride != null)
             {

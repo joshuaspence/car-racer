@@ -130,6 +130,20 @@ player of its own (`HostSession.Dedicated`, `HostPlayerId` is `NoPlayer`).
   phone host's own buttons go through the same path (`HostSession.RunCommand`).
 - **Starting.** The leader may start once everyone else is ready (`LobbyRoster.ReadyToStart`);
   pressing Start counts as the leader's own Ready, and a leader alone can start a practice race.
+- **In the game.** `HostLobby` is the host's side of the lobby on a phone host and a server
+  alike: it remembers the settings between sessions, carries out commands, and runs the cup with
+  its auto-save. The lobby and results screens read the settings from the session and send
+  commands, so the leader's phone shows the same settings and buttons as a phone host's, and its
+  row in the lobby list says "runs the room". Everyone else sees what's next ("Next: Race, 3 laps,
+  Canyon. Rules: no damage").
+- **Server mode.** Launched with `-server` (the Linux server build always is), the game skips the
+  menus and hosts (`DedicatedServer`): the track screen is built without a car, camera, controls,
+  HUD or overlay, but with every track, arena and car, which the host needs for bots, item hits
+  and standings. It runs at 60 Hz, takes `-port` and `-name` (the name phones list it under), logs
+  who joins, leaves and leads and each event's start and finish, and exits if hosting fails.
+  If every player leaves mid-event, their cars carry on as bots; once the results are in, the
+  server goes back to the lobby by itself (leaving a cup, which keeps its save), so new guests can
+  join again.
 
 ## 3. Engine and tech stack
 
@@ -647,7 +661,7 @@ leader).
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
-| **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. In progress: the room leader, lobby settings and commands in `Core` (protocol 22). |
+| **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. Done so far: the room leader, lobby settings and commands (protocol 22), and the game's server mode with host controls on the leader's phone. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.
