@@ -1,4 +1,6 @@
 using System;
+using CarRacer.Core.Audio;
+using CarRacer.Game.Audio;
 using CarRacer.Game.Platform;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -52,10 +54,20 @@ namespace CarRacer.Game.Ui
             return label;
         }
 
-        /// <summary>A touch-sized button; <paramref name="primary"/> ones are yellow, for the main action on a page.</summary>
-        public static Button Button(string text, Action onClick, bool primary = false)
+        /// <summary>
+        /// A touch-sized button; <paramref name="primary"/> ones are yellow, for the main action on a
+        /// page. Pressing it plays <paramref name="sound"/>: by default a confirm for primary buttons
+        /// and a tap for the rest.
+        /// </summary>
+        public static Button Button(string text, Action onClick, bool primary = false, UiSound? sound = null)
         {
-            var button = new Button(onClick) { text = text };
+            // Primary buttons start something, so they confirm; the rest tick (design doc §13).
+            UiSound tick = sound ?? (primary ? UiSound.Confirm : UiSound.Tap);
+            var button = new Button(() =>
+            {
+                GameAudio.Play(tick);
+                onClick?.Invoke();
+            }) { text = text };
             Color normal = primary ? Accent : ButtonColour;
             Color pressed = primary ? AccentPressed : ButtonPressed;
             button.style.height = ButtonHeight;
@@ -199,7 +211,11 @@ namespace CarRacer.Game.Ui
             }
             else
             {
-                cell.RegisterCallback<ClickEvent>(_ => onPick?.Invoke());
+                cell.RegisterCallback<ClickEvent>(_ =>
+                {
+                    GameAudio.Play(UiSound.Tap);
+                    onPick?.Invoke();
+                });
             }
 
             return cell;

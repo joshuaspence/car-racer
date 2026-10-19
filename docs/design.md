@@ -500,6 +500,10 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
     stack of harmonics pulsing like an engine's firing. Every car has one, its pitch and loudness
     rising with speed (`SoundRules`) and a touch higher while boosting; other cars' fade with
     distance, and each car's note is slightly different so several don't drone in unison.
+  - **Menu ticks** are made in code too (`UiTone`), so there are no clips to ship: every button
+    plays one as it is pressed, at the sound-effects volume. Ordinary buttons tick high, Back and
+    leaving a screen or cup tick lower, and the main action on a page (a yellow button) plays two
+    rising notes. Each is a sine note or two, under 0.2 s, faded to silence so it never clicks.
 
 ## 14. Devices and performance
 
@@ -555,6 +559,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
 | **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
 | **M10: UI and tidy-up** | Every screen and the driving HUD on UI Toolkit instead of IMGUI (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
+| **M11: First-run polish** | Menu sounds, fades between screens, and a "how to drive" overlay the first time on the track. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using CarRacer.Core.Audio;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Core.Scoring;
@@ -159,7 +160,7 @@ namespace CarRacer.Game.Net
                 panel.Add(UiKit.Text(table.Standings.Count > 0 ? $"{table.Standings[0].Name} wins the {table.CupName}!" : string.Empty, 20, UiKit.Accent, bold: true));
                 if (_session.IsHost)
                 {
-                    panel.Add(UiKit.Button("Back to lobby", Finish, primary: true));
+                    panel.Add(UiKit.Button("Back to lobby", Finish, primary: true, sound: UiSound.Back));
                 }
 
                 return panel;
@@ -183,7 +184,7 @@ namespace CarRacer.Game.Net
                         // Leaving keeps the save, so the cup can be resumed from the lobby.
                         Run = null;
                         ((HostRace)_session.Race).ReturnToLobby();
-                    })));
+                    }, sound: UiSound.Back)));
             }
 
             return panel;

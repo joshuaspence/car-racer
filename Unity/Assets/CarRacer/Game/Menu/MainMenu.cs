@@ -201,7 +201,7 @@ namespace CarRacer.Game.Menu
             var row = UiKit.Row();
             row.Add(UiKit.Heading(title));
             row.Add(UiKit.Grow());
-            var button = UiKit.Button("Back", () => GoTo(back));
+            var button = UiKit.Button("Back", () => GoTo(back), sound: UiSound.Back);
             button.style.width = 140f;
             row.Add(button);
             panel.Add(row);
