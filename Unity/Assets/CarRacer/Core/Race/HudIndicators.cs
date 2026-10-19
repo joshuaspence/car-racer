@@ -72,7 +72,7 @@ namespace CarRacer.Core.Race
         public static float Closeness(float distance) =>
             Math.Max(0f, Math.Min(1f, (Range - distance) / (Range - NearDistance)));
 
-        /// <summary>The nearest Missile chasing <paramref name="playerId"/> within <see cref="MissileWarningRange"/>, if any.</summary>
+        /// <summary>The nearest Missile or Seeker chasing <paramref name="playerId"/> within <see cref="MissileWarningRange"/>, if any.</summary>
         public static bool TryIncomingMissile(IReadOnlyList<ProjectileSnapshot> projectiles, byte playerId, Vec3 me, out ProjectileSnapshot missile, out float distance)
         {
             missile = default;
@@ -80,7 +80,7 @@ namespace CarRacer.Core.Race
             bool found = false;
             foreach (var p in projectiles)
             {
-                if (p.Kind != ItemKind.Missile || p.TargetId != playerId)
+                if (!ProjectileRules.IsHoming(p.Kind) || p.TargetId != playerId)
                 {
                     continue;
                 }

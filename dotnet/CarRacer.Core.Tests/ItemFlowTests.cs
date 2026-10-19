@@ -54,7 +54,7 @@ namespace CarRacer.Core.Tests
 
     public class ItemFlowTests
     {
-        private const ushort Version = 17;
+        private const ushort Version = 18;
         private const ulong GuestConnection = 7;
         private const long GuestClockBehindMs = 1_000_000;
 
@@ -566,6 +566,111 @@ namespace CarRacer.Core.Tests
             Assert.Empty(_guestHits);
             Assert.Empty(_hostItems.Projectiles);
             Assert.Single(_hostLink.Sent.OfType<HazardGoneMessage>());
+        }
+
+        [Fact]
+        public void LightningStrikesEveryCarAheadWhereverItIs()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[leader] = new Vec3(0f, 0.6f, 500f); // nowhere near
+            _cars[second] = Vec3.Zero;
+            GiveAndUse(second, ItemKind.Lightning, _cars[second]);
+
+            var hit = Assert.Single(leader == _host.HostPlayerId ? _hostHits : _guestHits);
+            Assert.True(hit.IsItemHit);
+            Assert.Equal(second, hit.AttackerId);
+            Assert.Equal(ItemEffects.LightningImpulse, hit.Impulse);
+            Assert.Empty(second == _host.HostPlayerId ? _hostHits : _guestHits); // never the user
+        }
+
+        [Fact]
+        public void TheLeadersLightningStrikesNobody()
+        {
+            StartRacing();
+            var (leader, _) = Standings();
+            GiveAndUse(leader, ItemKind.Lightning, Vec3.Zero);
+            Assert.Empty(_hostHits);
+            Assert.Empty(_guestHits);
+        }
+
+        [Fact]
+        public void LightningAndSeekersLeaveCarsThatHaveFinishedAlone()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            var tracker = _hostRace.Tracker;
+            for (int i = 0; !tracker.Get(leader).IsFinished && i < 1000; i++)
+            {
+                tracker.ReportCheckpoint(leader, tracker.Get(leader).NextCheckpoint, 1000 + i);
+            }
+
+            _now += HostRace.StandingsIntervalMs;
+            Tick();
+            Assert.NotEqual(0, _hostRace.Standings.Order.Find(e => e.PlayerId == leader).FinishPosition);
+
+            GiveAndUse(second, ItemKind.Lightning, Vec3.Zero);
+            Assert.Empty(_hostHits);
+            Assert.Empty(_guestHits);
+
+            GiveAndUse(second, ItemKind.Seeker, Vec3.Zero);
+            Advance(100);
+            Assert.Equal(ProjectileRules.NoTarget, Assert.Single(_guestItems.Projectiles).TargetId);
+        }
+
+        [Fact]
+        public void AFakeBoxSitsBehindOnBothPhonesAndCatchesTheFirstCarOnceArmed()
+        {
+            StartRacing();
+            var drop = new Vec3(0f, 0.6f, 10f);
+            GiveAndUse(GuestId, ItemKind.FakeBox, drop);
+            var onHost = Assert.Single(_hostItems.Hazards.Active);
+            var onGuest = Assert.Single(_guestItems.Hazards.Active);
+            Assert.Equal(ItemKind.FakeBox, onHost.Item);
+            Assert.Equal(ItemKind.FakeBox, onGuest.Item);
+
+            _cars[_host.HostPlayerId] = onHost.Position;
+            _now += ItemEffects.OilArmMs;
+            Tick();
+            var hit = Assert.Single(_hostHits);
+            Assert.Equal(GuestId, hit.AttackerId);
+            Assert.Equal(ItemEffects.FakeBoxImpulse, hit.Impulse);
+            Assert.Empty(_hostItems.Hazards.Active);
+            Assert.Empty(_guestItems.Hazards.Active);
+        }
+
+        [Fact]
+        public void ASeekerPassesOtherCarsAndBlowsUpOnTheLeader()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[second] = new Vec3(0f, 0.6f, 0f);
+            _cars[leader] = new Vec3(0f, 0.6f, 120f);
+            GiveAndUse(second, ItemKind.Seeker, _cars[second]);
+            Advance(100);
+            Assert.Equal(leader, Assert.Single(_guestItems.Projectiles).TargetId);
+
+            Advance(3000);
+            var hit = Assert.Single(leader == _host.HostPlayerId ? _hostHits : _guestHits);
+            Assert.Equal(second, hit.AttackerId);
+            Assert.True(hit.IsItemHit);
+            Assert.Empty(second == _host.HostPlayerId ? _hostHits : _guestHits);
+            Assert.Empty(_hostItems.Projectiles);
+            Assert.Empty(_guestItems.Projectiles);
+        }
+
+        [Fact]
+        public void TheLeadersSeekerGoesForSecondPlace()
+        {
+            StartRacing();
+            var (leader, second) = Standings();
+            _cars[leader] = new Vec3(0f, 0.6f, 0f);
+            _cars[second] = new Vec3(0f, 0.6f, -40f); // behind the leader
+            GiveAndUse(leader, ItemKind.Seeker, _cars[leader]);
+            Advance(100);
+            Assert.Equal(second, Assert.Single(_guestItems.Projectiles).TargetId);
+            Advance(4000);
+            Assert.Single(second == _host.HostPlayerId ? _hostHits : _guestHits);
         }
 
         [Fact]

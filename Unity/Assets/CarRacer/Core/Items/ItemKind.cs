@@ -1,6 +1,6 @@
 namespace CarRacer.Core.Items
 {
-    /// <summary>The six items (design doc §8). The values travel in network messages, so don't reorder them.</summary>
+    /// <summary>The nine items (design doc §8). The values travel in network messages, so don't reorder them.</summary>
     public enum ItemKind : byte
     {
         None = 0,
@@ -22,6 +22,15 @@ namespace CarRacer.Core.Items
 
         /// <summary>A lobbed projectile that bounces and explodes.</summary>
         Bomb = 6,
+
+        /// <summary>Strikes every car ahead in the standings at once.</summary>
+        Lightning = 7,
+
+        /// <summary>A hazard dropped behind the car that looks like an item box.</summary>
+        FakeBox = 8,
+
+        /// <summary>A fast projectile that hunts down the race leader.</summary>
+        Seeker = 9,
     }
 
     public static class ItemNames
@@ -43,6 +52,12 @@ namespace CarRacer.Core.Items
                     return "OIL";
                 case ItemKind.Bomb:
                     return "BOMB";
+                case ItemKind.Lightning:
+                    return "BOLT";
+                case ItemKind.FakeBox:
+                    return "FAKE";
+                case ItemKind.Seeker:
+                    return "SEEKER";
                 default:
                     return "ITEM";
             }

@@ -89,6 +89,18 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void ASeekerChasingThisCarWarnsLikeAMissile()
+        {
+            var projectiles = new List<ProjectileSnapshot>
+            {
+                new ProjectileSnapshot { EffectId = 8, Kind = ItemKind.Seeker, Position = Me + new Vec3(0f, 0f, -30f), TargetId = 2 },
+            };
+
+            Assert.True(HudIndicators.TryIncomingMissile(projectiles, 2, Me, out var seeker, out _));
+            Assert.Equal(8, seeker.EffectId);
+        }
+
+        [Fact]
         public void NoWarningForMissilesFarAwayOrChasingOthers()
         {
             var projectiles = new List<ProjectileSnapshot>

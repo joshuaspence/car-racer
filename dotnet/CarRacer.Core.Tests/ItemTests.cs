@@ -48,15 +48,44 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void OnlyTheBackOfThePackGetsLightningOrASeekerAndOnlyTheFrontAFakeBox()
+        {
+            Assert.Equal(0f, OddsOf(ItemKind.Lightning, 0f));
+            Assert.Equal(0f, OddsOf(ItemKind.Seeker, 0f));
+            Assert.Equal(0f, OddsOf(ItemKind.FakeBox, 1f));
+            Assert.True(OddsOf(ItemKind.Lightning, 1f) > 0f);
+            Assert.True(OddsOf(ItemKind.Seeker, 1f) > 0f);
+            Assert.True(OddsOf(ItemKind.FakeBox, 0f) > 0f);
+
+            // Every item can turn up for someone in the middle of the pack.
+            foreach (var kind in ItemRoll.Kinds)
+            {
+                Assert.True(OddsOf(kind, 0.5f) > 0f, kind.ToString());
+            }
+        }
+
+        [Fact]
+        public void EveryItemHasItsOwnLabel()
+        {
+            var labels = new HashSet<string>();
+            foreach (var kind in ItemRoll.Kinds)
+            {
+                string label = ItemNames.Label(kind);
+                Assert.NotEqual("ITEM", label);
+                Assert.True(labels.Add(label), label);
+            }
+        }
+
+        [Fact]
         public void CatchUpItemsGetLikelierFurtherBack()
         {
-            foreach (var kind in new[] { ItemKind.Boost, ItemKind.Missile, ItemKind.Shockwave })
+            foreach (var kind in new[] { ItemKind.Boost, ItemKind.Missile, ItemKind.Shockwave, ItemKind.Lightning, ItemKind.Seeker })
             {
                 Assert.True(OddsOf(kind, 1f) > OddsOf(kind, 0.5f), kind.ToString());
                 Assert.True(OddsOf(kind, 0.5f) > OddsOf(kind, 0f), kind.ToString());
             }
 
-            foreach (var kind in new[] { ItemKind.Shield, ItemKind.OilSlick })
+            foreach (var kind in new[] { ItemKind.Shield, ItemKind.OilSlick, ItemKind.FakeBox })
             {
                 Assert.True(OddsOf(kind, 0f) > OddsOf(kind, 1f), kind.ToString());
             }
@@ -85,10 +114,11 @@ namespace CarRacer.Core.Tests
         [Fact]
         public void TheEdgesOfTheRangeStillGiveAnItemWithOdds()
         {
+            // The leader's last item with odds is the Fake box; last place's is the Seeker.
             Assert.Equal(ItemKind.Boost, ItemRoll.Roll(1, 6, 0.0));
-            Assert.Equal(ItemKind.Bomb, ItemRoll.Roll(1, 6, 0.9999999));
+            Assert.Equal(ItemKind.FakeBox, ItemRoll.Roll(1, 6, 0.9999999));
             Assert.NotEqual(ItemKind.OilSlick, ItemRoll.Roll(6, 6, 0.9999999));
-            Assert.Equal(ItemKind.Bomb, ItemRoll.Roll(6, 6, 1.0));
+            Assert.Equal(ItemKind.Seeker, ItemRoll.Roll(6, 6, 1.0));
         }
 
         [Fact]
@@ -289,7 +319,7 @@ namespace CarRacer.Core.Tests
         public void HazardsArmTouchAndExpire()
         {
             var field = new HazardField();
-            field.AddOil(new ItemUsedMessage { EffectId = 3, PlayerId = 1, Position = new Vec3(0f, 0.6f, 10f) }, 1000);
+            field.AddDropped(new ItemUsedMessage { EffectId = 3, PlayerId = 1, Position = new Vec3(0f, 0.6f, 10f) }, 1000);
             var oil = field.Active[0].Position;
             Assert.False(field.TryFindTouched(oil, 1000 + ItemEffects.OilArmMs - 1, out _));
             Assert.True(field.TryFindTouched(oil + new Vec3(ItemEffects.OilRadius - 0.1f, 0f, 0f), 1000 + ItemEffects.OilArmMs, out var hazard));
@@ -300,12 +330,29 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void AFakeBoxSitsBehindTheCarAndCatchesAtABoxsReach()
+        {
+            var field = new HazardField();
+            field.AddDropped(new ItemUsedMessage { EffectId = 4, PlayerId = 1, Item = ItemKind.FakeBox, Position = new Vec3(0f, 0.6f, 10f) }, 0);
+            var fake = Assert.Single(field.Active);
+            Assert.Equal(ItemKind.FakeBox, fake.Item);
+            Assert.True(fake.Position.ApproximatelyEquals(ItemEffects.OilPosition(new Vec3(0f, 0.6f, 10f), 0f)));
+
+            long armed = ItemEffects.OilArmMs;
+            Assert.True(field.TryFindTouched(fake.Position + new Vec3(ItemEffects.FakeBoxRadius - 0.1f, 0f, 0f), armed, out _));
+            Assert.False(field.TryFindTouched(fake.Position + new Vec3(ItemEffects.FakeBoxRadius + 0.1f, 0f, 0f), armed, out _));
+            Assert.True(ItemEffects.IsDropped(ItemKind.FakeBox));
+            Assert.True(ItemEffects.IsDropped(ItemKind.OilSlick));
+            Assert.False(ItemEffects.IsDropped(ItemKind.Bomb));
+        }
+
+        [Fact]
         public void AddingTheSameEffectTwiceKeepsOneHazard()
         {
             var field = new HazardField();
             var used = new ItemUsedMessage { EffectId = 3 };
-            field.AddOil(used, 0);
-            field.AddOil(used, 10);
+            field.AddDropped(used, 0);
+            field.AddDropped(used, 10);
             Assert.Single(field.Active);
             Assert.True(field.Remove(3));
             Assert.False(field.Remove(3));
@@ -361,6 +408,24 @@ namespace CarRacer.Core.Tests
             }
 
             Assert.Fail("the missile never reached its target");
+        }
+
+        [Fact]
+        public void ASeekerIsFasterNimblerAndLongerLivedThanAMissile()
+        {
+            var s = ProjectileRules.LaunchSeeker(Used(ItemKind.Seeker), 1, 1000);
+            Assert.Equal(ItemKind.Seeker, s.Kind);
+            Assert.Equal(1000 + ProjectileRules.SeekerLifetimeMs, s.ExpiresAtMs);
+            Assert.True(ProjectileRules.SeekerSpeed > ProjectileRules.MissileSpeed);
+            Assert.True(ProjectileRules.SeekerLifetimeMs > ProjectileRules.MissileLifetimeMs);
+
+            var target = new Vec3(-50f, 0.6f, s.Position.Z); // hard left
+            s = ProjectileRules.Step(s, Dt, true, target);
+            float turned = MathF.Atan2(s.Velocity.X, s.Velocity.Z) * 180f / MathF.PI;
+            Assert.Equal(-ProjectileRules.SeekerTurnDegreesPerSecond * Dt, turned, 2);
+            Assert.Equal(ProjectileRules.SeekerSpeed, s.Velocity.Length, 2);
+            Assert.True(ProjectileRules.IsHoming(ItemKind.Seeker));
+            Assert.False(ProjectileRules.IsHoming(ItemKind.Bomb));
         }
 
         [Fact]

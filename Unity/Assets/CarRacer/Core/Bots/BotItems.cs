@@ -21,7 +21,8 @@ namespace CarRacer.Core.Bots
     /// <summary>
     /// When a bot uses its item (design doc §9: "use items opportunistically"). Each item waits for
     /// its moment: Boost on a straight, Shockwave with a rival close by, Missile when there is a car
-    /// ahead, Oil with a rival behind, Bomb with a rival in front. Nothing is used before the bot's
+    /// ahead, Oil or a Fake box with a rival behind, Bomb with a rival in front, Lightning and Seeker
+    /// whenever anyone is ahead in the standings. Nothing is used before the bot's
     /// skill delay, and anything held too long is used anyway.
     /// </summary>
     public static class BotItems
@@ -60,6 +61,11 @@ namespace CarRacer.Core.Bots
                     return situation.NearestBehind <= OilRange;
                 case ItemKind.Bomb:
                     return situation.NearestAhead <= BombRange;
+                case ItemKind.FakeBox:
+                    return situation.NearestBehind <= OilRange;
+                case ItemKind.Lightning:
+                case ItemKind.Seeker:
+                    return situation.HasCarAhead;
                 default:
                     return false;
             }
