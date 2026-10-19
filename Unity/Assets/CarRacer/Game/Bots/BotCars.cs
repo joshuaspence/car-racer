@@ -188,7 +188,7 @@ namespace CarRacer.Game.Bots
             }
 
             bot.HeldSeconds += Time.fixedDeltaTime;
-            if (!BotItems.ShouldUse(held, bot.HeldSeconds, bot.Skill, Situation(bot, race)))
+            if (bot.Car.Damage.Wrecked || !BotItems.ShouldUse(held, bot.HeldSeconds, bot.Skill, Situation(bot, race)))
             {
                 return;
             }

@@ -182,7 +182,7 @@ takes touches, and it sits under the performance readout.
     performance factor; boosts still add their full speed). At 100% the car is **wrecked**: it gets
     no input and slides to a stop, with "Wrecked! n" on its phone, a bang, and heavy smoke, then
     after 2 s it is mended where it stands, so a wreck costs time, not position. Nothing more lands
-    on a wreck.
+    on a wreck, and a wreck can't use its item (it keeps it for later).
   - **Mending:** after 3 s without a hit, damage mends at 5% a second. A race start or a
     respawn mends it.
   - **Showing it:** the top bar shows "Damage n%". Every phone sees smoke from damaged cars (light
