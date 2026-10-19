@@ -42,7 +42,8 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
-            (body ?? CarModels.Race).Stats.ApplyTo(car.Tuning);
+            car.BodyStats = (body ?? CarModels.Race).Stats;
+            car.UseBodyStats(true);
             car.Smoke = CarSmoke.Build(root.transform);
             car.WreckedNow += () => GameAudio.PlayAt("explosion", car.transform.position, 0.8f);
             if (haptics)
@@ -99,7 +100,8 @@ namespace CarRacer.Game.Driving
             var controller = car.GetComponent<CarController>();
             if (controller != null)
             {
-                (body ?? CarModels.Race).Stats.ApplyTo(controller.Tuning);
+                controller.BodyStats = (body ?? CarModels.Race).Stats;
+                controller.UseBodyStats(true);
             }
         }
 

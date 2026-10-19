@@ -28,6 +28,9 @@ namespace CarRacer.Core.Race
         /// <summary>Which track a race is on (an index into the game's track list); set by each countdown.</summary>
         int TrackIndex { get; }
 
+        /// <summary>The host's rules for the current event, as they apply in its mode; set by each countdown.</summary>
+        EventRules Rules { get; }
+
         /// <summary>The start slot (grid slot, or spot round an arena) of <paramref name="playerId"/> in the current event.</summary>
         int GridSlotOf(byte playerId);
 
@@ -107,6 +110,11 @@ namespace CarRacer.Core.Race
         public GameMode Mode { get; private set; }
         public int TrackIndex { get; private set; }
 
+        /// <summary>The rules the next <see cref="Start"/> uses (the host's lobby choices, design doc §11).</summary>
+        public EventRules NextRules { get; set; } = EventRules.Default;
+
+        public EventRules Rules { get; private set; } = EventRules.Default;
+
         /// <summary>Player ids from pole back, for the current event.</summary>
         public IReadOnlyList<byte> GridOrder => _gridOrder;
 
@@ -185,7 +193,8 @@ namespace CarRacer.Core.Race
             _nextStandingsMs = StartAtLocalMs;
             _session.EventInProgress = true;
             Phase = RacePhase.Countdown;
-            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex, GridOrder = new List<byte>(_gridOrder) }, reliable: true);
+            Rules = NextRules.For(mode);
+            _session.Broadcast(new RaceCountdownMessage { StartAtHostMs = StartAtLocalMs, LapCount = (byte)laps, Mode = mode, TrackIndex = (byte)trackIndex, GridOrder = new List<byte>(_gridOrder), Rules = Rules.ToByte() }, reliable: true);
             return true;
         }
 
@@ -418,6 +427,7 @@ namespace CarRacer.Core.Race
         public int LapCount { get; private set; }
         public GameMode Mode { get; private set; }
         public int TrackIndex { get; private set; }
+        public EventRules Rules { get; private set; } = EventRules.Default;
         public long StartAtLocalMs { get; private set; }
         public StandingsMessage Standings { get; private set; }
         public RaceResultsMessage Results { get; private set; }
@@ -462,6 +472,7 @@ namespace CarRacer.Core.Race
                     LapCount = countdown.LapCount;
                     Mode = countdown.Mode;
                     TrackIndex = countdown.TrackIndex;
+                    Rules = EventRules.FromByte(countdown.Rules).For(countdown.Mode);
                     _gridOrder = countdown.GridOrder;
                     CupStandings = null;
                     StartAtLocalMs = _session.Clock.ToLocalTime(countdown.StartAtHostMs);

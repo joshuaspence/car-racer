@@ -54,6 +54,12 @@ namespace CarRacer.Game.Driving
         /// <summary>The smoke that shows this car's damage, if it has any.</summary>
         public CarSmoke Smoke;
 
+        /// <summary>Its body's handling ratings (design doc §4), applied unless the host turns car stats off.</summary>
+        public CarStats BodyStats = CarStats.Balanced;
+
+        /// <summary>Drives with <see cref="BodyStats"/>, or, with car stats off for the event (design doc §11), like every other car.</summary>
+        public void UseBodyStats(bool on) => (on ? BodyStats : CarStats.Balanced).ApplyTo(Tuning);
+
         /// <summary>
         /// Whether hits damage the car: on in a race and in practice, off in the lobby and the arenas,
         /// which have their own rules. Turning it off mends the car.

@@ -6,7 +6,8 @@ namespace CarRacer.Game.Items
 {
     /// <summary>
     /// Shows the track's item boxes (design doc §8): spinning yellow cubes that disappear while
-    /// taken and come back when the host says they respawn. Which boxes are up comes from the
+    /// taken and come back when the host says they respawn, and are gone for an event the host
+    /// has turned items off for. Which boxes are up comes from the
     /// session's <see cref="IItemView"/>.
     /// </summary>
     public sealed class ItemBoxes : MonoBehaviour
@@ -45,7 +46,7 @@ namespace CarRacer.Game.Items
             var spin = Quaternion.Euler(0f, SpinDegreesPerSecond * Time.deltaTime, 0f);
             for (int i = 0; i < _boxes.Length; i++)
             {
-                bool up = _items.Boxes.IsUp(i, now);
+                bool up = _items.BoxesShown && _items.Boxes.IsUp(i, now);
                 if (_boxes[i].gameObject.activeSelf != up)
                 {
                     _boxes[i].gameObject.SetActive(up);

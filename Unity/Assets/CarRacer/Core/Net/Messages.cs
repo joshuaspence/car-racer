@@ -197,6 +197,9 @@ namespace CarRacer.Core.Net
         /// <summary>Player ids from pole back (design doc §10's reverse grid); anyone missing starts on the slot of their id.</summary>
         public List<byte> GridOrder = new List<byte>();
 
+        /// <summary>The host's rules for the event (<see cref="CarRacer.Core.Race.EventRules"/>), as a byte.</summary>
+        public byte Rules;
+
         public MessageType Type => MessageType.RaceCountdown;
 
         public void Write(NetWriter w)
@@ -210,6 +213,8 @@ namespace CarRacer.Core.Net
             {
                 w.WriteByte(id);
             }
+
+            w.WriteByte(Rules);
         }
 
         public static RaceCountdownMessage Read(NetReader r)
@@ -227,6 +232,7 @@ namespace CarRacer.Core.Net
                 message.GridOrder.Add(r.ReadByte());
             }
 
+            message.Rules = r.ReadByte();
             return message;
         }
     }
