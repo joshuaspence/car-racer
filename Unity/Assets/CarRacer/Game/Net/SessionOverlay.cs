@@ -1,6 +1,7 @@
 using System.Text;
 using CarRacer.Core.Arena;
 using CarRacer.Core.Art;
+using CarRacer.Core.Audio;
 using CarRacer.Core.Bots;
 using CarRacer.Core.Discovery;
 using CarRacer.Core.Items;
@@ -828,7 +829,7 @@ namespace CarRacer.Game.Net
             panel.Add(UiKit.Space(16f));
             if (_session.IsHost && _cup.Run == null)
             {
-                panel.Add(UiKit.Button("Back to lobby", () => ((HostRace)race).ReturnToLobby(), primary: true));
+                panel.Add(UiKit.Button("Back to lobby", () => ((HostRace)race).ReturnToLobby(), primary: true, sound: UiSound.Back));
             }
             else if (!_session.IsHost && table == null)
             {

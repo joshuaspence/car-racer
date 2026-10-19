@@ -54,5 +54,16 @@ namespace CarRacer.Tests
             Assert.AreEqual(1, clip.channels);
             Assert.Greater(clip.samples, 0);
         }
+
+        [Test]
+        public void EveryMenuTickIsMadeInCode()
+        {
+            foreach (UiSound sound in System.Enum.GetValues(typeof(UiSound)))
+            {
+                var clip = GameAudio.UiClip(sound);
+                Assert.AreEqual(1, clip.channels, sound.ToString());
+                Assert.AreEqual(UiTone.Make(sound).Length, clip.samples, sound.ToString());
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CarRacer.Core.Audio;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
 using CarRacer.Core.Platform;
@@ -138,7 +139,7 @@ namespace CarRacer.Game.Screens
                 bar.Add(UiKit.Space(12f));
             }
 
-            bar.Add(TopButton("Back", 136f, () => Bootstrap.ShowMainMenu()));
+            bar.Add(TopButton("Back", 136f, () => Bootstrap.ShowMainMenu(), UiSound.Back));
             _layer.Safe.Add(bar);
         }
 
@@ -154,9 +155,9 @@ namespace CarRacer.Game.Screens
             return label;
         }
 
-        private static Button TopButton(string text, float width, System.Action onClick)
+        private static Button TopButton(string text, float width, System.Action onClick, UiSound sound = UiSound.Tap)
         {
-            var button = UiKit.Button(text, onClick);
+            var button = UiKit.Button(text, onClick, sound: sound);
             button.style.width = width;
             button.style.height = 52f;
             button.style.fontSize = Accessibility.Text(22);

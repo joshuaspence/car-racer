@@ -7,7 +7,8 @@ namespace CarRacer.Game.Audio
     /// <summary>
     /// Sound effects (design doc §13): CC0 clips from Kenney in <c>Resources/Audio</c>, played
     /// where they happen or, for this phone's own car, straight to the speaker; the engine's note
-    /// made in code (<see cref="EngineTone"/>); and the sound-effects volume, remembered.
+    /// and the menu ticks made in code (<see cref="EngineTone"/>, <see cref="UiTone"/>); and the
+    /// sound-effects volume, remembered.
     /// </summary>
     public static class GameAudio
     {
@@ -21,6 +22,7 @@ namespace CarRacer.Game.Audio
         };
 
         private static readonly Dictionary<string, AudioClip> Clips = new Dictionary<string, AudioClip>();
+        private static readonly Dictionary<UiSound, AudioClip> UiClips = new Dictionary<UiSound, AudioClip>();
         private static AudioClip _engine;
         private static AudioSource _speaker;
 
@@ -76,11 +78,37 @@ namespace CarRacer.Game.Audio
         public static void Play(string name, float volume = 1f)
         {
             var clip = Clip(name);
-            if (clip == null || Volume <= 0f)
+            if (clip != null && Volume > 0f)
             {
-                return;
+                Speaker().PlayOneShot(clip, volume * Volume);
+            }
+        }
+
+        /// <summary>Plays a menu control's tick, at the sound-effects volume.</summary>
+        public static void Play(UiSound sound)
+        {
+            if (Volume > 0f)
+            {
+                Speaker().PlayOneShot(UiClip(sound), Volume);
+            }
+        }
+
+        /// <summary>A menu tick's clip, made once.</summary>
+        public static AudioClip UiClip(UiSound sound)
+        {
+            if (!UiClips.TryGetValue(sound, out var clip) || clip == null)
+            {
+                float[] samples = UiTone.Make(sound);
+                clip = AudioClip.Create(sound.ToString(), samples.Length, 1, UiTone.SampleRate, false);
+                clip.SetData(samples, 0);
+                UiClips[sound] = clip;
             }
 
+            return clip;
+        }
+
+        private static AudioSource Speaker()
+        {
             if (_speaker == null)
             {
                 var host = new GameObject("Speaker");
@@ -90,7 +118,7 @@ namespace CarRacer.Game.Audio
                 _speaker.spatialBlend = 0f;
             }
 
-            _speaker.PlayOneShot(clip, volume * Volume);
+            return _speaker;
         }
     }
 }
