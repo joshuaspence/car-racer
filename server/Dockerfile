@@ -8,10 +8,14 @@
 # which don't cross Docker's bridge network.
 FROM ubuntu:22.04
 
+# ~/.config is where the settings volume mounts: made here with the right owner, so Docker gives a
+# new volume that owner too (otherwise it would be root's, and the server couldn't save).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home carracer
+    && useradd --create-home carracer \
+    && mkdir -p /home/carracer/.config \
+    && chown carracer:carracer /home/carracer/.config
 
 COPY --chown=carracer:carracer . /opt/car-racer/
 RUN chmod +x /opt/car-racer/CarRacer /opt/car-racer/run-server.sh
