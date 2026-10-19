@@ -601,4 +601,4 @@ leader).
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | Later | Google Play internal testing track. |
 
-Not planned: internet play, accounts, analytics, host migration, car stat differences.
+Not planned: internet play, accounts, analytics, host migration.
