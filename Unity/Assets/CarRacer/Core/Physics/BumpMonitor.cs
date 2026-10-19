@@ -40,7 +40,7 @@ namespace CarRacer.Core.Physics
         /// <summary>Contact radius of a car: a little larger than its physics sphere, so contacts feel generous (design doc §2.2).</summary>
         public const float CarRadius = 1.0f;
 
-        /// <summary>All cars have the same mass (cosmetic cars only, design doc §4).</summary>
+        /// <summary>All cars have the same mass: car stats change handling, not mass (design doc §4).</summary>
         public const float CarMass = 1f;
 
         private readonly BumpSettings _settings;

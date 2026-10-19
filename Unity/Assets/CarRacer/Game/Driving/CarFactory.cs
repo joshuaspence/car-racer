@@ -8,7 +8,8 @@ namespace CarRacer.Game.Driving
     /// <summary>
     /// Builds a car from code: the physics sphere plus the player's Kenney body in their colour
     /// (design doc §11, §13), or a placeholder made of primitives if the model can't be loaded.
-    /// Every body drives the same; only the look differs.
+    /// Each body's handling ratings (<see cref="CarModel.Stats"/>, design doc §4) set the car's
+    /// top speed, acceleration and turn rate.
     /// </summary>
     public static class CarFactory
     {
@@ -41,6 +42,7 @@ namespace CarRacer.Game.Driving
 
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
+            (body ?? CarModels.Race).Stats.ApplyTo(car.Tuning);
             if (haptics)
             {
                 root.AddComponent<CarHaptics>();
@@ -73,7 +75,7 @@ namespace CarRacer.Game.Driving
 
         /// <summary>
         /// Swaps the body and paint of a car made here (design doc §11, picking a car in the lobby),
-        /// leaving the car where it is. Takes the car's root object.
+        /// and its handling with them, leaving the car where it is. Takes the car's root object.
         /// </summary>
         public static void ReplaceBody(GameObject car, Color colour, CarModel body)
         {
@@ -92,6 +94,11 @@ namespace CarRacer.Game.Driving
             }
 
             BuildBody(visual, colour, body);
+            var controller = car.GetComponent<CarController>();
+            if (controller != null)
+            {
+                (body ?? CarModels.Race).Stats.ApplyTo(controller.Tuning);
+            }
         }
 
         private static void BuildBody(Transform visual, Color colour, CarModel body)
