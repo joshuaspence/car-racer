@@ -188,6 +188,10 @@ labels for its text and the top bar's buttons. Nothing uses IMGUI any more.
   lands on it uses the item, once per tap; a finger sliding across it never does.
 - On a track a **Look back** button sits in the top-left corner, below the HUD's text. Like Item,
   only a finger that lands on it presses it, and it holds until that finger lifts.
+- **How to drive:** the first time on the track, a panel of tips (`DrivingTips`) explains steering,
+  braking (or Gas), drifting for a boost, items, Look back and bumping, worded for this phone's
+  setup: which side steers, tilt and auto-accelerate. It stays until "Got it", sits over the lobby,
+  and doesn't stop the car being driven underneath. Settings → "Driving tips" brings it back.
 - **Haptics** on hits, boosts and item impacts (`HapticPatterns`): a bump's pulse grows with how hard
   it was (20–70 ms), a boost's with its tier, and pulses closer than 80 ms are dropped so a
   scrape doesn't buzz. They can be turned off, and the choice is remembered.

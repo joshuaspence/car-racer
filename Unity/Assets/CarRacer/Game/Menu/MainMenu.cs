@@ -7,6 +7,7 @@ using CarRacer.Core.Session;
 using CarRacer.Game.Audio;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Platform;
+using CarRacer.Game.Screens;
 using CarRacer.Game.Ui;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -340,6 +341,9 @@ namespace CarRacer.Game.Menu
             panel.Add(UiKit.EvenRow(
                 Setting(PlayerCarInput.TiltEnabled ? "Tilt steering: on" : "Tilt steering: off", () => PlayerCarInput.TiltEnabled = !PlayerCarInput.TiltEnabled),
                 UiKit.Button("Accessibility", () => GoTo(Page.Accessibility))));
+            panel.Add(UiKit.EvenRow(
+                Setting(DrivingTipsPanel.Label, () => DrivingTipsPanel.Seen = !DrivingTipsPanel.Seen),
+                UiKit.Space(0f)));
             panel.Add(UiKit.Hint("With tilt steering on, turn the phone like a steering wheel; the steering thumb can still steer."));
         }
 
