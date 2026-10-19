@@ -43,6 +43,8 @@ namespace CarRacer.Game.Driving
             var car = root.AddComponent<CarController>();
             car.Initialise(visual);
             (body ?? CarModels.Race).Stats.ApplyTo(car.Tuning);
+            car.Smoke = CarSmoke.Build(root.transform);
+            car.WreckedNow += () => GameAudio.PlayAt("explosion", car.transform.position, 0.8f);
             if (haptics)
             {
                 root.AddComponent<CarHaptics>();

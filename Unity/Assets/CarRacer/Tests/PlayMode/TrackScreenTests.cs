@@ -50,6 +50,37 @@ namespace CarRacer.Tests
         }
 
         [UnityTest]
+        public IEnumerator AWreckedCarStopsThenDrivesAgainOnceMended()
+        {
+            yield return new WaitForSeconds(0.5f);
+            _input.Input = new CarInput(0f, 1f);
+            yield return new WaitForSeconds(1f);
+            Assert.That(Car.ForwardSpeed, Is.GreaterThan(8f));
+
+            // Practice takes damage; four item hits wreck the car.
+            Assert.IsTrue(Car.DamageEnabled);
+            for (int i = 0; i < 4; i++)
+            {
+                Car.TakeItemHit();
+            }
+
+            Assert.IsTrue(Car.Damage.Wrecked);
+            yield return new WaitForSeconds(1.5f);
+            Assert.That(Car.ForwardSpeed, Is.LessThan(3f), "a wreck takes no throttle and slides to a stop");
+
+            float giveUp = Time.time + CarDamage.WreckSeconds;
+            while (Car.Damage.Wrecked && Time.time < giveUp)
+            {
+                yield return null;
+            }
+
+            Assert.IsFalse(Car.Damage.Wrecked);
+            Assert.That(Car.Damage.Value, Is.EqualTo(0f));
+            yield return new WaitForSeconds(0.5f);
+            Assert.That(Car.ForwardSpeed, Is.GreaterThan(3f), "mended, it pulls away again");
+        }
+
+        [UnityTest]
         public IEnumerator FullThrottleDrivesDownTheStraight()
         {
             yield return new WaitForSeconds(0.5f);

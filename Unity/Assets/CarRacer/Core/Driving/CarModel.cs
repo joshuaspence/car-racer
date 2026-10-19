@@ -157,7 +157,11 @@ namespace CarRacer.Core.Driving
     /// </summary>
     public static class CarModel
     {
-        public static CarState Step(CarState state, CarInput input, bool grounded, float deltaSeconds, CarTuning tuning)
+        /// <param name="performance">
+        /// The share of top speed and acceleration the car has left: 1 when undamaged, less as
+        /// damage builds (<see cref="CarDamage.PerformanceFactor"/>). Boosts still add their full speed.
+        /// </param>
+        public static CarState Step(CarState state, CarInput input, bool grounded, float deltaSeconds, CarTuning tuning, float performance = 1f)
         {
             float steer = Clamp(input.Steer, -1f, 1f);
             float throttle = Clamp(input.Throttle, -1f, 1f);
@@ -193,7 +197,7 @@ namespace CarRacer.Core.Driving
 
             UpdateDrift(ref state, input.Drift, steer, forwardSpeed, deltaSeconds, tuning);
 
-            forwardSpeed = ApplyThrottle(forwardSpeed, throttle, state, deltaSeconds, tuning);
+            forwardSpeed = ApplyThrottle(forwardSpeed, throttle, state, deltaSeconds, tuning, performance);
 
             float turn = state.Drifting
                 ? state.DriftDirection * Lerp(tuning.DriftMinTurn, tuning.DriftMaxTurn, (steer * state.DriftDirection + 1f) / 2f)
@@ -211,9 +215,10 @@ namespace CarRacer.Core.Driving
             return state;
         }
 
-        private static float ApplyThrottle(float speed, float throttle, CarState state, float dt, CarTuning t)
+        private static float ApplyThrottle(float speed, float throttle, CarState state, float dt, CarTuning t, float performance)
         {
-            float topSpeed = t.MaxSpeed + state.BoostSpeed;
+            float topSpeed = t.MaxSpeed * performance + state.BoostSpeed;
+            float acceleration = t.Acceleration * performance;
             // A boost drives the car up to the boosted top speed unless the player brakes, which always
             // takes priority. Anything above that top speed eases off below, rather than snapping down,
             // unless the player brakes, which uses the full braking rate.
@@ -236,10 +241,10 @@ namespace CarRacer.Core.Driving
                 if (speed < 0f)
                 {
                     float braked = speed + t.Braking * throttle * dt;
-                    return braked <= 0f ? braked : Math.Min(braked, t.Acceleration * throttle * dt);
+                    return braked <= 0f ? braked : Math.Min(braked, acceleration * throttle * dt);
                 }
 
-                return Math.Min(topSpeed, speed + t.Acceleration * throttle * dt);
+                return Math.Min(topSpeed, speed + acceleration * throttle * dt);
             }
 
             if (throttle < 0f)

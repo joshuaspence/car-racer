@@ -33,6 +33,7 @@ namespace CarRacer.Core.Driving
             }
 
             tips.Add("Bump other cars to knock them off your line. Each car in the Garage trades top speed, steering and acceleration.");
+            tips.Add("Crashes and item hits damage your car and slow it down; at 100% it's wrecked for a moment. Keep clean and it mends.");
             return tips;
         }
     }

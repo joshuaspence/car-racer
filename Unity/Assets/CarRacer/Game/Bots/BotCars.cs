@@ -289,6 +289,7 @@ namespace CarRacer.Game.Bots
             foreach (var bump in _bumps)
             {
                 bot.Car.AddImpulse(bump.SelfImpulse.ToUnity());
+                bot.Car.TakeBump(bump.SelfImpulse.ToUnity());
                 _session.SendHit(bump.Fallback);
             }
         }
@@ -307,11 +308,13 @@ namespace CarRacer.Game.Bots
                 case ItemHitOutcome.SpinOut:
                     bot.Car.AddImpulse(hit.Impulse.ToUnity());
                     bot.Car.SpinOut();
+                    bot.Car.TakeItemHit();
                     break;
                 default:
                     if (bot.Bumps.OnHit(hit, bot.PlayerId, NetworkSession.NowMs, out var impulse))
                     {
                         bot.Car.AddImpulse(impulse.ToUnity());
+                        bot.Car.TakeBump(impulse.ToUnity());
                     }
 
                     break;
@@ -342,6 +345,7 @@ namespace CarRacer.Game.Bots
                 }
 
                 bot.Car.InputLocked = phase != RacePhase.Racing;
+                bot.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
             }
 
             _phase = phase;
@@ -381,6 +385,7 @@ namespace CarRacer.Game.Bots
             bot.Detector.Resume(racer != null ? racer.CheckpointsPassed : 0);
             bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
             bot.Car.InputLocked = _session.Race.Phase != RacePhase.Racing;
+            bot.Car.DamageEnabled = _session.Race.Phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
         }
 
         /// <summary>The mode of the event under way, or Race in the lobby.</summary>
@@ -502,6 +507,7 @@ namespace CarRacer.Game.Bots
                     flags |= CarStateFlags.SpunOut;
                 }
 
+                flags |= DamageFlags.For(bot.Car.Damage.SmokeLevel, bot.Car.Damage.Wrecked);
                 _session.SendCarState(new CarStateMessage
                 {
                     PlayerId = bot.PlayerId,
