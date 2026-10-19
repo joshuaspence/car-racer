@@ -15,7 +15,7 @@ same PR.
 |---|---|
 | Where players are | **Same room, same Wi-Fi network** (or the host's phone hotspot). No internet play. |
 | Players per session | **2–6** humans, with bots filling empty slots (see §9). |
-| Topology | **One phone hosts** (server + player); the others join as clients. No dedicated server. |
+| Topology | **One phone hosts** (server + player); the others join as clients. Or a **Linux server** hosts with no player of its own, and the first guest in runs the room (§2.3). |
 | Transport | **Netcode for GameObjects (NGO) 2.x** over **Unity Transport (UDP)**. |
 | Host migration | **None.** If the host leaves, the session ends for everyone. |
 
@@ -107,6 +107,29 @@ cars exactly.
 
 Accepted trade-off: after a hard hit the two phones may briefly disagree by a fraction of a
 metre, then converge within a few frames.
+
+### 2.3 Dedicated host on a server
+
+The host can also run on a Linux machine on the same network instead of a phone, so no phone
+pays the cost of hosting. It is the same session protocol with one difference: the host has no
+player of its own (`HostSession.Dedicated`, `HostPlayerId` is `NoPlayer`).
+
+- **Room leader.** Someone still has to pick the track and press Start. The **first guest in
+  leads**; when they leave, the guest who has been there longest takes over. A leader whose app
+  is away (a bot driving their car, §12) hands over until they're back. The host works this out
+  from the order guests joined (player ids are reused, so they can't say it) and sends it in the
+  roster (`RosterMessage.LeaderId`). On a phone host the leader is always the host's own player.
+- **Settings live on the host.** The next event's settings (`LobbySettings`: mode, laps, track,
+  rules, bot fill and difficulty, single event or cup, reverse grid) are kept by `HostSession` and
+  sent to every phone (`LobbySettingsMessage`), on every change and to each guest as it joins,
+  along with the cup saved on the host so the leader can resume it. Values from a phone are
+  brought back into range first.
+- **Commands.** The leader's phone shows the host's lobby and results buttons; each sends a
+  `LobbyCommandMessage` (change settings, start, resume the saved cup, pause or unpause the cup,
+  next event, leave the cup, back to the lobby). The host ignores commands from anyone else. A
+  phone host's own buttons go through the same path (`HostSession.RunCommand`).
+- **Starting.** The leader may start once everyone else is ready (`LobbyRoster.ReadyToStart`);
+  pressing Start counts as the leader's own Ready, and a leader alone can start a practice race.
 
 ## 3. Engine and tech stack
 
@@ -624,6 +647,7 @@ leader).
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
+| **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. In progress: the room leader, lobby settings and commands in `Core` (protocol 22). |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.
