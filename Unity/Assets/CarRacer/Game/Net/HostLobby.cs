@@ -64,6 +64,15 @@ namespace CarRacer.Game.Net
             }
 
             Run?.Tick();
+
+            // A server whose players have all left (their cars now bots) has nobody to press Back to
+            // lobby, and would refuse every new guest as mid-event; once the event's results are in,
+            // it goes back by itself. A cup in progress is left, keeping its save to resume.
+            if (_session.IsDedicated && _session.LeaderId == HostSession.NoPlayer && Race.Phase == RacePhase.Results)
+            {
+                Run = null;
+                Race.ReturnToLobby();
+            }
         }
 
         private HostRace Race => (HostRace)_session.Race;
