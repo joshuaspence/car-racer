@@ -151,7 +151,10 @@ on it changes; the session screens (`SessionOverlay`, `CupPanel`) rebuild the lo
 when a signature of what they show changes, and update the race status, countdown and item slot
 text every frame. The driving HUD (`RaceHud`) draws its shapes (touch buttons, mini-map, drift
 meter, edge arrows) with the vector painter on one full-screen element repainted every frame, with
-labels for its text and the top bar's buttons. Nothing uses IMGUI any more.
+labels for its text and the top bar's buttons. Nothing uses IMGUI any more. Each new screen fades in from
+black (`ScreenFader`, `ScreenFade`): covered for 0.05 s while it is built, then an eased 0.3 s fade,
+moved on by at most a 30 fps frame at a time so a slow first frame can't skip it. The cover never
+takes touches, and it sits under the performance readout.
 
 ## 4. Driving model
 
@@ -555,6 +558,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M8: Garage and tracks** | A garage of six Car Kit bodies and the colour-blind-safe colours, sent to every phone; two more tracks (Seaside Sweepers, Switchback Hill). |
 | **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
 | **M10: UI and tidy-up** | Every screen and the driving HUD on UI Toolkit instead of IMGUI (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
+| **M11: First-run polish** | Menu sounds, fades between screens, and a "how to drive" overlay the first time on the track. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

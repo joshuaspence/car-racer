@@ -33,6 +33,7 @@ namespace CarRacer.Game
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             GraphicsQuality.Apply();
             PerfOverlay.Install();
+            ScreenFader.Install();
 
             // Fixed 50 Hz physics on every device (design doc §4).
             Time.fixedDeltaTime = 0.02f;
@@ -110,6 +111,7 @@ namespace CarRacer.Game
             }
 
             _screen = screen;
+            ScreenFader.Cover();
         }
     }
 }
