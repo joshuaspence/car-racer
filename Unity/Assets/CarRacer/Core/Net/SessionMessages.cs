@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CarRacer.Core.Session;
 
 namespace CarRacer.Core.Net
 {
@@ -90,6 +91,12 @@ namespace CarRacer.Core.Net
     {
         public List<RosterEntry> Players = new List<RosterEntry>();
 
+        /// <summary>
+        /// Who runs the room (design doc §2.3): the host's own player on a phone, or on a server the
+        /// guest who has been there longest; <see cref="HostSession.NoPlayer"/> when there's nobody.
+        /// </summary>
+        public byte LeaderId = HostSession.NoPlayer;
+
         public MessageType Type => MessageType.Roster;
 
         public void Write(NetWriter w)
@@ -106,6 +113,8 @@ namespace CarRacer.Core.Net
                 w.WriteByte(p.BodyIndex);
                 w.WriteByte(p.TrackVote);
             }
+
+            w.WriteByte(LeaderId);
         }
 
         public static RosterMessage Read(NetReader r)
@@ -127,6 +136,7 @@ namespace CarRacer.Core.Net
                 });
             }
 
+            message.LeaderId = r.ReadByte();
             return message;
         }
     }

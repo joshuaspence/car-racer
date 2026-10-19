@@ -81,6 +81,29 @@ namespace CarRacer.Core.Session
             }
         }
 
+        /// <summary>
+        /// Whether the room leader may start (design doc §2.3, §11): there is a leader and every
+        /// other person (not the host's own player, not a bot) is ready. A leader on their own can
+        /// start, for a practice race.
+        /// </summary>
+        public static bool ReadyToStart(RosterMessage roster)
+        {
+            if (roster.LeaderId == HostSession.NoPlayer)
+            {
+                return false;
+            }
+
+            foreach (var p in roster.Players)
+            {
+                if (p.PlayerId != roster.LeaderId && !p.IsHost && !p.IsBot && !p.Ready)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>Whether the host should accept a guest's <see cref="JoinRequestMessage"/>.</summary>
         public JoinResult CheckJoin(ushort guestProtocolVersion, ushort hostProtocolVersion, bool eventInProgress)
         {

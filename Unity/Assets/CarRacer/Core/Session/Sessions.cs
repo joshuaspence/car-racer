@@ -18,12 +18,21 @@ namespace CarRacer.Core.Session
 
     /// <summary>
     /// The host's side of the session protocol (design doc §2.1): admits or refuses guests,
-    /// keeps the roster, answers clock pings, and relays car states between guests (NGO guests
-    /// can only reach the host). Independent of NGO so it can be unit tested.
+    /// keeps the roster and the next event's settings, answers clock pings, and relays car states
+    /// between guests (NGO guests can only reach the host). On a phone the host is a player too;
+    /// a dedicated host (a server, design doc §2.3) has no player of its own, and the guest who
+    /// has been there longest runs the room. Independent of NGO so it can be unit tested.
     /// </summary>
     public sealed class HostSession
     {
+        /// <summary>No player: a dedicated host's <see cref="HostPlayerId"/>, or the leader of an empty room.</summary>
+        public const byte NoPlayer = byte.MaxValue;
+
         private readonly Dictionary<byte, long> _lastHeardMs = new Dictionary<byte, long>();
+        private readonly List<byte> _joinOrder = new List<byte>();
+        private LobbySettings _settings = LobbySettings.Default;
+        private byte _savedCup;
+        private byte _savedCupDone;
         private readonly HashSet<byte> _away = new HashSet<byte>();
         private readonly ISessionTransport _transport;
         private readonly Func<long> _clockMs;
@@ -35,19 +44,121 @@ namespace CarRacer.Core.Session
             _transport = transport;
             _protocolVersion = protocolVersion;
             _clockMs = clockMs;
-            HostPlayerId = Roster.Add(hostName, isHost: true, car).PlayerId;
+            HostPlayerId = hostName == null ? NoPlayer : Roster.Add(hostName, isHost: true, car).PlayerId;
         }
 
+        /// <summary>A host with no player of its own, on a server (design doc §2.3); the room leader runs the lobby.</summary>
+        public static HostSession Dedicated(ISessionTransport transport, ushort protocolVersion, Func<long> clockMs) =>
+            new HostSession(transport, null, protocolVersion, clockMs);
+
         public LobbyRoster Roster { get; } = new LobbyRoster();
+
+        /// <summary>The host's own player, or <see cref="NoPlayer"/> on a dedicated host.</summary>
         public byte HostPlayerId { get; }
+
+        public bool IsDedicated => HostPlayerId == NoPlayer;
+
+        /// <summary>
+        /// Who runs the room (design doc §2.3): the host's own player, or on a dedicated host the
+        /// guest who joined first and is still driving their own car (one away with a bot at the
+        /// wheel hands over until they're back); <see cref="NoPlayer"/> when there's nobody.
+        /// </summary>
+        public byte LeaderId
+        {
+            get
+            {
+                if (!IsDedicated)
+                {
+                    return HostPlayerId;
+                }
+
+                foreach (byte playerId in _joinOrder)
+                {
+                    var player = Roster.Find(playerId);
+                    if (player != null && !player.IsBot)
+                    {
+                        return playerId;
+                    }
+                }
+
+                return NoPlayer;
+            }
+        }
+
+        /// <summary>The next event's settings (design doc §11), as every phone sees them.</summary>
+        public LobbySettings Settings => _settings;
+
+        /// <summary>True when the leader may start: everyone else is ready (the leader starting counts as their Ready).</summary>
+        public bool CanStart => LobbyRoster.ReadyToStart(RosterMessage());
+
+        /// <summary>A command from the room leader (or the host's own lobby, <see cref="RunCommand"/>) other than changing settings, for the game to carry out.</summary>
+        public event Action<LobbyCommand> LobbyCommandReceived;
 
         /// <summary>While true, new guests are refused (no joining mid-event, design doc §12).</summary>
         public bool EventInProgress { get; set; }
 
         /// <summary>The host's bot fill (design doc §9): bots are added at the start of an event until there are this many cars; 0 for none.</summary>
-        public int BotFill { get; set; }
+        public int BotFill
+        {
+            get => _settings.BotFill;
+            set
+            {
+                var next = _settings;
+                next.BotFill = value;
+                ChangeSettings(next);
+            }
+        }
 
-        public BotDifficulty BotDifficulty { get; set; } = BotDifficulty.Normal;
+        public BotDifficulty BotDifficulty
+        {
+            get => _settings.BotDifficulty;
+            set
+            {
+                var next = _settings;
+                next.BotDifficulty = value;
+                ChangeSettings(next);
+            }
+        }
+
+        /// <summary>Changes the next event's settings (ignored mid-event) and tells everyone. Returns true if they changed.</summary>
+        public bool ChangeSettings(LobbySettings settings)
+        {
+            settings = settings.Clean();
+            if (EventInProgress || settings.Equals(_settings))
+            {
+                return false;
+            }
+
+            _settings = settings;
+            BroadcastSettings();
+            return true;
+        }
+
+        /// <summary>Tells everyone which cup is saved on the host (as <see cref="LobbySettings.Cup"/>, 0 for none) and how far it got.</summary>
+        public void SetSavedCup(int cup, int eventsDone)
+        {
+            if (cup == _savedCup && eventsDone == _savedCupDone)
+            {
+                return;
+            }
+
+            _savedCup = (byte)cup;
+            _savedCupDone = (byte)eventsDone;
+            BroadcastSettings();
+        }
+
+        /// <summary>Carries out a lobby command from the host's own screen, the same way as one from the room leader.</summary>
+        public void RunCommand(LobbyCommand command, LobbySettings settings = default)
+        {
+            if (command == LobbyCommand.ChangeSettings)
+            {
+                ChangeSettings(settings);
+            }
+            else
+            {
+                LobbyCommandReceived?.Invoke(command);
+            }
+        }
 
         /// <summary>An item hit aimed at a bot, which the host drives (see <see cref="SendHit"/>).</summary>
         public event Action<HitMessage> BotHitReceived;
@@ -182,6 +293,7 @@ namespace CarRacer.Core.Session
             {
                 _playerByConnection.Remove(connection);
                 _lastHeardMs.Remove(playerId);
+                _joinOrder.Remove(playerId);
 
                 // Gone for good: an away player's bot keeps the car for the rest of the event.
                 bool wasAway = _away.Remove(playerId);
@@ -272,6 +384,9 @@ namespace CarRacer.Core.Session
                 case ItemUsedMessage used when joined && used.PlayerId == playerId:
                     ItemMessageReceived?.Invoke(used);
                     break;
+                case LobbyCommandMessage command when joined && playerId == LeaderId:
+                    RunCommand(command.Command, command.Settings);
+                    break;
             }
         }
 
@@ -289,7 +404,7 @@ namespace CarRacer.Core.Session
         /// <summary>The host picked another car in the lobby; ignored mid-event. Returns true if it changed.</summary>
         public bool ChangeHostCar(CarChoice car)
         {
-            if (EventInProgress || !Roster.ChangeCar(HostPlayerId, car))
+            if (IsDedicated || EventInProgress || !Roster.ChangeCar(HostPlayerId, car))
             {
                 return false;
             }
@@ -300,6 +415,11 @@ namespace CarRacer.Core.Session
 
         public void SetHostName(string name)
         {
+            if (IsDedicated)
+            {
+                return;
+            }
+
             Roster.Find(HostPlayerId).Name = LobbyRoster.CleanName(name);
             BroadcastRoster();
         }
@@ -316,8 +436,10 @@ namespace CarRacer.Core.Session
 
             var player = Roster.Add(join.PlayerName, car: new CarChoice(join.BodyIndex, join.ColourIndex));
             _playerByConnection[connection] = player.PlayerId;
+            _joinOrder.Add(player.PlayerId);
             _lastHeardMs[player.PlayerId] = _clockMs();
             _transport.Send(connection, new JoinReplyMessage { Result = JoinResult.Accepted, PlayerId = player.PlayerId }, reliable: true);
+            _transport.Send(connection, SettingsMessage(), reliable: true);
             BroadcastRoster();
         }
 
@@ -336,9 +458,28 @@ namespace CarRacer.Core.Session
 
         private void BroadcastRoster()
         {
-            Broadcast(Roster.ToMessage(), reliable: true);
+            Broadcast(RosterMessage(), reliable: true);
             RosterChanged?.Invoke();
         }
+
+        /// <summary>The roster as the guests get it, with the room leader.</summary>
+        public RosterMessage RosterMessage()
+        {
+            var message = Roster.ToMessage();
+            message.LeaderId = LeaderId;
+            return message;
+        }
+
+        private LobbySettingsMessage SettingsMessage() => new LobbySettingsMessage { Settings = _settings, SavedCup = _savedCup, SavedCupDone = _savedCupDone };
+
+        private void BroadcastSettings()
+        {
+            Broadcast(SettingsMessage(), reliable: true);
+            SettingsChanged?.Invoke();
+        }
+
+        /// <summary>Raised after the settings or the saved cup change, whoever changed them.</summary>
+        public event Action SettingsChanged;
 
         /// <summary>Delivers a hit to its target: the host's own car, a bot the host drives, or the guest that owns the target car.</summary>
         public void SendHit(HitMessage hit)
@@ -430,7 +571,16 @@ namespace CarRacer.Core.Session
         public ClockSync Clock { get; } = new ClockSync();
         public bool Ready { get; private set; }
 
+        /// <summary>The host's settings for the next event and its saved cup (design doc §11).</summary>
+        public LobbySettingsMessage Lobby { get; private set; } = new LobbySettingsMessage();
+
+        /// <summary>True when this phone runs the room (design doc §2.3): a dedicated host made it the leader.</summary>
+        public bool IsLeader => State == GuestState.Joined && Roster.LeaderId == PlayerId;
+
         public event Action RosterChanged;
+
+        /// <summary>The host's settings or saved cup changed.</summary>
+        public event Action LobbyChanged;
         public event Action<CarStateMessage> CarStateReceived;
 
         /// <summary>Race messages from the host (countdown, standings, finishes, results, back to lobby); see <c>GuestRace</c>.</summary>
@@ -483,6 +633,10 @@ namespace CarRacer.Core.Session
                 case RosterMessage roster:
                     Roster = roster;
                     RosterChanged?.Invoke();
+                    break;
+                case LobbySettingsMessage lobby:
+                    Lobby = lobby;
+                    LobbyChanged?.Invoke();
                     break;
                 case ClockPongMessage pong:
                     Clock.AddSample(pong.GuestSentMs, pong.HostMs, _clockMs());
@@ -555,6 +709,10 @@ namespace CarRacer.Core.Session
         public void VoteTrack(byte track) => SendToHost(new VoteTrackMessage { TrackIndex = track }, reliable: true);
 
         public void SendCarState(CarStateMessage state) => SendToHost(state, reliable: false);
+
+        /// <summary>The room leader's command to the host (design doc §2.3); the host ignores it from anyone else.</summary>
+        public void SendLobbyCommand(LobbyCommand command, LobbySettings settings = default) =>
+            SendToHost(new LobbyCommandMessage { Command = command, Settings = settings }, reliable: true);
 
         public void SendToHost(IGameMessage message, bool reliable)
         {
