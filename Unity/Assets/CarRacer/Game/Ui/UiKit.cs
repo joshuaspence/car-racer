@@ -90,6 +90,42 @@ namespace CarRacer.Game.Ui
             return button;
         }
 
+        /// <summary>
+        /// A labelled rating bar: <paramref name="value"/> lit segments out of <paramref name="max"/>,
+        /// with the number after them so the rating doesn't rest on colour alone (design doc §6).
+        /// </summary>
+        public static VisualElement Rating(string label, int value, int max, float labelWidth = 170f, float height = 22f, int textSize = 20)
+        {
+            var row = Row();
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = row.style.marginBottom = 2f;
+            row.style.height = height;
+            // The label's room grows with large text, as its words do.
+            var name = Text(label, textSize, Muted);
+            name.style.width = labelWidth * Accessibility.Text(100) / 100f;
+            name.style.flexShrink = 0f;
+            row.Add(name);
+            for (int i = 0; i < max; i++)
+            {
+                var segment = new VisualElement();
+                segment.style.height = height * 0.6f;
+                segment.style.flexGrow = 1f;
+                segment.style.flexBasis = 0f;
+                segment.style.marginRight = 4f;
+                segment.style.backgroundColor = i < value ? Accent : FieldColour;
+                segment.pickingMode = PickingMode.Ignore;
+                Round(segment, 3f);
+                row.Add(segment);
+            }
+
+            var number = Text(value.ToString(), textSize, Color.white);
+            number.style.width = textSize * 1.2f;
+            number.style.flexShrink = 0f;
+            number.style.unityTextAlign = TextAnchor.MiddleRight;
+            row.Add(number);
+            return row;
+        }
+
         /// <summary>A panel of <paramref name="width"/> reference pixels (or as wide as it is given if 0).</summary>
         public static VisualElement Panel(float width = 0f)
         {

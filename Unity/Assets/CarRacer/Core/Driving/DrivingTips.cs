@@ -32,7 +32,7 @@ namespace CarRacer.Core.Driving
                 tips.Add("Hold LOOK BACK to see who's behind you.");
             }
 
-            tips.Add("Bump other cars to knock them off your line. Everyone's car handles the same.");
+            tips.Add("Bump other cars to knock them off your line. Each car in the Garage trades top speed, steering and acceleration.");
             return tips;
         }
     }

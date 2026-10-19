@@ -479,7 +479,9 @@ namespace CarRacer.Game.Net
             const int perRow = 4;
             var panel = UiKit.Panel();
             panel.Add(UiKit.Hint("Your car"));
-            panel.Add(UiKit.Text(CarModels.DisplayName(CarModels.ForIndex(mine.BodyIndex)), 20, Color.white));
+            var body = CarModels.ForIndex(mine.BodyIndex);
+            panel.Add(UiKit.Text(CarModels.DisplayName(body), 20, Color.white));
+            panel.Add(CarStatsView.Build(body.Stats, compact: true));
             panel.Add(UiKit.EvenRow(
                 UiKit.Button("<", () => _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + LobbyRoster.BodyCount - 1) % LobbyRoster.BodyCount), mine.ColourIndex))),
                 UiKit.Button(">", () => _session.ChangeCar(new CarChoice((byte)((mine.BodyIndex + 1) % LobbyRoster.BodyCount), mine.ColourIndex)))));

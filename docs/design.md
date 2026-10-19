@@ -164,7 +164,22 @@ takes touches, and it sits under the performance readout.
   predictable collisions.
 - **Fixed 50 Hz physics on every device.** A 30 fps phone drives identically to a 120 Hz one.
 - **Drift and boost:** hold drift through a corner to charge, release for a boost (charge meter on the HUD).
-- **Cosmetic cars only:** every body has identical handling and mass.
+- **Car stats** (`CarStats`): each garage body has a 1–5 rating for top speed, steering and
+  acceleration, and every body's three add up to 9, so each trades one strength for another and
+  none is better overall. A 3 is the base tuning; each step either side changes top speed by 4%,
+  turn rate by 7% and acceleration by 10%, so the extremes are about ±8% top speed, ±14% turn rate
+  and ±20% acceleration. Mass, grip, drifting and boosts are the same for every car. The ratings are
+  applied where the car is simulated (its owner's phone, or the host for a bot), including when a
+  car changes body in the lobby, and shown as bars in the garage and the lobby's car picker.
+
+  | Body | Top speed | Steering | Acceleration |
+  |---|---|---|---|
+  | Race | 4 | 3 | 2 |
+  | Race future | 5 | 2 | 2 |
+  | Sedan sports | 3 | 3 | 3 |
+  | Hatchback sports | 2 | 5 | 2 |
+  | SUV luxury | 3 | 2 | 4 |
+  | Van | 2 | 3 | 4 |
 
 ## 5. Controls
 
@@ -430,14 +445,15 @@ leader).
    later joiner, and the palette is colour-blind safe.
    - Built so far: six Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
      hatchback sports, SUV luxury and van), each drawn 2.43 m long so they fill the same physics
-     car and drive the same. The choice (`Garage`, remembered on the phone) goes in the join request;
+     car, and each with its own handling ratings (§4, car stats). The choice (`Garage`, remembered on the phone) goes in the join request;
      the host keeps the player's colour unless someone has it, when they get the next free colour
      along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
      bodies in turn. Practice uses the garage car.
    - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
      its own camera, far below the menu, rendering to a texture), arrows to step through the
-     bodies, and a swatch per colour. Choices are remembered at once.
-   - **In the lobby**, a "Your car" panel beside the lobby list has the same arrows and swatches
+     bodies, the body's top speed, steering and acceleration as bars (with the number beside each,
+     so they don't rest on colour), and a swatch per colour. Choices are remembered at once.
+   - **In the lobby**, a "Your car" panel beside the lobby list has the same arrows, compact stat bars and swatches
      (colours other players have are drawn small and can't be picked). A guest sends
      `ChangeCarMessage`; the host takes any body, and the colour unless someone else has it, then
      sends the roster, and every phone swaps that car's body where it stands. Not mid-event. The
@@ -582,6 +598,7 @@ leader).
 | **M10: UI and tidy-up** | Every screen and the driving HUD on UI Toolkit instead of IMGUI (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
 | **M11: First-run polish** | Menu sounds, fades between screens, and a "how to drive" overlay the first time on the track. |
 | **M12: More items** | Lightning (strikes everyone ahead), Fake box (a decoy hazard) and Seeker (hunts the leader), with catch-up odds, bot use and visuals. |
+| **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | Later | Google Play internal testing track. |
 
-Not planned: internet play, accounts, analytics, host migration, car stat differences.
+Not planned: internet play, accounts, analytics, host migration.

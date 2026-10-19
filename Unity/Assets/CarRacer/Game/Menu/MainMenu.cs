@@ -285,7 +285,7 @@ namespace CarRacer.Game.Menu
             {
                 _preview.Show(model, colour);
                 var image = new Image { image = _preview.Texture, scaleMode = ScaleMode.ScaleToFit };
-                image.style.height = 300f;
+                image.style.height = 230f;
                 image.pickingMode = PickingMode.Ignore;
                 panel.Add(image);
             }
@@ -301,6 +301,7 @@ namespace CarRacer.Game.Menu
             bodies.Add(name);
             bodies.Add(next);
             panel.Add(bodies);
+            panel.Add(CarStatsView.Build(model.Stats));
 
             var swatches = UiKit.Row();
             for (int i = 0; i < LobbyRoster.ColourCount; i++)
@@ -310,7 +311,7 @@ namespace CarRacer.Game.Menu
             }
 
             panel.Add(swatches);
-            panel.Add(UiKit.Hint("Every car drives the same. If someone in the game already has your colour, you get the next free one."));
+            panel.Add(UiKit.Hint("Each car trades top speed, steering and acceleration; none is better overall. If someone in the game already has your colour, you get the next free one."));
         }
 
         private void ChangeGarage(int body, int colour)
