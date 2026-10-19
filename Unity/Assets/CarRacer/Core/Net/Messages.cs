@@ -40,6 +40,38 @@ namespace CarRacer.Core.Net
         Shielded = 1 << 2,
         SpunOut = 1 << 3,
         BotControlled = 1 << 4,
+
+        /// <summary>The car is wrecked (design doc §4): stopped until it is mended.</summary>
+        Wrecked = 1 << 5,
+
+        /// <summary>How damaged the car looks, for its smoke: light, or heavy (both bits).</summary>
+        SmokeLight = 1 << 6,
+        SmokeHeavy = 1 << 7,
+    }
+
+    /// <summary>Packs a car's damage into its state flags and back, so every phone can draw its smoke.</summary>
+    public static class DamageFlags
+    {
+        public static CarStateFlags For(int smokeLevel, bool wrecked)
+        {
+            var flags = wrecked ? CarStateFlags.Wrecked : CarStateFlags.None;
+            if (smokeLevel >= 2)
+            {
+                flags |= CarStateFlags.SmokeHeavy;
+            }
+            else if (smokeLevel == 1)
+            {
+                flags |= CarStateFlags.SmokeLight;
+            }
+
+            return flags;
+        }
+
+        /// <summary>0 for no smoke, 1 for light, 2 for heavy.</summary>
+        public static int SmokeLevel(CarStateFlags flags) =>
+            (flags & CarStateFlags.SmokeHeavy) != 0 ? 2 : (flags & CarStateFlags.SmokeLight) != 0 ? 1 : 0;
+
+        public static bool Wrecked(CarStateFlags flags) => (flags & CarStateFlags.Wrecked) != 0;
     }
 
     public interface IGameMessage

@@ -1,4 +1,5 @@
 using CarRacer.Core.Driving;
+using CarRacer.Core.Physics;
 using CarRacer.Game.Platform;
 using UnityEngine;
 
@@ -14,7 +15,9 @@ namespace CarRacer.Game.Driving
     /// The sphere-based car (design doc §4). A frictionless, non-rotating sphere rigidbody carries
     /// the car; every fixed step its horizontal velocity goes through <see cref="CarModel"/> and
     /// back, while gravity and collisions stay with the physics engine. The visible body is a child
-    /// that turns to the car's heading and leans for show.
+    /// that turns to the car's heading and leans for show. Where damage is on (a race or practice,
+    /// design doc §4), bumps, item hits and hard wall hits add to <see cref="Damage"/>, which costs
+    /// top speed and acceleration; a wrecked car stops, takes no input, and comes back mended.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public sealed class CarController : MonoBehaviour
@@ -27,6 +30,14 @@ namespace CarRacer.Game.Driving
         /// <summary>How far below the sphere the ground can be and still count as touching it.</summary>
         public const float GroundProbe = 0.25f;
 
+        /// <summary>How quickly a wreck slides to a stop (per second, exponential).</summary>
+        private const float WreckDrag = 4f;
+
+        /// <summary>A contact whose normal points more upward than this is the ground, not a wall.</summary>
+        private const float WallNormalMaxY = 0.5f;
+
+        private static readonly BumpSettings BumpScale = new BumpSettings();
+
         /// <summary>A car that falls below this height is put back where it started.</summary>
         public const float FallLimit = -20f;
 
@@ -36,6 +47,30 @@ namespace CarRacer.Game.Driving
 
         public CarTuning Tuning = new CarTuning();
         public ICarInputSource InputSource;
+
+        /// <summary>This car's damage; see <see cref="DamageEnabled"/>.</summary>
+        public readonly CarDamage Damage = new CarDamage();
+
+        /// <summary>The smoke that shows this car's damage, if it has any.</summary>
+        public CarSmoke Smoke;
+
+        /// <summary>
+        /// Whether hits damage the car: on in a race and in practice, off in the lobby and the arenas,
+        /// which have their own rules. Turning it off mends the car.
+        /// </summary>
+        public bool DamageEnabled
+        {
+            get => _damageEnabled;
+            set
+            {
+                if (!value)
+                {
+                    Damage.Reset();
+                }
+
+                _damageEnabled = value;
+            }
+        }
 
         /// <summary>While true the driver's input is ignored, e.g. on the grid before the start.</summary>
         public bool InputLocked;
@@ -48,6 +83,7 @@ namespace CarRacer.Game.Driving
         private float _spawnHeading;
         private float _visualDriftYaw;
         private float _visualLean;
+        private bool _damageEnabled;
 
         public CarState State => _state;
 
@@ -62,6 +98,9 @@ namespace CarRacer.Game.Driving
 
         /// <summary>A drift released a boost of this tier (1..3).</summary>
         public event System.Action<int> BoostReleased;
+
+        /// <summary>The car was just wrecked by damage.</summary>
+        public event System.Action WreckedNow;
 
         /// <summary>Speed along the car's heading in m/s; negative when reversing.</summary>
         public float ForwardSpeed => _body == null ? 0f : Vector3.Dot(_body.linearVelocity, _state.Forward.ToUnity());
@@ -102,6 +141,55 @@ namespace CarRacer.Game.Driving
             _state = CarModel.SpinOut(_state, Tuning);
         }
 
+        /// <summary>
+        /// Damage from a bump with another car that pushed this one by <paramref name="impulse"/>
+        /// (mass × Δv), as <c>BumpMonitor</c> resolved it. <c>BumpResolver</c> sizes and clamps bumps
+        /// per unit of reduced mass, which for two cars of equal mass is half a car's, so the impulse
+        /// is measured the same way here; that puts it on the same scale as a closing speed (see
+        /// <see cref="OnCollisionEnter"/>) and lets the hardest bump do the full damage.
+        /// </summary>
+        public void TakeBump(Vector3 impulse)
+        {
+            impulse.y = 0f;
+            float reducedMass = _body.mass / 2f;
+            Damaged(_damageEnabled && Damage.AddBump(impulse.magnitude / reducedMass, BumpScale));
+        }
+
+        /// <summary>Damage from an item hit that landed (not one a Shield soaked up).</summary>
+        public void TakeItemHit() => Damaged(_damageEnabled && Damage.AddItemHit());
+
+        private void Damaged(bool wrecked)
+        {
+            if (wrecked)
+            {
+                _state = CarModel.Wreck(_state, Tuning);
+                WreckedNow?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Contacts the physics engine resolves: a hard hit on a wall damages the car by how fast it
+        /// was going straight into it, and a car with a body here (on the host, its own car and the
+        /// bots) by how fast the two closed, as a bump. Ground contacts don't count. Other phones'
+        /// cars have no collider here; <c>BumpMonitor</c> resolves those, and they call <see cref="TakeBump"/>.
+        /// </summary>
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (!_damageEnabled || collision.contactCount == 0)
+            {
+                return;
+            }
+
+            var normal = collision.GetContact(0).normal;
+            if (normal.y > WallNormalMaxY)
+            {
+                return;
+            }
+
+            float closing = Mathf.Abs(Vector3.Dot(collision.relativeVelocity, normal));
+            Damaged(collision.rigidbody != null ? Damage.AddBump(closing, BumpScale) : Damage.AddWallHit(closing));
+        }
+
         private void Respawn()
         {
             _pendingImpulse = Vector3.zero;
@@ -109,6 +197,7 @@ namespace CarRacer.Game.Driving
             transform.position = _spawnPosition;
             _body.linearVelocity = Vector3.zero;
             _state = new CarState { Heading = _spawnHeading };
+            Damage.Reset();
             _visualDriftYaw = 0f;
             _visualLean = 0f;
             UpdateVisual(0f);
@@ -117,13 +206,20 @@ namespace CarRacer.Game.Driving
         private void FixedUpdate()
         {
             Grounded = Physics.Raycast(_body.position, Vector3.down, SphereRadius + GroundProbe, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            LastInput = InputLocked ? default : InputSource?.Read() ?? default;
+            Damage.Tick(Time.fixedDeltaTime);
+            bool wrecked = Damage.Wrecked;
+            LastInput = InputLocked || wrecked ? default : InputSource?.Read() ?? default;
 
             Vector3 velocity = _body.linearVelocity + _pendingImpulse / _body.mass;
             _pendingImpulse = Vector3.zero;
             _state.Velocity = velocity.ToCore();
             var before = _state;
-            _state = CarModel.Step(_state, LastInput, Grounded, Time.fixedDeltaTime, Tuning);
+            _state = CarModel.Step(_state, LastInput, Grounded, Time.fixedDeltaTime, Tuning, Damage.PerformanceFactor);
+            if (wrecked)
+            {
+                _state.Velocity *= Mathf.Exp(-WreckDrag * Time.fixedDeltaTime);
+            }
+
             int boostTier = HapticPatterns.ReleasedBoostTier(before, _state, Time.fixedDeltaTime, Tuning);
             if (boostTier > 0)
             {
@@ -142,6 +238,10 @@ namespace CarRacer.Game.Driving
         private void Update()
         {
             UpdateVisual(Time.deltaTime);
+            if (Smoke != null)
+            {
+                Smoke.Level = Damage.SmokeLevel;
+            }
         }
 
         private void UpdateVisual(float dt)

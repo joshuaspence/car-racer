@@ -171,6 +171,23 @@ takes touches, and it sits under the performance readout.
   and ±20% acceleration. Mass, grip, drifting and boosts are the same for every car. The ratings are
   applied where the car is simulated (its owner's phone, or the host for a bot), including when a
   car changes body in the lobby, and shown as bars in the garage and the lobby's car picker.
+- **Damage** (`CarDamage`, races and practice; off in the lobby and the arenas, which have their own
+  rules): a 0–100% meter kept where the car is simulated (its owner's phone, or the host for a bot).
+  - **What damages a car:** a bump with another car does 2–12% by how hard it was (the same
+    range `BumpSettings` uses), whether `BumpMonitor` resolved it or the physics engine did (on the
+    host, its car and the bots); a wall hit does 3–20% by the speed straight into the wall, from
+    6 m/s up to 26 m/s, so scraping along a wall is free; an item hit that lands does 25% (a
+    Shield's soak costs nothing).
+  - **What damage does:** it takes away up to 15% of top speed and acceleration (`CarModel.Step`'s
+    performance factor; boosts still add their full speed). At 100% the car is **wrecked**: it gets
+    no input and slides to a stop, with "Wrecked! n" on its phone, a bang, and heavy smoke, then
+    after 2 s it is mended where it stands, so a wreck costs time, not position. Nothing more lands
+    on a wreck, and a wreck can't use its item (it keeps it for later).
+  - **Mending:** after 3 s without a hit, damage mends at 5% a second. A race start or a
+    respawn mends it.
+  - **Showing it:** the top bar shows "Damage n%". Every phone sees smoke from damaged cars (light
+    from 33%, heavy from 67% or while wrecked), carried in the car state's spare flag bits
+    (`DamageFlags`: `Wrecked`, `SmokeLight`, `SmokeHeavy`), so the message keeps its size.
 
   | Body | Top speed | Steering | Acceleration |
   |---|---|---|---|
@@ -599,6 +616,7 @@ leader).
 | **M11: First-run polish** | Menu sounds, fades between screens, and a "how to drive" overlay the first time on the track. |
 | **M12: More items** | Lightning (strikes everyone ahead), Fake box (a decoy hazard) and Seeker (hunts the leader), with catch-up odds, bot use and visuals. |
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
+| **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

@@ -61,6 +61,7 @@ namespace CarRacer.Game.Screens
         private Label _driftLabel;
         private Label _wrongWay;
         private Label _missile;
+        private Label _wrecked;
         private Label _speed;
         private Button _auto;
         private Button _haptics;
@@ -116,6 +117,7 @@ namespace CarRacer.Game.Screens
             _layer.Full.Add(_driftLabel);
             _wrongWay = Warning("Wrong way!", WrongWayColour, 340f);
             _missile = Warning("Missile!", MissileColour, 140f);
+            _wrecked = Warning(string.Empty, WrongWayColour, 260f);
 
             // The top bar: the speed on the left; quick toggles and Back on the right.
             _speed = UiKit.Text(string.Empty, 26, Color.white);
@@ -189,6 +191,7 @@ namespace CarRacer.Game.Screens
                 Hide(_driftLabel);
                 Hide(_wrongWay);
                 Hide(_missile);
+                Hide(_wrecked);
                 _canvas.MarkDirtyRepaint();
                 return;
             }
@@ -205,11 +208,33 @@ namespace CarRacer.Game.Screens
             }
 
             UpdateDriftLabel(car, width);
-            _wrongWay.style.display = _progress.IsWrongWay && !inArena ? DisplayStyle.Flex : DisplayStyle.None;
+            UpdateWrecked(car);
+            _wrongWay.style.display = _progress.IsWrongWay && !inArena && !car.Damage.Wrecked ? DisplayStyle.Flex : DisplayStyle.None;
             _canvas.MarkDirtyRepaint();
         }
 
         private static void Hide(VisualElement element) => element.style.display = DisplayStyle.None;
+
+        /// <summary>"Wrecked!" with the seconds until the car is mended (design doc §4).</summary>
+        private void UpdateWrecked(CarController car)
+        {
+            if (!car.Damage.Wrecked)
+            {
+                Hide(_wrecked);
+                return;
+            }
+
+            _wrecked.style.display = DisplayStyle.Flex;
+            Set(_wrecked, $"Wrecked! {Mathf.CeilToInt(car.Damage.WreckSecondsLeft)}");
+        }
+
+        private static void Set(Label label, string text)
+        {
+            if (label.text != text)
+            {
+                label.text = text;
+            }
+        }
 
         private void UpdateTopBar(CarController car)
         {
@@ -220,7 +245,10 @@ namespace CarRacer.Game.Screens
                 int tier = state.DriftTier(car.Tuning);
                 string drift = state.Drifting ? $"Drift {tier}/{car.Tuning.DriftTierSeconds.Length}" : string.Empty;
                 string boost = state.BoostSecondsLeft > 0f ? $"BOOST +{state.BoostSpeed:0}" : string.Empty;
-                speed = $"{Mathf.Abs(car.ForwardSpeed) * 3.6f:0} km/h  {drift}  {boost}";
+                // Damage shows once it's worth knowing about (design doc §4).
+                float damage = car.Damage.Value;
+                string hurt = car.DamageEnabled && damage >= 0.01f ? $"Damage {damage * 100f:0}%" : string.Empty;
+                speed = $"{Mathf.Abs(car.ForwardSpeed) * 3.6f:0} km/h  {hurt}  {drift}  {boost}";
             }
 
             if (_speed.text != speed)

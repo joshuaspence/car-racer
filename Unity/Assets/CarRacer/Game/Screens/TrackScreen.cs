@@ -131,8 +131,9 @@ namespace CarRacer.Game.Screens
             gameObject.AddComponent<MusicDirector>().Initialise(this);
             if (startSession == null)
             {
-                // Practice: the car from the garage.
+                // Practice: the car from the garage, which takes damage as in a race (design doc §4).
                 SpawnLocalCar(0, CarColours.ForIndex(Garage.Colour), Garage.Model);
+                Car.DamageEnabled = true;
             }
             else
             {

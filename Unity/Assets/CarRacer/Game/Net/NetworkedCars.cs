@@ -201,7 +201,8 @@ namespace CarRacer.Game.Net
             var input = _screen.PlayerInput;
             bool pressed = input != null && input.ConsumeItemPress();
             _shield.Tick(Time.deltaTime);
-            if (pressed && car != null && _phase == RacePhase.Racing)
+            // A wreck can't use its item (design doc §4): a Boost would drive it, and the item keeps for later.
+            if (pressed && car != null && _phase == RacePhase.Racing && !car.Damage.Wrecked)
             {
                 var item = _session.Items.UseHeld(car.BodyPosition.ToCore(), car.BodyVelocity.ToCore(), car.State.Heading);
                 if (item == ItemKind.Boost)
@@ -254,11 +255,13 @@ namespace CarRacer.Game.Net
                 case ItemHitOutcome.SpinOut:
                     car.AddImpulse(hit.Impulse.ToUnity());
                     car.SpinOut();
+                    car.TakeItemHit();
                     break;
                 default:
                     if (_bumpMonitor.OnHit(hit, _me, NetworkSession.NowMs, out var impulse))
                     {
                         car.AddImpulse(impulse.ToUnity());
+                        car.TakeBump(impulse.ToUnity());
                     }
 
                     break;
@@ -357,6 +360,7 @@ namespace CarRacer.Game.Net
             foreach (var bump in _bumps)
             {
                 car.AddImpulse(bump.SelfImpulse.ToUnity());
+                car.TakeBump(bump.SelfImpulse.ToUnity());
                 _session.SendHit(bump.Fallback);
             }
         }
@@ -392,6 +396,9 @@ namespace CarRacer.Game.Net
             }
 
             _screen.Car.InputLocked = phase == RacePhase.Countdown;
+
+            // Damage counts in a race (design doc §4); the arenas have their own rules, and the lobby is for messing about.
+            _screen.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race;
             _phase = phase;
         }
 
@@ -432,6 +439,7 @@ namespace CarRacer.Game.Net
                 flags |= CarStateFlags.SpunOut;
             }
 
+            flags |= DamageFlags.For(car.Damage.SmokeLevel, car.Damage.Wrecked);
             _session.SendCarState(new CarStateMessage
             {
                 PlayerId = _me,
