@@ -1,6 +1,7 @@
 name: Release
 
-# Pushing a tag like v0.1.0 builds a release-signed APK and publishes it to GitHub Releases.
+# Pushing a tag like v0.1.0 builds a release-signed APK and the Linux server (a tarball and a
+# Docker image on GHCR, docs/server.md) and publishes them to GitHub Releases.
 # Needs the Unity licence secrets and the Android keystore secrets (see docs/ci-setup.md).
 on:
   push:
@@ -8,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   android:
@@ -59,3 +61,66 @@ jobs:
         with:
           files: build/Android/CarRacer-${{ github.ref_name }}.apk
           generate_release_notes: true
+
+  linux-server:
+    name: Linux server tarball and Docker image
+    # After the APK job, which creates the release, so the two don't race to create it.
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: actions/cache@v4
+        with:
+          path: Unity/Library
+          key: Library-linux-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}
+          restore-keys: Library-linux-
+
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Unity
+          targetPlatform: StandaloneLinux64
+          buildName: CarRacer
+          buildMethod: CarRacer.Editor.BuildScript.BuildLinuxServerFromCommandLine
+          versioning: Tag
+
+      - name: Package the server
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build
+          cp server/run-server.sh server/Dockerfile build/StandaloneLinux64/
+          tar -czf "CarRacer-server-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            --transform "s,^build/StandaloneLinux64,car-racer-server," build/StandaloneLinux64
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: CarRacer-server-${{ github.ref_name }}-linux-x86_64.tar.gz
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: build/StandaloneLinux64
+          file: build/StandaloneLinux64/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+            ${{ steps.image.outputs.name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.description=Car Racer LAN host with no player of its own

@@ -10,8 +10,9 @@ using UnityEngine;
 namespace CarRacer.Editor
 {
     /// <summary>
-    /// Android build entry points: menu items for local builds, and
-    /// <see cref="BuildFromCommandLine"/> for GameCI (<c>buildMethod</c> in the workflows).
+    /// Build entry points: menu items for local builds, and <see cref="BuildFromCommandLine"/>
+    /// (Android) and <see cref="BuildLinuxServerFromCommandLine"/> (the Linux host, design doc
+    /// §2.3) for GameCI (<c>buildMethod</c> in the workflows).
     /// </summary>
     public static class BuildScript
     {
@@ -39,6 +40,36 @@ namespace CarRacer.Editor
         {
             PrepareProject();
             Build("build/Android/CarRacer.apk", development: false);
+        }
+
+        /// <summary>
+        /// A plain Linux player, which hosts with no player when run with
+        /// <c>-batchmode -nographics -server</c> (design doc §2.3). It isn't Unity's Dedicated Server
+        /// subtarget, which needs an editor module the CI images may not have; the player runs the
+        /// same way, it just carries rendering code it never uses.
+        /// </summary>
+        [MenuItem("Car Racer/Build/Linux Server")]
+        public static void BuildLinuxServer()
+        {
+            PrepareProject(BuildTarget.StandaloneLinux64);
+            Build(DefaultLinuxServerPath, BuildTarget.StandaloneLinux64, development: false);
+        }
+
+        public const string DefaultLinuxServerPath = "build/StandaloneLinux64/CarRacer";
+
+        /// <summary>Called by GameCI for the Linux host; reads -customBuildPath and -buildVersion.</summary>
+        public static void BuildLinuxServerFromCommandLine()
+        {
+            var args = ParseArguments(Environment.GetCommandLineArgs());
+            PrepareProject(BuildTarget.StandaloneLinux64);
+            if (args.TryGetValue("buildVersion", out string version) && !string.IsNullOrEmpty(version))
+            {
+                PlayerSettings.bundleVersion = version;
+            }
+
+            string output = args.TryGetValue("customBuildPath", out string path) && !string.IsNullOrEmpty(path) ? path : DefaultLinuxServerPath;
+            bool succeeded = Build(output, BuildTarget.StandaloneLinux64, development: false);
+            EditorApplication.Exit(succeeded ? 0 : 1);
         }
 
         [MenuItem("Car Racer/Create Bootstrap Scene")]
@@ -111,25 +142,27 @@ namespace CarRacer.Editor
             PlayerSettings.Android.keyaliasPass = "android";
         }
 
-        private static void PrepareProject()
+        private static void PrepareProject(BuildTarget target = BuildTarget.Android)
         {
-            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            if (EditorUserBuildSettings.activeBuildTarget != target)
             {
-                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(target), target);
             }
 
             ProjectConfigurator.Apply();
             EnsureBootstrapScene();
         }
 
-        private static bool Build(string outputPath, bool development)
+        private static bool Build(string outputPath, bool development) => Build(outputPath, BuildTarget.Android, development);
+
+        private static bool Build(string outputPath, BuildTarget target, bool development)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)));
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { BootstrapScenePath },
                 locationPathName = outputPath,
-                target = BuildTarget.Android,
+                target = target,
                 options = development ? BuildOptions.Development : BuildOptions.None,
             };
 

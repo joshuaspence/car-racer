@@ -636,6 +636,12 @@ leader).
   Needs `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`; skipped with a notice if they're absent.
 - **`Release` workflow:** pushing a `v*` tag builds a **release-signed APK** and publishes it to
   **GitHub Releases** (Obtainium-friendly). Needs the Android keystore secrets too.
+- **Linux server** (§2.3, [`server.md`](server.md)): the `Unity` workflow builds the Linux player
+  on every PR and starts it with `-server` for a few seconds to check it hosts; a release adds a
+  tarball to the release and pushes a Docker image to GHCR (`server/Dockerfile`, run with host
+  networking so discovery reaches the LAN). It's the plain Linux player run with
+  `-batchmode -nographics -server`, not Unity's Dedicated Server subtarget, whose editor module
+  the CI images may lack.
 - Setup: [`ci-setup.md`](ci-setup.md).
 
 ## 16. Milestones
@@ -658,7 +664,7 @@ leader).
 | **M13: Car stats** | Each body trades top speed, steering and acceleration (ratings adding up to the same total), shown as bars in the garage and lobby. |
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
-| **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. Done so far: the room leader, lobby settings and commands (protocol 22), and the game's server mode with host controls on the leader's phone. |
+| **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. The room leader, lobby settings and commands (protocol 22), the game's server mode with host controls on the leader's phone, and the CI build, tarball and image. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

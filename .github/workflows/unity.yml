@@ -119,3 +119,51 @@ jobs:
           name: CarRacer-dev-apk
           path: build/Android/*.apk
           if-no-files-found: error
+
+  linux-server:
+    name: Linux server build
+    needs: licence
+    if: needs.licence.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    # A healthy build takes 15-20 minutes; a hung Unity editor would otherwise sit for 6 hours.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: actions/cache@v4
+        with:
+          path: Unity/Library
+          key: Library-linux-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}
+          restore-keys: Library-linux-
+
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Unity
+          targetPlatform: StandaloneLinux64
+          buildName: CarRacer
+          buildMethod: CarRacer.Editor.BuildScript.BuildLinuxServerFromCommandLine
+          versioning: Semantic
+
+      # Start the host for a few seconds: it should begin hosting and say so (design doc §2.3).
+      - name: Smoke-test the server
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build
+          cp server/run-server.sh build/StandaloneLinux64/
+          ls -la build/StandaloneLinux64
+          timeout 30 build/StandaloneLinux64/run-server.sh -port 47901 -name "CI" > server.log 2>&1 || true
+          tail -n 40 server.log
+          grep -q 'Car Racer server "CI" on port 47901' server.log
+          ! grep -q 'Hosting stopped' server.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CarRacer-linux-server
+          path: build/StandaloneLinux64
+          if-no-files-found: error

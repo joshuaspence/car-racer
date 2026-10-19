@@ -6,6 +6,7 @@ the empty slots. Built with Unity 6.3 LTS and Netcode for GameObjects.
 
 - **Design:** [`docs/design.md`](docs/design.md) records every decision so far and the milestone plan.
 - **CI and releases:** [`docs/ci-setup.md`](docs/ci-setup.md) covers secrets, signing and cutting a release.
+- **Linux host:** [`docs/server.md`](docs/server.md) covers hosting on a Linux server (Docker or a tarball) instead of a phone.
 
 ## Status
 
