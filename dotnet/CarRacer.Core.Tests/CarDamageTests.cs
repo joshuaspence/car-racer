@@ -97,6 +97,28 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void AWreckEndsADriftWithoutItsBoostAndCutsAnyBoost()
+        {
+            var tuning = new CarTuning();
+            var drifting = new CarState { Drifting = true, DriftDirection = 1, DriftSeconds = tuning.DriftTierSeconds[2] + 1f };
+            var wrecked = CarModel.Wreck(drifting, tuning);
+            Assert.False(wrecked.Drifting);
+            Assert.Equal(0f, wrecked.BoostSecondsLeft);
+
+            var boosting = CarModel.Boost(new CarState(), 10f, 2f);
+            Assert.Equal(0f, CarModel.Wreck(boosting, tuning).BoostSpeed);
+
+            // With no input after it, the wreck only slows down.
+            var state = CarModel.Wreck(new CarState { Velocity = new Vec3(0f, 0f, 20f), Drifting = true, DriftDirection = 1, DriftSeconds = 3f }, tuning);
+            for (int i = 0; i < 10; i++)
+            {
+                float before = state.Velocity.Length;
+                state = CarModel.Step(state, default, true, 0.02f, tuning);
+                Assert.True(state.Velocity.Length <= before + 1e-4f);
+            }
+        }
+
+        [Fact]
         public void ADamagedCarIsSlowerAndPullsAwayMoreSlowly()
         {
             var tuning = new CarTuning();

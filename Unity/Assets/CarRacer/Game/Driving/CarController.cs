@@ -155,6 +155,7 @@ namespace CarRacer.Game.Driving
         {
             if (wrecked)
             {
+                _state = CarModel.Wreck(_state, Tuning);
                 WreckedNow?.Invoke();
             }
         }

@@ -304,6 +304,19 @@ namespace CarRacer.Core.Driving
         }
 
         /// <summary>Spins the car out (an item hit): any drift and boost are lost.</summary>
+        /// <summary>
+        /// A wreck (design doc §4): any drift ends without its boost, and any boost is cut, so the car
+        /// can only slide to a stop. Without this, the drift a wreck ends would release a boost that
+        /// keeps driving the car.
+        /// </summary>
+        public static CarState Wreck(CarState state, CarTuning tuning)
+        {
+            EndDrift(ref state, tuning, releaseBoost: false);
+            state.BoostSecondsLeft = 0f;
+            state.BoostSpeed = 0f;
+            return state;
+        }
+
         public static CarState SpinOut(CarState state, CarTuning tuning)
         {
             EndDrift(ref state, tuning, releaseBoost: false);
