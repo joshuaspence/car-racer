@@ -127,6 +127,7 @@ namespace CarRacer.Game.Screens
             cameraObject.transform.LookAt(new Vector3(45f, 0f, 30f));
 
             gameObject.AddComponent<RaceHud>().Initialise(this);
+            DrivingTipsPanel.ShowIfNew(this, _playerInput);
             gameObject.AddComponent<MusicDirector>().Initialise(this);
             if (startSession == null)
             {
