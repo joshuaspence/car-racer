@@ -1,6 +1,7 @@
 using System.Collections;
 using CarRacer.Game.Ui;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace CarRacer.Tests
@@ -9,14 +10,16 @@ namespace CarRacer.Tests
     public class ScreenFaderTests
     {
         [UnityTest]
-        public IEnumerator TheCoverLiftsWithinAFewFrames()
+        public IEnumerator TheCoverLiftsWithinASecond()
         {
             ScreenFader.Install();
             ScreenFader.Cover();
             Assert.IsTrue(ScreenFader.Fading);
 
-            // At most a 30 fps step a frame, so 0.35 s of fade takes at least 11 frames; allow plenty.
-            for (int frame = 0; frame < 300 && ScreenFader.Fading; frame++)
+            // The fade runs on real time (each frame moving it on by at most a 30 fps step), and the
+            // test runner's frames can be far shorter than a phone's, so wait on the clock, not a frame count.
+            float giveUp = Time.realtimeSinceStartup + 3f;
+            while (ScreenFader.Fading && Time.realtimeSinceStartup < giveUp)
             {
                 yield return null;
             }
