@@ -151,7 +151,10 @@ on it changes; the session screens (`SessionOverlay`, `CupPanel`) rebuild the lo
 when a signature of what they show changes, and update the race status, countdown and item slot
 text every frame. The driving HUD (`RaceHud`) draws its shapes (touch buttons, mini-map, drift
 meter, edge arrows) with the vector painter on one full-screen element repainted every frame, with
-labels for its text and the top bar's buttons. Nothing uses IMGUI any more.
+labels for its text and the top bar's buttons. Nothing uses IMGUI any more. Each new screen fades in from
+black (`ScreenFader`, `ScreenFade`): covered for 0.05 s while it is built, then an eased 0.3 s fade,
+moved on by at most a 30 fps frame at a time so a slow first frame can't skip it. The cover never
+takes touches, and it sits under the performance readout.
 
 ## 4. Driving model
 
