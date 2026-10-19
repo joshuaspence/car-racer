@@ -16,10 +16,10 @@ namespace CarRacer.Core.Items
         /// <summary>The item this phone's player holds.</summary>
         ItemKind Held { get; }
 
-        /// <summary>Oil slicks on the track, in this phone's clock.</summary>
+        /// <summary>Oil slicks and Fake boxes on the track, in this phone's clock.</summary>
         HazardField Hazards { get; }
 
-        /// <summary>Missiles and Bombs in flight, where this phone last knew them to be.</summary>
+        /// <summary>Missiles, Seekers and Bombs in flight, where this phone last knew them to be.</summary>
         IReadOnlyList<ProjectileSnapshot> Projectiles { get; }
 
         /// <summary>A Bomb went off here.</summary>
@@ -48,7 +48,8 @@ namespace CarRacer.Core.Items
     /// The host's item referee (design doc §8): grants box claims first come first served, rolls
     /// each item with catch-up odds from the latest standings, keeps every player's slot, relays
     /// item uses to everyone once it has checked the player held that item, and decides every item
-    /// hit: a Shockwave's victims at once, an oil slick's when a car drives onto it.
+    /// hit: a Shockwave's or Lightning's victims at once, an oil slick's or Fake box's when a car
+    /// drives onto it, a projectile's when it reaches a car.
     /// </summary>
     public sealed class HostItems : IItemView
     {
@@ -191,10 +192,18 @@ namespace CarRacer.Core.Items
                     HitEveryoneNear(used);
                     break;
                 case ItemKind.OilSlick:
-                    Hazards.AddOil(used, used.UsedAtHostMs);
+                case ItemKind.FakeBox:
+                    Hazards.AddDropped(used, used.UsedAtHostMs);
+                    break;
+                case ItemKind.Lightning:
+                    StrikeEveryoneAhead(used.PlayerId);
                     break;
                 case ItemKind.Missile:
                     _flying.Add(ProjectileRules.LaunchMissile(used, CarAhead(used.PlayerId), used.UsedAtHostMs));
+                    TakeSnapshots();
+                    break;
+                case ItemKind.Seeker:
+                    _flying.Add(ProjectileRules.LaunchSeeker(used, Leader(used.PlayerId), used.UsedAtHostMs));
                     TakeSnapshots();
                     break;
                 case ItemKind.Bomb:
@@ -224,7 +233,50 @@ namespace CarRacer.Core.Items
             return ProjectileRules.NoTarget;
         }
 
-        /// <summary>Moves every Missile and Bomb, decides what each hits, and tells everyone where the rest are.</summary>
+        /// <summary>
+        /// The leader among the cars still racing (not finished, or not out in an arena): what a
+        /// Seeker hunts. The leader's own Seeker goes for the next car instead; with nobody else
+        /// racing it flies straight.
+        /// </summary>
+        private byte Leader(byte playerId)
+        {
+            var standings = _race.Standings;
+            if (standings != null)
+            {
+                foreach (var entry in standings.Order)
+                {
+                    if (entry.FinishPosition == 0 && entry.PlayerId != playerId)
+                    {
+                        return entry.PlayerId;
+                    }
+                }
+            }
+
+            return ProjectileRules.NoTarget;
+        }
+
+        /// <summary>
+        /// Lightning: every car ahead of <paramref name="playerId"/> in the latest standings that is
+        /// still racing is struck, wherever it is. Cars that have finished (or are out) are left be.
+        /// </summary>
+        private void StrikeEveryoneAhead(byte playerId)
+        {
+            var standings = _race.Standings;
+            if (standings == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < standings.Order.Count && standings.Order[i].PlayerId != playerId; i++)
+            {
+                if (standings.Order[i].FinishPosition == 0)
+                {
+                    Hit(playerId, standings.Order[i].PlayerId, ItemEffects.LightningImpulse);
+                }
+            }
+        }
+
+        /// <summary>Moves every Missile, Seeker and Bomb, decides what each hits, and tells everyone where the rest are.</summary>
         private void FlyProjectiles(long now, float dt)
         {
             if (_flying.Count == 0)
@@ -240,7 +292,10 @@ namespace CarRacer.Core.Items
 
                 p = ProjectileRules.Step(p, dt, hasTarget, targetPosition);
                 _flying[i] = p;
-                if (p.Kind == ItemKind.Missile ? MissileDone(p, now) : BombDone(p, now))
+                bool done = p.Kind == ItemKind.Missile ? MissileDone(p, now)
+                    : p.Kind == ItemKind.Seeker ? SeekerDone(p, now)
+                    : BombDone(p, now);
+                if (done)
                 {
                     _flying.RemoveAt(i);
                     _session.Broadcast(new HazardGoneMessage { EffectId = p.EffectId }, reliable: true);
@@ -280,6 +335,30 @@ namespace CarRacer.Core.Items
             }
 
             return now >= missile.ExpiresAtMs;
+        }
+
+        /// <summary>
+        /// A Seeker flies past everyone but its target; on reaching it, it blows up, catching every car
+        /// near the target but its owner's. It runs out after its lifetime.
+        /// </summary>
+        private bool SeekerDone(Projectile seeker, long now)
+        {
+            if (seeker.TargetId != ProjectileRules.NoTarget && _carPositions(seeker.TargetId, out var target)
+                && (target - seeker.Position).Flattened.LengthSquared <= ProjectileRules.HitRadius * ProjectileRules.HitRadius)
+            {
+                foreach (var player in _session.Roster.Players)
+                {
+                    if (player.PlayerId != seeker.OwnerId && _carPositions(player.PlayerId, out var position)
+                        && (position - target).Flattened.LengthSquared <= ProjectileRules.SeekerBlastRadius * ProjectileRules.SeekerBlastRadius)
+                    {
+                        Hit(seeker.OwnerId, player.PlayerId, ProjectileRules.SeekerImpulse(seeker.Position, position));
+                    }
+                }
+
+                return true;
+            }
+
+            return now >= seeker.ExpiresAtMs;
         }
 
         /// <summary>A Bomb goes off when it meets a car (its thrower only after a moment) or its fuse runs out, hitting everyone near.</summary>
@@ -328,7 +407,7 @@ namespace CarRacer.Core.Items
             }
         }
 
-        /// <summary>Each armed oil slick catches the first car on it (its dropper included, once armed) and is used up.</summary>
+        /// <summary>Each armed oil slick or Fake box catches the first car on it (its dropper included, once armed) and is used up.</summary>
         private void CatchCarsOnHazards(long now)
         {
             if (Hazards.Active.Count == 0)
@@ -342,7 +421,7 @@ namespace CarRacer.Core.Items
                 {
                     Hazards.Remove(hazard.EffectId);
                     _session.Broadcast(new HazardGoneMessage { EffectId = hazard.EffectId }, reliable: true);
-                    Hit(hazard.OwnerId, player.PlayerId, ItemEffects.OilImpulse);
+                    Hit(hazard.OwnerId, player.PlayerId, hazard.Item == ItemKind.FakeBox ? ItemEffects.FakeBoxImpulse : ItemEffects.OilImpulse);
                 }
             }
         }
@@ -376,7 +455,7 @@ namespace CarRacer.Core.Items
 
     /// <summary>
     /// A guest's side of the items: claims boxes its car drives through (hiding them at once), learns
-    /// its item from the host, tells the host when it uses it, and mirrors the oil slicks on the track.
+    /// its item from the host, tells the host when it uses it, and mirrors the hazards on the track.
     /// </summary>
     public sealed class GuestItems : IItemView
     {
@@ -496,9 +575,9 @@ namespace CarRacer.Core.Items
                     break;
                 case ItemUsedMessage used:
                     // The host's relay carries the effect id, so hazards come from it even for this phone's own use.
-                    if (used.Item == ItemKind.OilSlick)
+                    if (ItemEffects.IsDropped(used.Item))
                     {
-                        Hazards.AddOil(used, _session.Clock.ToLocalTime(used.UsedAtHostMs));
+                        Hazards.AddDropped(used, _session.Clock.ToLocalTime(used.UsedAtHostMs));
                     }
 
                     if (used.PlayerId != _session.PlayerId)

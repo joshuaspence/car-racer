@@ -293,8 +293,10 @@ takes touches, and it sits under the performance readout.
 
 ## 8. Items
 
-Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile**,
-**Oil slick / mine** (dropped hazard), **Bouncing bomb** (lobbed projectile).
+Nine items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile**,
+**Oil slick / mine** (dropped hazard), **Bouncing bomb** (lobbed projectile), **Lightning** (strikes
+every car ahead), **Fake box** (a hazard that looks like an item box) and **Seeker** (hunts the
+leader).
 
 | Who | Responsibility |
 |---|---|
@@ -319,6 +321,17 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   victim as a `HitMessage` with `IsItemHit`: a raised Shield soaks it up, otherwise the car takes
   the push plus a small pop and **spins out** for 1 s (no control; it turns 1.5 times a second and
   its slide dies away; `CarModel.SpinOut`).
+- **Lightning** strikes every car ahead of its user in the latest standings at once, wherever they
+  are, leaving alone any that have finished (or are out of an arena): each gets the pop and the
+  spin-out (a Shield still blocks it). The leader's Lightning strikes nobody. Every phone hears it at full volume, as it reaches everyone ahead.
+- **Fake box** drops behind like an Oil slick (3 m back, harmless for 0.5 s, gone after 20 s or once
+  it catches a car, its dropper included) but is drawn as a spinning item box, a shade more orange
+  than the real ones, and catches a car at a real box's reach (1.6 m). It goes off with twice the
+  pop of oil, then the spin-out. Both are hazards in `HazardField` (`ItemEffects.IsDropped`).
+- **Seeker** chases the leader among the cars still racing (the leader's own goes for the next car):
+  55 m/s, turning at up to 360°/s, for up to 9 s, flying past every other car. On reaching its
+  target it blows up, hitting every car within 5 m of the target but its owner's, 12 m/s away from
+  the blast. Its target gets the same "Missile!" warning and arrow as for a Missile.
 - **Missiles and Bombs** (`ProjectileRules`) are simulated only by the host, which sends their
   positions 20 times a second (`Projectiles`) and says when each is gone (`HazardGone`). A
   **Missile** starts 2.5 m ahead and flies at 40 m/s at its launch height, turning at up to 220°/s
@@ -334,8 +347,9 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
   notices it has touched a box (centres within 1.6 m) and claims it; the host grants the first
   claim on a box that is still up and tells everyone. A taken box comes back after 3 s.
 - **Catch-up rolls** (`ItemRoll`): the odds are interpolated between a leader's table (mostly
-  Shield and Oil slick, never a Missile) and last place's (mostly Boost, Missile and Shockwave,
-  never Oil) by how far back the player is. A lone racer rolls from the mid-pack odds.
+  Shield, Oil slick and Fake box; never a Missile, Lightning or Seeker) and last place's (mostly
+  Boost, Missile and Shockwave, with a rare Lightning or Seeker; never Oil or a Fake box) by how far
+  back the player is. A lone racer rolls from the mid-pack odds, where every item can turn up.
 
 ## 9. Bots
 
@@ -557,7 +571,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 |---|---|
 | **PR 1: Foundations** | This design doc; Unity project skeleton; `Core` (discovery, messages, race rules, bump physics, prediction, spline tracks and meshes, championship) with tests; CI; discovery test screen. |
 | **M1: Core loop** | Sphere car controller, touch and gamepad input, chase camera, generated oval track, NGO host/join wired to discovery, lobby UI, countdown, race, results, rematch. |
-| **M2: Items** | Item boxes, the six items, host-side hit resolution, catch-up rolls. |
+| **M2: Items** | Item boxes, the first six items, host-side hit resolution, catch-up rolls. |
 | **M3: Arenas and bots** | Sumo and Battle arenas, overhead camera, bots (racing line, ramming, items), bot takeover on disconnect, practice mode. |
 | **M4: Championship** | Cups, points, reverse grid, standings screens, auto-save and resume. |
 | **M5: Robustness** | Background grace with bot takeover and return, "Reconnecting…" on Wi-Fi drops, join by QR code, automatic quality presets. |
@@ -567,6 +581,7 @@ Six items: **Boost**, **Shield**, **Shockwave** (radial bump), **Homing missile*
 | **M9: Performance, accessibility and voting** | A performance readout for testing on phones, lighter scenery on Low, picking a car in the lobby; an accessibility pass (text size, bigger targets, left-handed controls, reduced motion); guests vote for the track. |
 | **M10: UI and tidy-up** | Every screen and the driving HUD on UI Toolkit instead of IMGUI (proper layout, touch feedback and text scaling); early-milestone names tidied (the driving screen is `TrackScreen`). |
 | **M11: First-run polish** | Menu sounds, fades between screens, and a "how to drive" overlay the first time on the track. |
+| **M12: More items** | Lightning (strikes everyone ahead), Fake box (a decoy hazard) and Seeker (hunts the leader), with catch-up odds, bot use and visuals. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration, car stat differences.

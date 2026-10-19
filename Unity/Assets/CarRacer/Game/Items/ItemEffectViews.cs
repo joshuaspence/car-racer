@@ -8,10 +8,11 @@ using UnityEngine;
 namespace CarRacer.Game.Items
 {
     /// <summary>
-    /// Shows what items leave on the track (design doc §8): a dark disc for each oil slick, kept in
-    /// step with the session's hazards; Missiles and Bombs in flight, eased towards the positions the
-    /// host sends; a quickly expanding ring where a Shockwave or a Bomb goes off; and each item's
-    /// sound where it is used, plus a bang where a Missile ends or a Bomb goes off.
+    /// Shows what items leave on the track (design doc §8): a dark disc for each oil slick and a
+    /// spinning box for each Fake box, kept in step with the session's hazards; Missiles, Seekers and
+    /// Bombs in flight, eased towards the positions the host sends; a quickly expanding ring where a
+    /// Shockwave or a Bomb goes off; and each item's sound where it is used (Lightning's everywhere
+    /// at once), plus a bang where a Missile or Seeker ends or a Bomb goes off.
     /// </summary>
     public sealed class ItemEffectViews : MonoBehaviour
     {
@@ -25,8 +26,15 @@ namespace CarRacer.Game.Items
         private static readonly Color BlastColour = new Color(1f, 0.55f, 0.15f);
         private static readonly Color MissileColour = new Color(0.9f, 0.15f, 0.12f);
         private static readonly Color BombColour = new Color(0.12f, 0.12f, 0.14f);
+        private static readonly Color SeekerColour = new Color(0.25f, 0.45f, 1f);
 
-        private readonly Dictionary<ushort, Transform> _oil = new Dictionary<ushort, Transform>();
+        /// <summary>A Fake box is a shade more orange than a real one (<see cref="ItemBoxes"/>): easy to miss at speed, fair once you know.</summary>
+        private static readonly Color FakeBoxColour = new Color(0.98f, 0.62f, 0.15f);
+        private const float FakeBoxSize = 1.1f;
+        private const float FakeBoxSpinDegreesPerSecond = 90f;
+
+        private readonly Dictionary<ushort, Transform> _hazards = new Dictionary<ushort, Transform>();
+        private readonly HashSet<ushort> _fakes = new HashSet<ushort>();
         private readonly Dictionary<ushort, Transform> _projectiles = new Dictionary<ushort, Transform>();
         private readonly HashSet<ushort> _seen = new HashSet<ushort>();
         private readonly HashSet<ushort> _missiles = new HashSet<ushort>();
@@ -57,6 +65,13 @@ namespace CarRacer.Game.Items
                 AddRing(used.Position.ToUnity(), ItemEffects.ShockwaveRadius, ShockwaveColour);
             }
 
+            // Lightning strikes everyone ahead wherever they are, so every phone hears it at full volume.
+            if (used.Item == ItemKind.Lightning)
+            {
+                GameAudio.Play("explosion");
+                return;
+            }
+
             string sound = UseSound(used.Item);
             if (sound != null)
             {
@@ -75,8 +90,10 @@ namespace CarRacer.Game.Items
                 case ItemKind.Shockwave:
                     return "shockwave";
                 case ItemKind.Missile:
+                case ItemKind.Seeker:
                     return "missile";
                 case ItemKind.OilSlick:
+                case ItemKind.FakeBox:
                     return "oil";
                 case ItemKind.Bomb:
                     return "bomb_throw";
@@ -105,7 +122,7 @@ namespace CarRacer.Game.Items
                 return;
             }
 
-            SyncOil();
+            SyncHazards();
             SyncProjectiles();
 
             for (int i = _rings.Count - 1; i >= 0; i--)
@@ -133,14 +150,16 @@ namespace CarRacer.Game.Items
             {
                 _seen.Add(snapshot.EffectId);
                 var target = snapshot.Position.ToUnity();
+                bool homing = ProjectileRules.IsHoming(snapshot.Kind);
                 if (!_projectiles.TryGetValue(snapshot.EffectId, out var view))
                 {
-                    view = snapshot.Kind == ItemKind.Missile
-                        ? SimpleMaterials.Part(PrimitiveType.Cube, transform, Vector3.zero, new Vector3(0.35f, 0.35f, 1.1f), SimpleMaterials.Get(MissileColour))
+                    view = homing
+                        ? SimpleMaterials.Part(PrimitiveType.Cube, transform, Vector3.zero, new Vector3(0.35f, 0.35f, 1.1f),
+                            SimpleMaterials.Get(snapshot.Kind == ItemKind.Seeker ? SeekerColour : MissileColour))
                         : SimpleMaterials.Part(PrimitiveType.Sphere, transform, Vector3.zero, Vector3.one * 0.8f, SimpleMaterials.Get(BombColour));
                     view.position = target;
                     _projectiles[snapshot.EffectId] = view;
-                    if (snapshot.Kind == ItemKind.Missile)
+                    if (homing)
                     {
                         _missiles.Add(snapshot.EffectId);
                     }
@@ -151,7 +170,7 @@ namespace CarRacer.Game.Items
                 var next = Vector3.Lerp(view.position, target, blend);
                 var travel = next - view.position;
                 travel.y = 0f;
-                if (snapshot.Kind == ItemKind.Missile && travel.sqrMagnitude > 1e-6f)
+                if (homing && travel.sqrMagnitude > 1e-6f)
                 {
                     view.rotation = Quaternion.LookRotation(travel);
                 }
@@ -159,7 +178,7 @@ namespace CarRacer.Game.Items
                 view.position = next;
             }
 
-            // A Missile that has gone has hit someone or run out of time: either way, a bang.
+            // A Missile or Seeker that has gone has hit someone or run out of time: either way, a bang.
             foreach (var pair in _projectiles)
             {
                 if (!_seen.Contains(pair.Key) && _missiles.Contains(pair.Key))
@@ -172,22 +191,47 @@ namespace CarRacer.Game.Items
             _missiles.IntersectWith(_projectiles.Keys);
         }
 
-        private void SyncOil()
+        private void SyncHazards()
         {
             _seen.Clear();
+            var spin = Quaternion.Euler(0f, FakeBoxSpinDegreesPerSecond * Time.deltaTime, 0f);
             foreach (var hazard in _items.Hazards.Active)
             {
                 _seen.Add(hazard.EffectId);
-                if (!_oil.ContainsKey(hazard.EffectId))
+                if (!_hazards.TryGetValue(hazard.EffectId, out var view))
                 {
-                    float diameter = 2f * ItemEffects.OilRadius;
-                    var disc = SimpleMaterials.Part(PrimitiveType.Cylinder, transform, Vector3.zero, new Vector3(diameter, 0.02f, diameter), SimpleMaterials.Get(OilColour));
-                    disc.position = hazard.Position.ToUnity() + Vector3.down * 0.55f;
-                    _oil[hazard.EffectId] = disc;
+                    view = hazard.Item == ItemKind.FakeBox ? FakeBox(hazard) : OilDisc(hazard);
+                    _hazards[hazard.EffectId] = view;
+                }
+
+                if (_fakes.Contains(hazard.EffectId))
+                {
+                    view.rotation = spin * view.rotation;
                 }
             }
 
-            RemoveUnseen(_oil);
+            RemoveUnseen(_hazards);
+            _fakes.IntersectWith(_hazards.Keys);
+        }
+
+        private Transform OilDisc(Hazard hazard)
+        {
+            float diameter = 2f * ItemEffects.OilRadius;
+            var disc = SimpleMaterials.Part(PrimitiveType.Cylinder, transform, Vector3.zero, new Vector3(diameter, 0.02f, diameter), SimpleMaterials.Get(OilColour));
+            disc.position = hazard.Position.ToUnity() + Vector3.down * 0.55f;
+            return disc;
+        }
+
+        /// <summary>A Fake box, drawn like the real ones: a tilted cube that spins in place.</summary>
+        private Transform FakeBox(Hazard hazard)
+        {
+            var box = new GameObject($"Fake box {hazard.EffectId}").transform;
+            box.SetParent(transform, false);
+            box.position = hazard.Position.ToUnity() + Vector3.up * 0.15f;
+            var cube = SimpleMaterials.Part(PrimitiveType.Cube, box, Vector3.zero, Vector3.one * FakeBoxSize, SimpleMaterials.Get(FakeBoxColour));
+            cube.localRotation = Quaternion.Euler(35f, 0f, 35f);
+            _fakes.Add(hazard.EffectId);
+            return box;
         }
 
         /// <summary>Destroys the views in <paramref name="views"/> whose ids weren't seen this frame.</summary>

@@ -172,6 +172,25 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void TheNewItemsWaitForTheirMomentsToo()
+        {
+            float t = Normal.ItemDelaySeconds + 0.1f;
+            var behind = Nobody;
+            behind.NearestBehind = BotItems.OilRange - 1f;
+            Assert.False(BotItems.ShouldUse(ItemKind.FakeBox, t, Normal, Nobody));
+            Assert.True(BotItems.ShouldUse(ItemKind.FakeBox, t, Normal, behind));
+
+            // Lightning and a Seeker reach the cars ahead wherever they are, so any car ahead will do.
+            var trailing = Nobody;
+            trailing.HasCarAhead = true;
+            foreach (var item in new[] { ItemKind.Lightning, ItemKind.Seeker })
+            {
+                Assert.False(BotItems.ShouldUse(item, t, Normal, Nobody), item.ToString());
+                Assert.True(BotItems.ShouldUse(item, t, Normal, trailing), item.ToString());
+            }
+        }
+
+        [Fact]
         public void AnItemHeldTooLongIsUsedAnyway()
         {
             Assert.True(BotItems.ShouldUse(ItemKind.Missile, BotItems.GiveUpSeconds, Normal, Nobody));

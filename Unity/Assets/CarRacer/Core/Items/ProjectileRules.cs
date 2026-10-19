@@ -4,7 +4,7 @@ using CarRacer.Core.Numerics;
 
 namespace CarRacer.Core.Items
 {
-    /// <summary>A Missile or Bomb in flight. Only the host simulates them; other phones draw the positions it sends.</summary>
+    /// <summary>A Missile, Seeker or Bomb in flight. Only the host simulates them; other phones draw the positions it sends.</summary>
     public struct Projectile
     {
         public ushort EffectId;
@@ -13,7 +13,7 @@ namespace CarRacer.Core.Items
         public Vec3 Position;
         public Vec3 Velocity;
 
-        /// <summary>The player a Missile chases, or <see cref="ProjectileRules.NoTarget"/>.</summary>
+        /// <summary>The player a Missile or Seeker chases, or <see cref="ProjectileRules.NoTarget"/>.</summary>
         public byte TargetId;
 
         /// <summary>The height a Bomb bounces on (the ground under its launch) and a Missile flies at.</summary>
@@ -23,7 +23,7 @@ namespace CarRacer.Core.Items
         public long ExpiresAtMs;
     }
 
-    /// <summary>How Missiles and Bombs fly and hit (design doc §8).</summary>
+    /// <summary>How Missiles, Seekers and Bombs fly and hit (design doc §8).</summary>
     public static class ProjectileRules
     {
         public const byte NoTarget = byte.MaxValue;
@@ -37,6 +37,20 @@ namespace CarRacer.Core.Items
 
         /// <summary>A Missile's push along its flight, plus the usual pop.</summary>
         public const float MissilePush = 10f;
+
+        /// <summary>
+        /// A Seeker hunts the leader: faster and nimbler than a Missile and longer-lived, so it can
+        /// come from the back of the pack. It flies past every other car and blows up on reaching its
+        /// target, catching anyone close to the leader too.
+        /// </summary>
+        public const float SeekerSpeed = 55f;
+        public const float SeekerTurnDegreesPerSecond = 360f;
+        public const long SeekerLifetimeMs = 9000;
+        public const float SeekerBlastRadius = 5f;
+        public const float SeekerPush = 12f;
+
+        /// <summary>A Missile or Seeker: a projectile that steers towards a target.</summary>
+        public static bool IsHoming(ItemKind kind) => kind == ItemKind.Missile || kind == ItemKind.Seeker;
 
         /// <summary>A Bomb is thrown this fast forwards (on top of the car's own speed) and upwards.</summary>
         public const float BombThrowSpeed = 14f;
@@ -75,6 +89,23 @@ namespace CarRacer.Core.Items
             };
         }
 
+        public static Projectile LaunchSeeker(ItemUsedMessage used, byte targetId, long nowMs)
+        {
+            var forward = Forward(used.HeadingRadians);
+            return new Projectile
+            {
+                EffectId = used.EffectId,
+                OwnerId = used.PlayerId,
+                Kind = ItemKind.Seeker,
+                Position = used.Position + forward * MissileLaunchAhead,
+                Velocity = forward * SeekerSpeed,
+                TargetId = targetId,
+                GroundY = used.Position.Y,
+                LaunchedAtMs = nowMs,
+                ExpiresAtMs = nowMs + SeekerLifetimeMs,
+            };
+        }
+
         public static Projectile LaunchBomb(ItemUsedMessage used, long nowMs)
         {
             var forward = Forward(used.HeadingRadians);
@@ -93,14 +124,17 @@ namespace CarRacer.Core.Items
         }
 
         /// <summary>
-        /// Moves a projectile on by <paramref name="deltaSeconds"/>. A Missile with a target turns
-        /// towards it (no faster than its turn rate) and skims at its launch height; a Bomb falls
-        /// and bounces on the ground it was thrown from.
+        /// Moves a projectile on by <paramref name="deltaSeconds"/>. A Missile or Seeker with a target
+        /// turns towards it (no faster than its turn rate) and skims at its launch height; a Bomb
+        /// falls and bounces on the ground it was thrown from.
         /// </summary>
         public static Projectile Step(Projectile p, float deltaSeconds, bool hasTarget, Vec3 targetPosition)
         {
-            if (p.Kind == ItemKind.Missile)
+            if (IsHoming(p.Kind))
             {
+                bool seeker = p.Kind == ItemKind.Seeker;
+                float speed = seeker ? SeekerSpeed : MissileSpeed;
+                float turnRate = seeker ? SeekerTurnDegreesPerSecond : MissileTurnDegreesPerSecond;
                 var direction = p.Velocity.Flattened.Normalized;
                 if (hasTarget)
                 {
@@ -108,12 +142,12 @@ namespace CarRacer.Core.Items
                     if (toTarget.LengthSquared > 1e-4f)
                     {
                         float turn = WrapAngle(Heading(toTarget) - Heading(direction));
-                        float maxTurn = MissileTurnDegreesPerSecond * (MathF.PI / 180f) * deltaSeconds;
+                        float maxTurn = turnRate * (MathF.PI / 180f) * deltaSeconds;
                         direction = Vec3.RotateAroundUp(direction, Math.Max(-maxTurn, Math.Min(maxTurn, turn)));
                     }
                 }
 
-                p.Velocity = direction * MissileSpeed;
+                p.Velocity = direction * speed;
                 p.Position = new Vec3(p.Position.X, p.GroundY, p.Position.Z) + p.Velocity * deltaSeconds;
                 return p;
             }
@@ -136,11 +170,16 @@ namespace CarRacer.Core.Items
             missile.Velocity.Flattened.Normalized * MissilePush + Vec3.Up * ItemEffects.HitPop;
 
         /// <summary>A Bomb blast's push on a car at <paramref name="target"/>: straight away from the blast, plus the pop.</summary>
-        public static Vec3 BlastImpulse(Vec3 blast, Vec3 target)
+        public static Vec3 BlastImpulse(Vec3 blast, Vec3 target) => Blast(blast, target, BombPush);
+
+        /// <summary>A Seeker blast's push on a car at <paramref name="target"/>: away from the blast, plus the pop.</summary>
+        public static Vec3 SeekerImpulse(Vec3 blast, Vec3 target) => Blast(blast, target, SeekerPush);
+
+        private static Vec3 Blast(Vec3 blast, Vec3 target, float push)
         {
             var away = (target - blast).Flattened;
             var direction = away.LengthSquared > 1e-4f ? away.Normalized : Vec3.Forward;
-            return direction * BombPush + Vec3.Up * ItemEffects.HitPop;
+            return direction * push + Vec3.Up * ItemEffects.HitPop;
         }
 
         private static Vec3 Forward(float headingRadians) => new Vec3(MathF.Sin(headingRadians), 0f, MathF.Cos(headingRadians));

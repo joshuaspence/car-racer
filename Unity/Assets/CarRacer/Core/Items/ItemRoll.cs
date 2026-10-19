@@ -4,8 +4,9 @@ namespace CarRacer.Core.Items
 {
     /// <summary>
     /// Which item a box gives (design doc §8). The odds shift with race position so players further
-    /// back get better items: the leader mostly gets defensive ones (Shield, Oil slick), the last
-    /// car mostly gets ones that catch up (Boost, Missile, Shockwave). The odds are interpolated
+    /// back get better items: the leader mostly gets defensive ones (Shield, Oil slick, Fake box),
+    /// the last car mostly gets ones that catch up (Boost, Missile, Shockwave, and the rare
+    /// Lightning and Seeker, which only the back of the pack ever sees). The odds are interpolated
     /// between <see cref="FrontWeights"/> and <see cref="BackWeights"/> by how far back the player is.
     /// </summary>
     public static class ItemRoll
@@ -14,13 +15,14 @@ namespace CarRacer.Core.Items
         public static readonly ItemKind[] Kinds =
         {
             ItemKind.Boost, ItemKind.Shield, ItemKind.Shockwave, ItemKind.Missile, ItemKind.OilSlick, ItemKind.Bomb,
+            ItemKind.Lightning, ItemKind.FakeBox, ItemKind.Seeker,
         };
 
         /// <summary>Relative odds for the leader.</summary>
-        public static readonly float[] FrontWeights = { 15f, 30f, 5f, 0f, 35f, 15f };
+        public static readonly float[] FrontWeights = { 15f, 25f, 5f, 0f, 30f, 15f, 0f, 10f, 0f };
 
         /// <summary>Relative odds for the last car.</summary>
-        public static readonly float[] BackWeights = { 35f, 5f, 20f, 30f, 0f, 10f };
+        public static readonly float[] BackWeights = { 30f, 5f, 15f, 25f, 0f, 10f, 5f, 0f, 10f };
 
         /// <summary>
         /// How far back a player is: 0 for the leader, 1 for last. A lone racer (practice) counts as

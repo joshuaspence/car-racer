@@ -28,7 +28,19 @@ namespace CarRacer.Core.Items
 
         public const long OilLifetimeMs = 20000;
 
-        /// <summary>Where an oil slick dropped by a car at <paramref name="carPosition"/> facing <paramref name="headingRadians"/> lands.</summary>
+        /// <summary>
+        /// A car whose centre comes this close to a Fake box's centre sets it off: the same reach as
+        /// a real box, so it can't be told apart by how close it lets you get.
+        /// </summary>
+        public const float FakeBoxRadius = ItemBoxField.PickupRadius;
+
+        /// <summary>The items that leave a hazard on the track: an Oil slick or a Fake box.</summary>
+        public static bool IsDropped(ItemKind item) => item == ItemKind.OilSlick || item == ItemKind.FakeBox;
+
+        /// <summary>How close a car must come to a dropped hazard to be caught by it.</summary>
+        public static float HazardRadius(ItemKind item) => item == ItemKind.FakeBox ? FakeBoxRadius : OilRadius;
+
+        /// <summary>Where an oil slick or Fake box dropped by a car at <paramref name="carPosition"/> facing <paramref name="headingRadians"/> lands.</summary>
         public static Vec3 OilPosition(Vec3 carPosition, float headingRadians)
         {
             var forward = new Vec3(MathF.Sin(headingRadians), 0f, MathF.Cos(headingRadians));
@@ -45,9 +57,15 @@ namespace CarRacer.Core.Items
 
         /// <summary>The push an oil slick gives: just the pop; the spin-out does the rest.</summary>
         public static Vec3 OilImpulse => Vec3.Up * HitPop;
+
+        /// <summary>A Fake box goes off under the car: a bigger pop than oil, and the spin-out.</summary>
+        public static Vec3 FakeBoxImpulse => Vec3.Up * (HitPop * 2f);
+
+        /// <summary>A Lightning strike: the pop and the spin-out, wherever the car is.</summary>
+        public static Vec3 LightningImpulse => Vec3.Up * HitPop;
     }
 
-    /// <summary>A hazard left on the track by an item (an oil slick), in this phone's clock.</summary>
+    /// <summary>A hazard left on the track by an item (an oil slick or a Fake box), in this phone's clock.</summary>
     public struct Hazard
     {
         public ushort EffectId;
@@ -65,15 +83,19 @@ namespace CarRacer.Core.Items
 
         public IReadOnlyList<Hazard> Active => _hazards;
 
-        /// <summary>Adds an oil slick for item use <paramref name="used"/>, which happened at <paramref name="usedAtMs"/> in this phone's clock.</summary>
-        public void AddOil(ItemUsedMessage used, long usedAtMs)
+        /// <summary>
+        /// Adds the hazard item use <paramref name="used"/> drops (an oil slick or a Fake box), which
+        /// happened at <paramref name="usedAtMs"/> in this phone's clock. Both arm and expire alike.
+        /// </summary>
+        public void AddDropped(ItemUsedMessage used, long usedAtMs)
         {
             Remove(used.EffectId);
+            bool fake = used.Item == ItemKind.FakeBox;
             _hazards.Add(new Hazard
             {
                 EffectId = used.EffectId,
                 OwnerId = used.PlayerId,
-                Item = ItemKind.OilSlick,
+                Item = fake ? ItemKind.FakeBox : ItemKind.OilSlick,
                 Position = ItemEffects.OilPosition(used.Position, used.HeadingRadians),
                 ArmedAtMs = usedAtMs + ItemEffects.OilArmMs,
                 ExpiresAtMs = usedAtMs + ItemEffects.OilLifetimeMs,
@@ -102,8 +124,9 @@ namespace CarRacer.Core.Items
         {
             foreach (var h in _hazards)
             {
+                float radius = ItemEffects.HazardRadius(h.Item);
                 if (nowMs >= h.ArmedAtMs && nowMs < h.ExpiresAtMs
-                    && (h.Position - carPosition).Flattened.LengthSquared <= ItemEffects.OilRadius * ItemEffects.OilRadius)
+                    && (h.Position - carPosition).Flattened.LengthSquared <= radius * radius)
                 {
                     hazard = h;
                     return true;
