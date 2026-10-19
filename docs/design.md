@@ -141,6 +141,9 @@ player of its own (`HostSession.Dedicated`, `HostPlayerId` is `NoPlayer`).
   HUD or overlay, but with every track, arena and car, which the host needs for bots, item hits
   and standings. It runs at 60 Hz, takes `-port` and `-name` (the name phones list it under), logs
   who joins, leaves and leads and each event's start and finish, and exits if hosting fails.
+  If every player leaves mid-event, their cars carry on as bots; once the results are in, the
+  server goes back to the lobby by itself (leaving a cup, which keeps its save), so new guests can
+  join again.
 
 ## 3. Engine and tech stack
 
