@@ -5,8 +5,8 @@ Four GitHub Actions workflows live in `.github/workflows/`:
 | Workflow | Runs on | Needs secrets? | What it does |
 |---|---|---|---|
 | `core.yml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
-| `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and attaches it to the run |
-| `release.yml` | pushing a `v*` tag | Unity licence + keystore | Builds a release-signed APK and publishes it to GitHub Releases |
+| `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
+| `release.yml` | pushing a `v*` tag | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
 | `claude.yaml` | every non-draft PR (on each push), and `@claude` mentions | `CLAUDE_CODE_OAUTH_TOKEN` | Claude reviews the PR, or answers the mention, via [`spence-com-au/claude-code-action`](https://github.com/spence-com-au/claude-code-action) |
 
 Until the Unity secrets exist, `unity.yml` skips its jobs with a notice instead of failing.
@@ -82,6 +82,12 @@ The tag becomes the app version (`0.1.0`), and the Android version code is deriv
 The APK is published as `CarRacer-v0.1.0.apk` on the repository's Releases page. Friends can
 install it directly, or use [Obtainium](https://github.com/ImranR98/Obtainium) pointed at the
 repository to get updates automatically.
+
+The same release carries the Linux server as `CarRacer-server-v0.1.0-linux-x86_64.tar.gz`, and
+the image `ghcr.io/joshuaspence/car-racer:v0.1.0` (and `:latest`) goes to GitHub's container
+registry using the workflow's own token. The first time, the package is private: make it public
+under **GitHub → your profile → Packages → car-racer → Package settings** so servers can pull it
+without logging in.
 
 ## 5. First-time Unity editor setup (local)
 
