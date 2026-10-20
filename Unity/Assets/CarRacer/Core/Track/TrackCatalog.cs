@@ -20,6 +20,11 @@ namespace CarRacer.Core.Track
             // North of the Battle bowl, side by side.
             new Vec3(-20f, 0f, 520f),
             new Vec3(-450f, 0f, 520f),
+
+            // South of the Sumo platform, and east of the bowl.
+            new Vec3(-450f, 0f, -520f),
+            new Vec3(-30f, 0f, -560f),
+            new Vec3(550f, 0f, 520f),
         };
 
         private static List<TrackLayout> _layouts;

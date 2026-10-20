@@ -463,7 +463,7 @@ leader).
 
 ## 10. Championship (`Championship`)
 
-- Cups: **Grand Prix** (a race on every track: 5) and **Mixed Cup** (the same 5 races + Sumo + Battle), or custom.
+- Cups: **Grand Prix** (a race on every track: 8) and **Mixed Cup** (the same 8 races + Sumo + Battle), or custom.
 - Points for 1st to 6th: **10 / 8 / 6 / 4 / 2 / 1**, the same for races and arenas. Arena order is
   last car standing first, then reverse elimination order.
 - **Reverse grid** (leader starts last) is on by default as a host toggle.
@@ -495,14 +495,17 @@ leader).
      haptics, auto-accelerate and tilt steering on one page, with an Accessibility page beside it
      (§5); each choice is remembered as soon as it changes. Haptics and
      auto-accelerate can also be switched while driving.
-3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
+3. Garage: car body (12 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
-   - Built so far: six Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
-     hatchback sports, SUV luxury and van), each drawn 2.43 m long so they fill the same physics
-     car, and each with its own handling ratings (§4, car stats). The choice (`Garage`, remembered on the phone) goes in the join request;
+   - Built so far: twelve Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
+     hatchback sports, SUV luxury, van, sedan, SUV, taxi, pickup, delivery truck and a kart with
+     its driver), each drawn 2.43 m long so they fill the same physics car, and each with its own
+     handling ratings (§4, car stats); no two bodies share a set. New bodies go on the end of the
+     list so remembered and sent body indices keep their meaning (protocol 23). Bots take every
+     other body, so a full grid of them shows cars from across the garage. The choice (`Garage`, remembered on the phone) goes in the join request;
      the host keeps the player's colour unless someone has it, when they get the next free colour
-     along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
-     bodies in turn. Practice uses the garage car.
+     along (`LobbyRoster`), and the roster tells every phone each player's body. Practice uses
+     the garage car.
    - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
      its own camera, far below the menu, rendering to a texture), arrows to step through the
      bodies, the body's top speed, steering and acceleration as bars (with the number beside each,
@@ -546,7 +549,7 @@ leader).
 - **Everything else is generated** from it: road and wall meshes (`RoadMeshBuilder`),
   checkpoint gates, start grid (two staggered columns behind the line), item box positions and
   the bot racing line (`TrackLayout`). Arenas will work the same way (platform shape + edge type).
-- Content: **5 tracks** and **2 arenas** (Sumo platform, Battle bowl):
+- Content: **8 tracks** and **2 arenas** (Sumo platform, Battle bowl):
   - **Pebble Oval** (`oval`, ~390 m): an easy rounded rectangle.
   - **Canyon Hairpins** (`canyon`, ~590 m): a jump over a crest on the opening straight, two
     hairpins, a chicane and a fast sweeper.
@@ -556,6 +559,12 @@ leader).
     right-hander, a run of left-right sweepers, and a wide hairpin home.
   - **Switchback Hill** (`switchbacks`, ~480 m): up a long ramp, round a switchback near the top,
     along a ridge 9 m up, and down through a long, sweeping bend.
+  - **Dune Jumps** (`dunes`, ~500 m): wide desert run with a crest to jump on each long
+    straight, joined by two big, open bends for drifting.
+  - **Carousel Ring** (`carousel`, ~440 m): a long loop banked at 12° to hold flat out, then
+    back through the infield on tighter left-right esses.
+  - **Ridge Run** (`ridge`, ~565 m): a steady climb to a tight hairpin 9 m up, along the top, and
+    down a run of esses to a sweeping finish. Each track has its own tune (credits).
   - Both cups race every track, so a new track joins them (a test enforces it).
 - **In the scene** (`TrackCatalog`): every track is built at once, each moved to its own patch
   of grass clear of the others and of the arenas. The host picks the track in the lobby
@@ -668,6 +677,7 @@ leader).
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
 | **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. The room leader, lobby settings and commands (protocol 22), the game's server mode with host controls on the leader's phone, and the CI build, tarball and image. |
+| **M17: More tracks and cars** | Six more Car Kit bodies (sedan, SUV, taxi, pickup, delivery truck and a kart), each with its own handling (protocol 23); three more tracks, Dune Jumps, Carousel Ring and Ridge Run, each with its own tune and in both cups (protocol 24). |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

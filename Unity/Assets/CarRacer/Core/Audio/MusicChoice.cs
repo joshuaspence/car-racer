@@ -12,10 +12,10 @@ namespace CarRacer.Core.Audio
         public const string Arena = "arena";
 
         /// <summary>The track tunes, in <see cref="Track.TrackCatalog"/> order; any further track reuses them in turn.</summary>
-        public static readonly string[] TrackTunes = { "oval", "canyon", "figure_eight", "sweepers", "switchbacks" };
+        public static readonly string[] TrackTunes = { "oval", "canyon", "figure_eight", "sweepers", "switchbacks", "dunes", "carousel", "ridge" };
 
         /// <summary>Every tune in <c>Resources/Music</c>, so a test can check they all load.</summary>
-        public static readonly string[] All = { Menu, Arena, "oval", "canyon", "figure_eight", "sweepers", "switchbacks" };
+        public static readonly string[] All = { Menu, Arena, "oval", "canyon", "figure_eight", "sweepers", "switchbacks", "dunes", "carousel", "ridge" };
 
         /// <param name="inEvent">An event is under way (or the player is practising), rather than waiting in a lobby.</param>
         public static string For(bool inEvent, GameMode mode, int trackIndex)

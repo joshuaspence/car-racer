@@ -48,7 +48,7 @@ namespace CarRacer.Core.Session
         public const int ColourCount = 8;
 
         /// <summary>Number of car bodies to pick from (<c>CarModels.Bodies</c>).</summary>
-        public const int BodyCount = 6;
+        public const int BodyCount = 12;
 
         private readonly List<LobbyPlayer> _players = new List<LobbyPlayer>();
 
@@ -149,7 +149,8 @@ namespace CarRacer.Core.Session
             var bot = Add(NextBotName());
             if (bot != null)
             {
-                bot.BodyIndex = (byte)(bot.PlayerId % BodyCount);
+                // Every other body, so a full grid of bots shows off the whole garage, old cars and new.
+                bot.BodyIndex = (byte)((bot.PlayerId * 2 + 1) % BodyCount);
                 bot.IsBot = true;
                 bot.Ready = true;
             }
