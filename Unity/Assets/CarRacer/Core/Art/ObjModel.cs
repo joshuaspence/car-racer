@@ -29,8 +29,8 @@ namespace CarRacer.Core.Art
     {
         public readonly List<ObjPart> Parts = new List<ObjPart>();
 
-        public Vec3 Min { get; private set; }
-        public Vec3 Max { get; private set; }
+        public Vec3 Min { get; internal set; }
+        public Vec3 Max { get; internal set; }
 
         public int TriangleCount
         {

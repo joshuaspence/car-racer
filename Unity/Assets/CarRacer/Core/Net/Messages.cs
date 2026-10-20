@@ -31,6 +31,7 @@ namespace CarRacer.Core.Net
         VoteTrack = 23,
         LobbySettings = 24,
         LobbyCommand = 25,
+        Stunt = 26,
     }
 
     [Flags]
@@ -357,6 +358,9 @@ namespace CarRacer.Core.Net
                     break;
                 case MessageType.LobbyCommand:
                     message = LobbyCommandMessage.Read(reader);
+                    break;
+                case MessageType.Stunt:
+                    message = StuntMessage.Read(reader);
                     break;
                 default:
                     throw new NetFormatException($"Unknown message type {(byte)type}.");

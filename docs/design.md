@@ -307,10 +307,11 @@ takes touches, and it sits under the performance readout.
 | **Race** | 3 laps by default. First across the line wins; the rest get a timer, then DNF in current order. |
 | **Sumo / Knockout** | Floating platform that shrinks over time; last car on it wins. |
 | **Battle** | Item-based arena mode. |
+| **Monster Jam** | Everyone drives a monster truck in a stunt stadium; most points for air time and crushes in 2 minutes wins. |
 | **Championship** | A cup of races and arena events with points (§10). |
 | **Practice** | Offline: the host code runs alone with bots. Time trials. |
 
-### 7.0 Arena rules (`SumoRules`, `BattleRules`, `EliminationTracker`, host side)
+### 7.0 Arena rules (`SumoRules`, `BattleRules`, `MonsterRules`, `EliminationTracker`, `StuntTracker`, host side)
 
 - **Sumo:** a circular platform, 30 m in radius at the start, holds its size for 20 s, then
   shrinks steadily to a 10 m radius over 90 s and stays there. A car is out once its centre is past the edge or it
@@ -319,6 +320,24 @@ takes touches, and it sits under the performance readout.
   lands (a Shield still soaks one up) costs a life, and bumps cost nothing. The last car with
   lives left wins; after 3 minutes the most lives wins. Twelve item boxes: eight halfway out and
   four round the centre.
+- **Monster Jam:** a walled dirt stadium 45 m in radius with four kicker ramps round a ring
+  halfway out, each facing along it, and a spine (two ramps back to back) in the middle
+  (`ArenaLayout.MonsterRamps`). Every car becomes a monster truck: its own body raised on wheels
+  2.2 times the size (`MonsterTruck`, built from the same model, so the paint still works), with
+  big-air handling (gravity eased by 4 m/s² in the air) and heavy hits (bumps 2.4 times as
+  dramatic as cars'). Scoring: a jump of 0.4 s or more scores 1 point per 0.1 s in the air (up
+  to 6 s), and a crush scores 25: coming down on a truck from 0.6 m or more above it, or meeting it at a
+  closing speed of 9 m/s or more while doing more of the closing (`MonsterRules.IsCrush`, so of
+  the two phones that see a touch, only one counts it). The
+  most points after 2 minutes wins; ties keep the order players joined. No items.
+  - **Who scores:** each phone times its own truck's jumps and spots its own crushes, as it
+    reports its own checkpoints, and sends them (`StuntMessage`); the host keeps the score
+    (`StuntTracker`) and only believes what fits: no more air than time has passed since that
+    player's last landing, a crush only on a truck the host sees within 6 m, and not the same
+    truck by the same attacker again within 1.5 s. Bots' stunts come from the host directly.
+  - **Standings and results** carry each player's points (`Points`, protocol 25).
+  - **Bots** (`MonsterBotDriver`) work round the ramps in turn, lining up behind each and
+    launching off it flat out, ram any rival right in front of them, and turn back from the wall.
 - **Placings:** survivors first (most lives first), then everyone else in reverse order of going
   out, each with the time they lasted. An event with one player lasts until they are out.
 - **Start:** cars start evenly round a circle at 70% of the arena's radius, facing the centre.
@@ -678,6 +697,7 @@ leader).
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
 | **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. The room leader, lobby settings and commands (protocol 22), the game's server mode with host controls on the leader's phone, and the CI build, tarball and image. |
 | **M17: More tracks and cars** | Six more Car Kit bodies (sedan, SUV, taxi, pickup, delivery truck and a kart), each with its own handling (protocol 23); three more tracks, Dune Jumps, Carousel Ring and Ridge Run, each with its own tune and in both cups (protocol 24). |
+| **M18: Monster Jam** | A fourth event type: monster trucks in a stunt stadium with ramps, scoring air time and crushes. Core rules, scoring, messages (protocol 25), the truck model and bots first; then the stadium, handling, HUD and lobby. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

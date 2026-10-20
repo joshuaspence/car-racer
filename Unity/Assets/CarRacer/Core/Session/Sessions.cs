@@ -177,6 +177,9 @@ namespace CarRacer.Core.Session
         /// <summary>A joined guest reported a checkpoint for its own car (see <c>HostRace</c>).</summary>
         public event Action<CheckpointReachedMessage> CheckpointReceived;
 
+        /// <summary>A joined guest reported a Monster Jam stunt by its own truck (see <c>HostRace</c>).</summary>
+        public event Action<StuntMessage> StuntReceived;
+
         /// <summary>A joined guest left (disconnected), with the name they had. Raised before the roster updates.</summary>
         public event Action<byte, string> PlayerLeft;
 
@@ -378,6 +381,9 @@ namespace CarRacer.Core.Session
                     break;
                 case CheckpointReachedMessage checkpoint when joined && checkpoint.PlayerId == playerId:
                     CheckpointReceived?.Invoke(checkpoint);
+                    break;
+                case StuntMessage stunt when joined && stunt.PlayerId == playerId:
+                    StuntReceived?.Invoke(stunt);
                     break;
                 case HitMessage hit when joined && hit.AttackerId == playerId && !hit.IsItemHit:
                     // Item hits come only from the host; a guest may only report bumps by its own car.

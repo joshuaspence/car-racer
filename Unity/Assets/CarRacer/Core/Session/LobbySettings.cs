@@ -48,7 +48,7 @@ namespace CarRacer.Core.Session
         public LobbySettings Clean()
         {
             var clean = this;
-            clean.Mode = (byte)Mode <= (byte)GameMode.Battle ? Mode : GameMode.Race;
+            clean.Mode = (byte)Mode <= (byte)GameMode.Monster ? Mode : GameMode.Race;
             clean.Laps = Math.Max(1, Math.Min(MaxLaps, Laps));
             clean.Track = TrackCatalog.Clamp(Track);
             clean.BotFill = Math.Max(0, Math.Min(LobbyRoster.MaxPlayers, BotFill));
