@@ -495,11 +495,14 @@ leader).
      haptics, auto-accelerate and tilt steering on one page, with an Accessibility page beside it
      (§5); each choice is remembered as soon as it changes. Haptics and
      auto-accelerate can also be switched while driving.
-3. Garage: car body (4–6 Kenney models) and colour. Colour clashes are auto-adjusted for the
+3. Garage: car body (12 Kenney models) and colour. Colour clashes are auto-adjusted for the
    later joiner, and the palette is colour-blind safe.
-   - Built so far: six Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
-     hatchback sports, SUV luxury and van), each drawn 2.43 m long so they fill the same physics
-     car, and each with its own handling ratings (§4, car stats). The choice (`Garage`, remembered on the phone) goes in the join request;
+   - Built so far: twelve Car Kit bodies (`CarModels.Bodies`: race, race future, sedan sports,
+     hatchback sports, SUV luxury, van, sedan, SUV, taxi, pickup, delivery truck and a kart with
+     its driver), each drawn 2.43 m long so they fill the same physics car, and each with its own
+     handling ratings (§4, car stats); no two bodies share a set. New bodies go on the end of the
+     list so remembered and sent body indices keep their meaning (protocol 23). Bots take every
+     other body, so a full grid of them shows cars from across the garage. The choice (`Garage`, remembered on the phone) goes in the join request;
      the host keeps the player's colour unless someone has it, when they get the next free colour
      along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
      bodies in turn. Practice uses the garage car.
@@ -668,6 +671,7 @@ leader).
 | **M14: Damage** | Bumps, hard wall hits and item hits damage a car, costing speed; at 100% it is wrecked for 2 s, and it mends when left alone. Smoke shows damage to everyone. |
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
 | **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. The room leader, lobby settings and commands (protocol 22), the game's server mode with host controls on the leader's phone, and the CI build, tarball and image. |
+| **M17: More tracks and cars** | Six more Car Kit bodies (sedan, SUV, taxi, pickup, delivery truck and a kart), each with its own handling; three more tracks. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

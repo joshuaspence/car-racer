@@ -98,6 +98,23 @@ namespace CarRacer.Core.Tests
             Assert.Equal(CarModels.Bodies.Length, CarModels.Bodies.Select(b => b.Name).Distinct().Count());
             Assert.Same(CarModels.Bodies[1], CarModels.ForIndex(1 + CarModels.Bodies.Length));
             Assert.Equal("Race future", CarModels.DisplayName(CarModels.Bodies[1]));
+            Assert.Equal(CarModels.Bodies.Length, CarModels.Bodies.Select(CarModels.DisplayName).Distinct().Count());
+            Assert.Contains("SUV", CarModels.Bodies.Select(CarModels.DisplayName));
+            Assert.Contains("Kart", CarModels.Bodies.Select(CarModels.DisplayName));
+        }
+
+        [Fact]
+        public void AFullGridOfBotsDrivesDifferentBodiesFromAcrossTheGarage()
+        {
+            var roster = new LobbyRoster();
+            while (roster.AddBot() != null)
+            {
+            }
+
+            var bodies = roster.Players.Select(p => (int)p.BodyIndex).ToList();
+            Assert.Equal(bodies.Count, bodies.Distinct().Count());
+            Assert.Contains(bodies, b => b >= 6);
+            Assert.Contains(bodies, b => b < 6);
         }
 
         [Fact]

@@ -9,7 +9,7 @@ From Kenney's [Car Kit](https://kenney.nl/assets/car-kit), released under
 | File in `Unity/Assets/CarRacer/Resources/Models` | Source |
 | --- | --- |
 | `race.obj.bytes` | Car Kit: `Models/OBJ format/race.obj` |
-| `race-future.obj.bytes`, `sedan-sports.obj.bytes`, `hatchback-sports.obj.bytes`, `suv-luxury.obj.bytes`, `van.obj.bytes` | Car Kit: the same names under `Models/OBJ format` |
+| `race-future.obj.bytes`, `sedan-sports.obj.bytes`, `hatchback-sports.obj.bytes`, `suv-luxury.obj.bytes`, `van.obj.bytes`, `sedan.obj.bytes`, `suv.obj.bytes`, `taxi.obj.bytes`, `truck.obj.bytes`, `delivery.obj.bytes`, `kart-oopi.obj.bytes` | Car Kit: the same names under `Models/OBJ format` |
 | `colormap.png.bytes` | Car Kit: `Models/OBJ format/Textures/colormap.png` |
 
 And from Kenney's [Racing Kit](https://kenney.nl/assets/racing-kit), also CC0, unchanged except
