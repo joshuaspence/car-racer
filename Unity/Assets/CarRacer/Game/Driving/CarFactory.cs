@@ -79,8 +79,9 @@ namespace CarRacer.Game.Driving
         /// <summary>
         /// Swaps the body and paint of a car made here (design doc §11, picking a car in the lobby),
         /// and its handling with them, leaving the car where it is. Takes the car's root object.
+        /// <paramref name="monster"/> draws it as a monster truck (Monster Jam, design doc §7.0).
         /// </summary>
-        public static void ReplaceBody(GameObject car, Color colour, CarModel body)
+        public static void ReplaceBody(GameObject car, Color colour, CarModel body, bool monster = false)
         {
             var visual = car.transform.Find("Body");
             if (visual == null)
@@ -96,7 +97,7 @@ namespace CarRacer.Game.Driving
                 Object.Destroy(old.gameObject);
             }
 
-            BuildBody(visual, colour, body);
+            BuildBody(visual, colour, body, monster);
             var controller = car.GetComponent<CarController>();
             if (controller != null)
             {
@@ -105,9 +106,9 @@ namespace CarRacer.Game.Driving
             }
         }
 
-        private static void BuildBody(Transform visual, Color colour, CarModel body)
+        private static void BuildBody(Transform visual, Color colour, CarModel body, bool monster = false)
         {
-            if (CarBodies.TryBuild(visual, colour, body ?? CarModels.Race))
+            if (CarBodies.TryBuild(visual, colour, body ?? CarModels.Race, monster))
             {
                 return;
             }

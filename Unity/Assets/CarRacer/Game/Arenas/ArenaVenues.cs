@@ -6,10 +6,11 @@ using UnityEngine;
 namespace CarRacer.Game.Arenas
 {
     /// <summary>
-    /// The two arenas (design doc §7.0), built from code next to the track scene: the floating Sumo
+    /// The arenas (design doc §7.0), built from code next to the track scene: the floating Sumo
     /// platform, which shrinks with <see cref="SumoRules.PlatformRadius"/> once a Sumo event is under
-    /// way, with a catch floor far below for the cars that fall off, and the walled Battle bowl. Every
-    /// phone works out the platform's size from the shared start time, so it shrinks in step everywhere.
+    /// way, with a catch floor far below for the cars that fall off, the walled Battle bowl, and the
+    /// Monster Jam stadium with its ramps. Every phone works out the platform's size from the shared
+    /// start time, so it shrinks in step everywhere.
     /// </summary>
     public sealed class ArenaVenues : MonoBehaviour
     {
@@ -17,12 +18,18 @@ namespace CarRacer.Game.Arenas
         private const float CatchFloorDepth = 30f;
         private const int BowlWallSegments = 40;
         private const float BowlWallHeight = 1.6f;
+        private const float StadiumWallHeight = 3f;
 
         private static readonly Color PlatformColour = new Color(0.8f, 0.78f, 0.7f);
         private static readonly Color PlatformEdgeColour = new Color(0.9f, 0.3f, 0.25f);
         private static readonly Color CatchFloorColour = new Color(0.2f, 0.35f, 0.6f);
         private static readonly Color BowlFloorColour = new Color(0.45f, 0.42f, 0.5f);
         private static readonly Color BowlWallColour = new Color(0.95f, 0.65f, 0.2f);
+        private static readonly Color DirtColour = new Color(0.55f, 0.4f, 0.27f);
+        private static readonly Color StadiumWallColour = new Color(0.2f, 0.45f, 0.85f);
+        private static readonly Color RampColour = new Color(0.78f, 0.6f, 0.38f);
+
+        private readonly System.Collections.Generic.List<Mesh> _meshes = new System.Collections.Generic.List<Mesh>();
 
         private NetworkSession _session;
         private Transform _platform;
@@ -35,6 +42,7 @@ namespace CarRacer.Game.Arenas
             venues._session = session;
             venues.BuildSumo();
             venues.BuildBattle();
+            venues.BuildMonster();
             return venues;
         }
 
@@ -66,6 +74,77 @@ namespace CarRacer.Game.Arenas
                 var position = centre + rotation * new Vector3(0f, BowlWallHeight / 2f, radius + 0.5f);
                 var wall = Solid(PrimitiveType.Cube, $"Battle wall {i}", position, new Vector3(segment, BowlWallHeight, 1f), BowlWallColour);
                 wall.rotation = rotation;
+            }
+        }
+
+        /// <summary>The Monster Jam stadium: a dirt floor, a high wall all round, and the ramps from <see cref="ArenaLayout.MonsterRamps"/>.</summary>
+        private void BuildMonster()
+        {
+            var centre = ArenaLayout.MonsterCentre.ToUnity();
+            float radius = MonsterRules.StadiumRadius;
+            Solid(PrimitiveType.Cylinder, "Stadium floor", centre + Vector3.down * (PlatformThickness / 2f), new Vector3(2f * radius + 4f, PlatformThickness / 2f, 2f * radius + 4f), DirtColour);
+
+            float segment = 2f * Mathf.PI * radius / BowlWallSegments * 1.08f;
+            for (int i = 0; i < BowlWallSegments; i++)
+            {
+                var rotation = Quaternion.Euler(0f, 360f * i / BowlWallSegments, 0f);
+                var position = centre + rotation * new Vector3(0f, StadiumWallHeight / 2f, radius + 0.5f);
+                Solid(PrimitiveType.Cube, $"Stadium wall {i}", position, new Vector3(segment, StadiumWallHeight, 1f), StadiumWallColour).rotation = rotation;
+            }
+
+            int n = 0;
+            foreach (var ramp in ArenaLayout.MonsterRamps(ArenaLayout.MonsterCentre))
+            {
+                var mesh = RampMesh(ramp);
+                _meshes.Add(mesh);
+                var part = new GameObject($"Ramp {n++}");
+                part.transform.SetParent(transform, false);
+                part.AddComponent<MeshFilter>().sharedMesh = mesh;
+                part.AddComponent<MeshRenderer>().sharedMaterial = SimpleMaterials.Get(RampColour);
+                part.AddComponent<MeshCollider>().sharedMesh = mesh;
+                part.isStatic = true;
+            }
+        }
+
+        /// <summary>A wedge: the slope up to the lip, a vertical back, and two triangular sides; flat-shaded.</summary>
+        private static Mesh RampMesh(Ramp ramp)
+        {
+            var forward = ramp.Forward.ToUnity();
+            var side = Vector3.Cross(Vector3.up, forward) * (ramp.Width / 2f);
+            var foot = ramp.Foot.ToUnity();
+            var lip = ramp.Lip.ToUnity();
+            var back = lip + Vector3.down * ramp.Height;
+            var vertices = new System.Collections.Generic.List<Vector3>();
+            var triangles = new System.Collections.Generic.List<int>();
+            void Face(params Vector3[] corners)
+            {
+                int start = vertices.Count;
+                vertices.AddRange(corners);
+                for (int i = 1; i + 1 < corners.Length; i++)
+                {
+                    triangles.Add(start);
+                    triangles.Add(start + i);
+                    triangles.Add(start + i + 1);
+                }
+            }
+
+            Face(foot - side, lip - side, lip + side, foot + side);
+            Face(back - side, back + side, lip + side, lip - side);
+            Face(foot - side, back - side, lip - side);
+            Face(foot + side, lip + side, back + side);
+            var mesh = new Mesh { name = "Ramp" };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private void OnDestroy()
+        {
+            foreach (var mesh in _meshes)
+            {
+                Destroy(mesh);
             }
         }
 

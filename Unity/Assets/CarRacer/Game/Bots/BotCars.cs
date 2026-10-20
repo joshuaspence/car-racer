@@ -24,7 +24,9 @@ namespace CarRacer.Game.Bots
     /// state to everyone at 30 Hz with the <see cref="CarStateFlags.BotControlled"/> flag. A bot
     /// that takes over a player who left mid-race (design doc §12) carries on from where their car
     /// was, at its speed and with its laps. In Sumo and Battle an <see cref="ArenaBotDriver"/> drives
-    /// it instead, its spin-outs are reported to the referee, and it stops once it is out.
+    /// it instead, its spin-outs are reported to the referee, and it stops once it is out. In
+    /// Monster Jam it is a monster truck driven by a <see cref="MonsterBotDriver"/>, and its jumps
+    /// and crushes are reported for its score.
     /// </summary>
     public sealed class BotCars : MonoBehaviour
     {
@@ -35,6 +37,10 @@ namespace CarRacer.Game.Bots
             public CarController Car;
             public BotDriver Driver;
             public ArenaBotDriver ArenaDriver;
+            public MonsterBotDriver MonsterDriver;
+
+            /// <summary>Whether the car is drawn as a monster truck now.</summary>
+            public bool Truck;
             public bool WasSpunOut;
             public BotSkill Skill;
             public CheckpointDetector Detector;
@@ -42,7 +48,7 @@ namespace CarRacer.Game.Bots
             /// <summary>The track <see cref="Driver"/> and <see cref="Detector"/> were made for.</summary>
             public int TrackIndex;
             public readonly Shield Shield = new Shield();
-            public readonly BumpMonitor Bumps = new BumpMonitor();
+            public BumpMonitor Bumps;
             public Transform ShieldRing;
             public Vector3 LastPosition;
             public float HeldSeconds;
@@ -51,6 +57,11 @@ namespace CarRacer.Game.Bots
 
             public CarInput Read()
             {
+                if (MonsterDriver != null)
+                {
+                    return MonsterDriver.Drive(Car.State, Car.BodyPosition.ToCore(), Owner.RivalsOf(PlayerId));
+                }
+
                 if (ArenaDriver == null)
                 {
                     return Driver.Drive(Car.State, Car.BodyPosition.ToCore(), Time.fixedDeltaTime, Owner.RivalsOf(PlayerId));
@@ -68,6 +79,10 @@ namespace CarRacer.Game.Bots
         private readonly List<Vec3> _rivals = new List<Vec3>();
         private readonly List<OtherCar> _others = new List<OtherCar>();
         private readonly List<Bump> _bumps = new List<Bump>();
+
+        /// <summary>Shared by every bot's bump monitor; Monster Jam's trucks hit harder.</summary>
+        private readonly BumpSettings _bumpSettings = new BumpSettings();
+        private float _carExaggeration;
         private TrackScreen _screen;
         private NetworkSession _session;
         private NetworkedCars _cars;
@@ -79,6 +94,7 @@ namespace CarRacer.Game.Bots
             _screen = screen;
             _session = session;
             _cars = cars;
+            _carExaggeration = _bumpSettings.Exaggeration;
             _session.HostSide.BotHitReceived += OnBotHit;
             _session.HostSide.PlayerReturned += OnPlayerReturned;
         }
@@ -291,6 +307,32 @@ namespace CarRacer.Game.Bots
                 bot.Car.AddImpulse(bump.SelfImpulse.ToUnity());
                 bot.Car.TakeBump(bump.SelfImpulse.ToUnity());
                 _session.SendHit(bump.Fallback);
+                foreach (var other in _others)
+                {
+                    if (other.PlayerId == bump.OtherPlayerId)
+                    {
+                        ReportCrush(bot, bot.Car.BodyVelocity.ToCore(), other.PlayerId, other.Position, other.Velocity);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Monster Jam: a bot's truck landed a jump.</summary>
+        private void OnBotLanded(Bot bot, float seconds)
+        {
+            if (_session.Race is HostRace race && race.Mode == GameMode.Monster)
+            {
+                race.ReportBotStunt(bot.PlayerId, StuntKind.Air, (long)(seconds * 1000f), 0);
+            }
+        }
+
+        /// <summary>Monster Jam: a bot's truck, moving at <paramref name="velocity"/>, touched another car; a crush if it came down on it or did the hitting.</summary>
+        private void ReportCrush(Bot bot, Vec3 velocity, byte victimId, Vec3 victimPosition, Vec3 victimVelocity)
+        {
+            if (_session.Race is HostRace race && race.Mode == GameMode.Monster
+                && MonsterRules.IsCrush(bot.Car.BodyPosition.ToCore(), velocity, victimPosition, victimVelocity))
+            {
+                race.ReportBotStunt(bot.PlayerId, StuntKind.Crush, 0, victimId);
             }
         }
 
@@ -335,15 +377,20 @@ namespace CarRacer.Game.Bots
                 _screen.FollowEventTrack(_session.Race);
             }
 
+            bool trucks = phase != RacePhase.Lobby && _session.Race.Mode == GameMode.Monster;
+            _bumpSettings.Exaggeration = trucks ? MonsterRules.BumpExaggeration : _carExaggeration;
             foreach (var bot in _bots.Values)
             {
                 if (lineUp)
                 {
                     var mode = _session.Race.Mode;
                     bot.ArenaDriver = ArenaDriverFor(bot, mode);
+                    bot.MonsterDriver = MonsterDriverFor(bot, mode);
                     LineUp(bot, mode);
                 }
 
+                // Monster Jam's trucks for the event, back to cars for the lobby (this resets the handling, so it comes first).
+                DressAsTruck(bot, trucks);
                 bot.Car.InputLocked = phase != RacePhase.Racing;
                 var rules = _session.Race.Rules;
                 bot.Car.DamageEnabled = phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race && rules.Damage;
@@ -386,6 +433,8 @@ namespace CarRacer.Game.Bots
             var racer = (_session.Race as HostRace)?.Tracker?.Get(bot.PlayerId);
             bot.Detector.Resume(racer != null ? racer.CheckpointsPassed : 0);
             bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
+            bot.MonsterDriver = MonsterDriverFor(bot, CurrentMode);
+            DressAsTruck(bot, CurrentMode == GameMode.Monster);
             bot.Car.InputLocked = _session.Race.Phase != RacePhase.Racing;
             var rules = _session.Race.Rules;
             bot.Car.DamageEnabled = _session.Race.Phase == RacePhase.Racing && _session.Race.Mode == GameMode.Race && rules.Damage;
@@ -396,7 +445,39 @@ namespace CarRacer.Game.Bots
         private GameMode CurrentMode => _session.Race.Phase == RacePhase.Lobby ? GameMode.Race : _session.Race.Mode;
 
         private static ArenaBotDriver ArenaDriverFor(Bot bot, GameMode mode) =>
-            mode == GameMode.Race ? null : new ArenaBotDriver(bot.Skill, bot.Car.Tuning, mode, bot.PlayerId);
+            mode == GameMode.Sumo || mode == GameMode.Battle ? new ArenaBotDriver(bot.Skill, bot.Car.Tuning, mode, bot.PlayerId) : null;
+
+        private static MonsterBotDriver MonsterDriverFor(Bot bot, GameMode mode) =>
+            mode == GameMode.Monster
+                ? new MonsterBotDriver(bot.Skill, bot.Car.Tuning, ArenaLayout.MonsterRamps(ArenaLayout.MonsterCentre), ArenaLayout.MonsterCentre, MonsterRules.StadiumRadius, bot.PlayerId)
+                : null;
+
+        /// <summary>Draws the bot's car as a monster truck (or back as a car) and gives it the truck's handling.</summary>
+        private void DressAsTruck(Bot bot, bool truck)
+        {
+            bot.Car.MonsterTruck = truck;
+            if (bot.Truck == truck)
+            {
+                return;
+            }
+
+            var player = FindPlayer(bot.PlayerId);
+            CarFactory.ReplaceBody(bot.Car.gameObject, bot.Colour, CarModels.ForIndex(player.BodyIndex), truck);
+            bot.Truck = truck;
+        }
+
+        private RosterEntry FindPlayer(byte playerId)
+        {
+            foreach (var player in _session.Players)
+            {
+                if (player.PlayerId == playerId)
+                {
+                    return player;
+                }
+            }
+
+            return default;
+        }
 
         private void LineUp(Bot bot, GameMode mode)
         {
@@ -443,9 +524,14 @@ namespace CarRacer.Game.Bots
                         Detector = new CheckpointDetector(_screen.Track.CheckpointGates()),
                         TrackIndex = _screen.TrackIndex,
                         Owner = this,
+                        Bumps = new BumpMonitor(_bumpSettings),
                     };
                     bot.ShieldRing = ShieldRing.Build(car.transform);
                     car.InputSource = bot;
+                    car.PlayerId = player.PlayerId;
+                    car.Landed += seconds => OnBotLanded(bot, seconds);
+                    // A physics contact has already been resolved by now, so judge it on the speeds both cars hit at.
+                    car.TouchedCar += other => ReportCrush(bot, car.PreImpactVelocity.ToCore(), other.PlayerId, other.BodyPosition.ToCore(), other.PreImpactVelocity.ToCore());
                     if (_cars.TryTakeOverRemote(player.PlayerId, out var at, out float heading, out var velocity))
                     {
                         TakeOver(bot, at, heading, velocity);
@@ -454,6 +540,8 @@ namespace CarRacer.Game.Bots
                     {
                         car.InputLocked = true;
                         bot.ArenaDriver = ArenaDriverFor(bot, CurrentMode);
+                        bot.MonsterDriver = MonsterDriverFor(bot, CurrentMode);
+                        DressAsTruck(bot, CurrentMode == GameMode.Monster);
                         LineUp(bot, CurrentMode);
                     }
 

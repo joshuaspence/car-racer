@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CarRacer.Core.Arena;
 using CarRacer.Core.Audio;
 using CarRacer.Core.Driving;
 using CarRacer.Core.Numerics;
@@ -166,6 +167,17 @@ namespace CarRacer.Game.Screens
             return button;
         }
 
+        /// <summary>True when the car is on a track, not in an arena or the Monster Jam stadium, so the map and wrong-way warning mean something.</summary>
+        private bool OnTrack
+        {
+            get
+            {
+                var race = _screen.Session != null ? _screen.Session.Race : null;
+                bool stadium = race != null && race.Mode == GameMode.Monster && race.Phase != RacePhase.Lobby;
+                return !stadium && !_screen.CameraRig.ArenaCentre.HasValue;
+            }
+        }
+
         private void Update()
         {
             FollowTrack();
@@ -209,7 +221,7 @@ namespace CarRacer.Game.Screens
 
             UpdateDriftLabel(car, width);
             UpdateWrecked(car);
-            _wrongWay.style.display = _progress.IsWrongWay && !inArena && !car.Damage.Wrecked ? DisplayStyle.Flex : DisplayStyle.None;
+            _wrongWay.style.display = _progress.IsWrongWay && OnTrack && !car.Damage.Wrecked ? DisplayStyle.Flex : DisplayStyle.None;
             _canvas.MarkDirtyRepaint();
         }
 
@@ -428,8 +440,8 @@ namespace CarRacer.Game.Screens
 
             float width = UiMetrics.Width(Screen.width, Screen.height);
 
-            // The track's map means nothing in an arena, which has the overhead camera instead.
-            if (!_screen.CameraRig.ArenaCentre.HasValue)
+            // The track's map means nothing in an arena, which has the overhead camera instead, or in the Monster Jam stadium.
+            if (OnTrack)
             {
                 // Opposite Look back, which moves top-right with left-handed controls (design doc §5).
                 bool left = Accessibility.LeftHanded;
