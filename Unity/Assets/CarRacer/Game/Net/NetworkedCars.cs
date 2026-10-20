@@ -52,6 +52,9 @@ namespace CarRacer.Game.Net
         private CheckpointDetector _detector;
         private int _detectorTrack;
         private RacePhase _phase = RacePhase.Lobby;
+
+        /// <summary>The event under way took this phone's car off the track (an arena or the Monster Jam stadium), so the lobby brings it back.</summary>
+        private bool _offTrack;
         private Vector3 _lastPosition;
         private bool _spawned;
         private bool _ownSpunOut;
@@ -445,7 +448,7 @@ namespace CarRacer.Game.Net
             }
 
             // Line up for the countdown (or straight away if GO came before the countdown was seen),
-            // and come back to the track from an arena for the lobby. With no car of its own yet (or
+            // and come back to the track from an arena or the stadium for the lobby. With no car of its own yet (or
             // ever, on a dedicated host), the screen still moves to the event's track, which standings use.
             bool lineUp = phase == RacePhase.Countdown || (phase == RacePhase.Racing && _phase != RacePhase.Countdown);
             if (lineUp)
@@ -467,13 +470,15 @@ namespace CarRacer.Game.Net
                 }
 
                 _screen.PlaceLocalCarAtStart(_session.Race.GridSlotOf(_me), _session.Race.Mode);
+                _offTrack = _session.Race.Mode != GameMode.Race;
                 _detector.Reset();
                 _shield.Clear();
                 _lastPosition = _screen.Car.BodyPosition;
             }
-            else if (phase == RacePhase.Lobby && _screen.CameraRig.ArenaCentre.HasValue)
+            else if (phase == RacePhase.Lobby && _offTrack)
             {
                 _screen.PlaceLocalCarOnGrid(_me);
+                _offTrack = false;
                 _lastPosition = _screen.Car.BodyPosition;
             }
 
