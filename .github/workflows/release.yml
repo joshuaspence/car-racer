@@ -1,7 +1,8 @@
 name: Release
 
 # Pushing a tag like v0.1.0 builds a release-signed APK and the Linux server (a tarball and a
-# Docker image on GHCR, docs/server.md) and publishes them to GitHub Releases.
+# Docker image on GHCR, docs/server.md) and publishes them to GitHub Releases. Releases are
+# immutable, so the assets go up to a draft that is published last.
 # Needs the Unity licence secrets and the Android keystore secrets (see docs/ci-setup.md).
 on:
   push:
@@ -12,11 +13,29 @@ permissions:
   packages: write
 
 jobs:
+  # A release made on the Releases page is already published (and so immutable) when its tag
+  # fires this workflow, and the assets could never be attached. Fail before the long build.
+  check:
+    name: No published release for the tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft --jq .isDraft 2>/dev/null || echo none)
+          if [ "$draft" = false ]; then
+            echo "::error::Release $GITHUB_REF_NAME is already published and immutable, so its assets can't be uploaded. Cut releases by pushing a tag (docs/ci-setup.md), and use a new version."
+            exit 1
+          fi
+
   android:
     name: Signed Android APK
     runs-on: ubuntu-latest
     # A healthy build takes 15-20 minutes; a hung Unity editor would otherwise sit for 6 hours.
     timeout-minutes: 60
+    needs: check
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,10 +74,13 @@ jobs:
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
 
       # Unversioned, so `releases/latest/download/CarRacer.apk` always points at the newest build.
+      # A draft: the repository's releases are immutable, so nothing can be attached once it is
+      # published. The publish job publishes it after every asset is up.
       - uses: softprops/action-gh-release@v2
         with:
           files: build/Android/CarRacer.apk
           generate_release_notes: true
+          draft: true
 
   linux-server:
     name: Linux server tarball and Docker image
@@ -100,6 +122,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: CarRacer-server-${{ github.ref_name }}-linux-x86_64.tar.gz
+          draft: true
 
       - uses: docker/login-action@v3
         with:
@@ -122,3 +145,13 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.description=Car Racer LAN host with no player of its own
+
+  publish:
+    name: Publish the release
+    needs: [android, linux-server]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
