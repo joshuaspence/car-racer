@@ -6,7 +6,7 @@ Four GitHub Actions workflows live in `.github/workflows/`:
 |---|---|---|---|
 | `core.yml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
 | `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
-| `release.yml` | pushing a `v*` tag | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
+| `release.yml` | pushing a `v*` tag, or run by hand with a version | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
 | `claude.yaml` | every non-draft PR (on each push), and `@claude` mentions | `CLAUDE_CODE_OAUTH_TOKEN` | Claude reviews the PR, or answers the mention, via [`spence-com-au/claude-code-action`](https://github.com/spence-com-au/claude-code-action) |
 
 Until the Unity secrets exist, `unity.yml` skips its jobs with a notice instead of failing.
@@ -73,17 +73,23 @@ Delete `keystore.b64` afterwards. `*.keystore` is git-ignored; never commit it.
 
 ## 4. Cutting a release
 
+Either push a tag:
+
 ```sh
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Push the tag rather than creating the release on the Releases page. The repository's releases
+or, from the browser or phone, open **Actions → Release → Run workflow**, keep the branch on
+`master` and enter the version (`v0.1.0`). The run tags `master` itself and then does the same as
+a tag push. Claude can start it too (the `release` skill in `.claude/skills`).
+
+Don't create the release on the Releases page. The repository's releases
 are immutable, so assets can only be attached while a release is a draft: the workflow uploads
 the APK and the server tarball to a draft and publishes it once both are up. A release published
 by hand already exists when its tag fires the workflow, so the workflow stops early; that version
-can't take assets, so tag the next one. A failed run leaves a draft behind, which a re-run fills
-in and publishes.
+can't take assets, so release the next one. A failed run leaves a draft behind, which a re-run
+fills in and publishes.
 
 The tag becomes the app version (`0.1.0`), and the Android version code is derived from it.
 The APK is published as `CarRacer.apk` on the repository's Releases page, so

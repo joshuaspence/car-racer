@@ -2,11 +2,21 @@ name: Release
 
 # Pushing a tag like v0.1.0 builds a release-signed APK and the Linux server (a tarball and a
 # Docker image on GHCR, docs/server.md) and publishes them to GitHub Releases. Releases are
-# immutable, so the assets go up to a draft that is published last.
+# immutable, so the assets go up to a draft that is published last. Running the workflow by hand
+# on master with a version does the same, tagging master first.
 # Needs the Unity licence secrets and the Android keystore secrets (see docs/ci-setup.md).
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, like v0.13.0 (tags master)
+        required: true
+        type: string
+
+env:
+  TAG: ${{ inputs.version || github.ref_name }}
 
 permissions:
   contents: write
@@ -23,11 +33,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
             --json isDraft --jq .isDraft 2>/dev/null || echo none)
           if [ "$draft" = false ]; then
-            echo "::error::Release $GITHUB_REF_NAME is already published and immutable, so its assets can't be uploaded. Cut releases by pushing a tag (docs/ci-setup.md), and use a new version."
+            echo "::error::Release $TAG is already published and immutable, so its assets can't be uploaded. Cut releases by pushing a tag or running this workflow (docs/ci-setup.md), and use a new version."
             exit 1
+          fi
+
+      # A manual run tags the commit it ran on. Pushes made with the workflow's token start no
+      # workflows, so this run does the release itself. An existing tag (a re-run) is kept.
+      - name: Tag master
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$TAG' should look like v0.13.0."
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo "::error::Run the release on master, not $GITHUB_REF."
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists; releasing it."
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
           fi
 
   android:
@@ -39,6 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
           lfs: true
 
@@ -78,6 +110,7 @@ jobs:
       # published. The publish job publishes it after every asset is up.
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
           files: build/Android/CarRacer.apk
           generate_release_notes: true
           draft: true
@@ -91,6 +124,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
           lfs: true
 
@@ -116,12 +150,13 @@ jobs:
         run: |
           sudo chown -R "$(id -u):$(id -g)" build
           cp server/run-server.sh server/Dockerfile build/StandaloneLinux64/
-          tar -czf "CarRacer-server-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+          tar -czf "CarRacer-server-${TAG}-linux-x86_64.tar.gz" \
             --transform "s,^build/StandaloneLinux64,car-racer-server," build/StandaloneLinux64
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: CarRacer-server-${{ github.ref_name }}-linux-x86_64.tar.gz
+          tag_name: ${{ env.TAG }}
+          files: CarRacer-server-${{ env.TAG }}-linux-x86_64.tar.gz
           draft: true
 
       - uses: docker/login-action@v3
@@ -140,7 +175,7 @@ jobs:
           file: build/StandaloneLinux64/Dockerfile
           push: true
           tags: |
-            ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+            ${{ steps.image.outputs.name }}:${{ env.TAG }}
             ${{ steps.image.outputs.name }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -154,4 +189,4 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
