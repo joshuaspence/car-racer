@@ -24,7 +24,9 @@ namespace CarRacer.Game.Net
     /// and uses the held item (design doc §8), applying Boost and Shield to its own car at once,
     /// and takes item hits from the host (a shield soaks one up; otherwise the car spins out).
     /// In Sumo and Battle (§7.0) the cars start round the arena instead, a car that is out can't be
-    /// driven any more, and the host tells its <see cref="HostRace"/> whenever a car spins out.
+    /// driven any more, and the host tells its <see cref="HostRace"/> whenever a car spins out. In
+    /// Monster Jam every car is drawn as a monster truck, this phone's truck handles like one, and
+    /// its jumps and crushes go to the host for its score.
     /// </summary>
     public sealed class NetworkedCars : MonoBehaviour
     {
@@ -32,11 +34,13 @@ namespace CarRacer.Game.Net
 
         private readonly Dictionary<byte, RemoteCar> _remotes = new Dictionary<byte, RemoteCar>();
 
-        /// <summary>The body and colour each car was last built with, to notice a change of car in the lobby.</summary>
-        private readonly Dictionary<byte, (byte Body, byte Colour)> _looks = new Dictionary<byte, (byte, byte)>();
+        /// <summary>The body and colour each car was last built with, and whether as a truck, to notice a change of car or of event.</summary>
+        private readonly Dictionary<byte, (byte Body, byte Colour, bool Truck)> _looks = new Dictionary<byte, (byte, byte, bool)>();
         private readonly HashSet<byte> _inRoster = new HashSet<byte>();
         private readonly List<byte> _gone = new List<byte>();
-        private readonly BumpMonitor _bumpMonitor = new BumpMonitor();
+        private readonly BumpSettings _bumpSettings = new BumpSettings();
+        private BumpMonitor _bumpMonitor;
+        private float _carExaggeration;
         private readonly List<OtherCar> _others = new List<OtherCar>();
         private readonly List<Bump> _bumps = new List<Bump>();
         private readonly HashSet<byte> _spunOut = new HashSet<byte>();
@@ -61,10 +65,16 @@ namespace CarRacer.Game.Net
         /// <summary>Every other player's car, for the mini-map.</summary>
         public IEnumerable<RemoteCar> RemoteCars => _remotes.Values;
 
+        /// <summary>Monster Jam: this phone's truck scored, with a line to show ("Big air! +12").</summary>
+        public event System.Action<string> StuntScored;
+
+
         public void Initialise(TrackScreen screen, NetworkSession session)
         {
             _screen = screen;
             _session = session;
+            _bumpMonitor = new BumpMonitor(_bumpSettings);
+            _carExaggeration = _bumpSettings.Exaggeration;
             _session.CarStateReceived += OnCarState;
             _session.HitReceived += OnHit;
             if (!session.IsHost)
@@ -375,7 +385,48 @@ namespace CarRacer.Game.Net
                 car.AddImpulse(bump.SelfImpulse.ToUnity());
                 car.TakeBump(bump.SelfImpulse.ToUnity());
                 _session.SendHit(bump.Fallback);
+                foreach (var other in _others)
+                {
+                    if (other.PlayerId == bump.OtherPlayerId)
+                    {
+                        ReportCrush(other.PlayerId, other.Position, other.Velocity);
+                    }
+                }
             }
+        }
+
+        private bool ScoringStunts => _session.Race != null && _session.Race.Mode == GameMode.Monster && _session.Race.Phase == RacePhase.Racing;
+
+        /// <summary>Monster Jam: this phone's truck landed a jump; the host scores it, and a long one shows here straight away.</summary>
+        private void OnLanded(float seconds)
+        {
+            if (!ScoringStunts)
+            {
+                return;
+            }
+
+            long airMs = (long)(seconds * 1000f);
+            _session.Race.ReportOwnStunt(StuntKind.Air, airMs, 0);
+            int points = MonsterRules.AirPoints(airMs);
+            if (points > 0)
+            {
+                StuntScored?.Invoke($"Big air! +{points}");
+            }
+        }
+
+        private void OnTouchedCar(CarController other, Vector3 velocity) => ReportCrush(other.PlayerId, other.BodyPosition.ToCore(), velocity.ToCore());
+
+        /// <summary>Monster Jam: this phone's truck touched another; a crush if it came down on it or did the hitting.</summary>
+        private void ReportCrush(byte victimId, CarRacer.Core.Numerics.Vec3 victimPosition, CarRacer.Core.Numerics.Vec3 victimVelocity)
+        {
+            var car = _screen.Car;
+            if (!ScoringStunts || car == null || !MonsterRules.IsCrush(car.BodyPosition.ToCore(), car.BodyVelocity.ToCore(), victimPosition, victimVelocity))
+            {
+                return;
+            }
+
+            _session.Race.ReportOwnStunt(StuntKind.Crush, 0, victimId);
+            StuntScored?.Invoke($"Crush! +{MonsterRules.CrushPoints}");
         }
 
         private void FollowRacePhase()
@@ -420,6 +471,11 @@ namespace CarRacer.Game.Net
             }
 
             _screen.Car.InputLocked = phase == RacePhase.Countdown;
+
+            // Monster Jam: truck handling and heavier bumps for the event (the look follows the roster sync).
+            bool trucks = phase != RacePhase.Lobby && _session.Race.Mode == GameMode.Monster;
+            _screen.Car.MonsterTruck = trucks;
+            _bumpSettings.Exaggeration = trucks ? MonsterRules.BumpExaggeration : _carExaggeration;
 
             // Damage counts in a race unless the host turned it off (design doc §4, §11); the arenas have
             // their own rules, and the lobby is for messing about. Car stats follow the host's rules too.
@@ -510,10 +566,12 @@ namespace CarRacer.Game.Net
         private void SyncRoster()
         {
             _inRoster.Clear();
+            var race = _session.Race;
+            bool truck = race != null && race.Mode == GameMode.Monster && race.Phase != RacePhase.Lobby;
             foreach (var player in _session.Players)
             {
                 _inRoster.Add(player.PlayerId);
-                var look = (player.BodyIndex, player.ColourIndex);
+                var look = (player.BodyIndex, player.ColourIndex, truck);
                 var colour = CarColours.ForIndex(player.ColourIndex);
                 var body = CarModels.ForIndex(player.BodyIndex);
                 bool restyled = _looks.TryGetValue(player.PlayerId, out var had) && had != look;
@@ -522,11 +580,19 @@ namespace CarRacer.Game.Net
                     if (!_spawned)
                     {
                         _screen.SpawnLocalCar(player.PlayerId, colour, body);
+                        _screen.Car.PlayerId = player.PlayerId;
+                        _screen.Car.Landed += OnLanded;
+                        _screen.Car.TouchedCar += OnTouchedCar;
+                        if (truck)
+                        {
+                            _screen.ReplaceLocalCarBody(colour, body, true);
+                        }
+
                         _spawned = true;
                     }
                     else if (restyled)
                     {
-                        _screen.ReplaceLocalCarBody(colour, body);
+                        _screen.ReplaceLocalCarBody(colour, body, truck);
                     }
                 }
                 else if (_session.IsHost && player.IsBot)
@@ -535,11 +601,17 @@ namespace CarRacer.Game.Net
                 }
                 else if (!_remotes.TryGetValue(player.PlayerId, out var remote))
                 {
-                    _remotes[player.PlayerId] = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, colour, _screen.transform, body);
+                    var built = CarFactory.BuildRemote($"Remote car {player.PlayerId}", player.PlayerId, colour, _screen.transform, body);
+                    if (truck)
+                    {
+                        CarFactory.ReplaceBody(built.gameObject, colour, body, true);
+                    }
+
+                    _remotes[player.PlayerId] = built;
                 }
                 else if (restyled)
                 {
-                    CarFactory.ReplaceBody(remote.gameObject, colour, body);
+                    CarFactory.ReplaceBody(remote.gameObject, colour, body, truck);
                     remote.Colour = colour;
                 }
 

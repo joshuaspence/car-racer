@@ -254,15 +254,15 @@ namespace CarRacer.Game.Screens
             PlaceLocalCarOnGrid(slot);
         }
 
-        /// <summary>Gives this phone's car another body or colour where it stands (picking a car in the lobby).</summary>
-        public void ReplaceLocalCarBody(Color colour, CarModel body)
+        /// <summary>Gives this phone's car another body or colour where it stands (picking a car in the lobby), or makes it a monster truck (Monster Jam).</summary>
+        public void ReplaceLocalCarBody(Color colour, CarModel body, bool monster = false)
         {
             if (Car == null)
             {
                 return;
             }
 
-            CarFactory.ReplaceBody(Car.gameObject, colour, body);
+            CarFactory.ReplaceBody(Car.gameObject, colour, body, monster);
             CarColour = colour;
         }
 
@@ -272,12 +272,13 @@ namespace CarRacer.Game.Screens
         /// <summary>
         /// Puts this phone's car at rest on its starting spot for <paramref name="mode"/>: grid slot
         /// <paramref name="slot"/> on the track, or spot <paramref name="slot"/> round an arena, and
-        /// switches to the overhead camera in an arena (design doc §6).
+        /// switches to the overhead camera in Sumo and Battle (design doc §6). Monster Jam keeps the
+        /// chase camera, to see the jumps.
         /// </summary>
         public void PlaceLocalCarAtStart(int slot, GameMode mode)
         {
             PlaceAtStart(Car, slot, mode);
-            CameraRig.ArenaCentre = mode == GameMode.Race ? (Vector3?)null : ArenaLayout.CentreFor(mode).ToUnity();
+            CameraRig.ArenaCentre = mode == GameMode.Race || mode == GameMode.Monster ? (Vector3?)null : ArenaLayout.CentreFor(mode).ToUnity();
             CameraRig.Snap();
         }
 

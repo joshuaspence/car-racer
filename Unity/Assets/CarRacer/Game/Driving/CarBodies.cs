@@ -8,7 +8,8 @@ namespace CarRacer.Game.Driving
     /// Kenney Car Kit bodies (design doc §13), built from the OBJ and palette in
     /// <c>Resources/Models</c> by <see cref="ObjModel"/> rather than a model importer, and painted
     /// in each player's colour (<see cref="PaintRecolour"/>). Each model's mesh and each colour's
-    /// material are made once and shared.
+    /// material are made once and shared. In Monster Jam each body is drawn as a monster truck
+    /// (<see cref="MonsterTruck"/>): the same model raised on big wheels, with its own shared mesh.
     /// </summary>
     public static class CarBodies
     {
@@ -18,10 +19,10 @@ namespace CarRacer.Game.Driving
         private static int _paletteWidth;
         private static int _paletteHeight;
 
-        /// <summary>Puts <paramref name="model"/> under <paramref name="visual"/> in <paramref name="colour"/>; false if its files can't be loaded.</summary>
-        public static bool TryBuild(Transform visual, Color colour, CarModel model)
+        /// <summary>Puts <paramref name="model"/> under <paramref name="visual"/> in <paramref name="colour"/>, as a monster truck if <paramref name="monster"/>; false if its files can't be loaded.</summary>
+        public static bool TryBuild(Transform visual, Color colour, CarModel model, bool monster = false)
         {
-            var mesh = MeshFor(model);
+            var mesh = MeshFor(model, monster);
             var material = mesh != null ? MaterialFor(model, colour) : null;
             if (material == null)
             {
@@ -36,9 +37,10 @@ namespace CarRacer.Game.Driving
             return true;
         }
 
-        private static Mesh MeshFor(CarModel model)
+        private static Mesh MeshFor(CarModel model, bool monster)
         {
-            if (Meshes.TryGetValue(model.Name, out var mesh))
+            string key = monster ? model.Name + " truck" : model.Name;
+            if (Meshes.TryGetValue(key, out var mesh))
             {
                 return mesh;
             }
@@ -46,14 +48,15 @@ namespace CarRacer.Game.Driving
             var asset = Resources.Load<TextAsset>("Models/" + model.Name + ".obj");
             if (asset != null)
             {
-                mesh = Build(ObjModel.Parse(asset.text), model.Name);
+                var obj = ObjModel.Parse(asset.text);
+                mesh = Build(monster ? MonsterTruck.Build(obj) : obj, key);
             }
             else
             {
                 Debug.LogError($"Car model '{model.Name}' is missing; using the placeholder body.");
             }
 
-            Meshes[model.Name] = mesh;
+            Meshes[key] = mesh;
             return mesh;
         }
 

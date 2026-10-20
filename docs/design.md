@@ -338,6 +338,15 @@ takes touches, and it sits under the performance readout.
   - **Standings and results** carry each player's points (`Points`, protocol 25).
   - **Bots** (`MonsterBotDriver`) work round the ramps in turn, lining up behind each and
     launching off it flat out, ram any rival right in front of them, and turn back from the wall.
+  - **In the game:** the lobby offers it as a fourth mode ("Monster Jam"). The stadium sits south-east
+    of the track scene (`ArenaVenues`: dirt floor, a 3 m wall, wedge ramps with colliders). From the
+    countdown to the results every car is drawn as a truck (`CarBodies` builds and shares a truck
+    mesh per body) and goes back to a car in the lobby. The phone's own truck and the host's bots
+    get the truck handling (`CarController.MonsterTruck`), report landings (`Landed`) and touches
+    (`TouchedCar` for physics cars, the bump monitor for remote ones), and the trucks' bumps use
+    the heavier exaggeration. The chase camera stays on, to see the jumps; the mini-map and
+    wrong-way warning are hidden. The HUD shows place, points and the time left, a scored stunt
+    pops up ("Big air! +12", "Crush! +25"), and the results show points.
 - **Placings:** survivors first (most lives first), then everyone else in reverse order of going
   out, each with the time they lasted. An event with one player lasts until they are out.
 - **Start:** cars start evenly round a circle at 70% of the arena's radius, facing the centre.
@@ -697,7 +706,7 @@ leader).
 | **M15: Host controls** | The host turns damage, items and car stats on or off for each event, carried in the countdown. |
 | **M16: Linux host** | A dedicated host on a Linux server (release tarball and Docker image) with no player of its own; the first guest in runs the room from their phone. The room leader, lobby settings and commands (protocol 22), the game's server mode with host controls on the leader's phone, and the CI build, tarball and image. |
 | **M17: More tracks and cars** | Six more Car Kit bodies (sedan, SUV, taxi, pickup, delivery truck and a kart), each with its own handling (protocol 23); three more tracks, Dune Jumps, Carousel Ring and Ridge Run, each with its own tune and in both cups (protocol 24). |
-| **M18: Monster Jam** | A fourth event type: monster trucks in a stunt stadium with ramps, scoring air time and crushes. Core rules, scoring, messages (protocol 25), the truck model and bots first; then the stadium, handling, HUD and lobby. |
+| **M18: Monster Jam** | A fourth event type: monster trucks in a stunt stadium with ramps, scoring air time and crushes. Rules, scoring, messages (protocol 25), the truck model and bots; the stadium, truck handling and looks, stunt reporting, HUD and lobby. |
 | Later | Google Play internal testing track. |
 
 Not planned: internet play, accounts, analytics, host migration.

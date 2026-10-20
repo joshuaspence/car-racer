@@ -3,6 +3,7 @@ using CarRacer.Core.Driving;
 using CarRacer.Core.Net;
 using CarRacer.Core.Race;
 using CarRacer.Core.Session;
+using CarRacer.Game;
 using CarRacer.Game.Driving;
 using CarRacer.Game.Net;
 using CarRacer.Game.Screens;
@@ -137,6 +138,39 @@ namespace CarRacer.Tests
                 Assert.AreEqual(RacePhase.Countdown, race.Phase);
                 Assert.AreEqual(2, race.LapCount);
                 Assert.AreEqual(1, race.TrackIndex);
+            }
+            finally
+            {
+                Object.Destroy(screen.gameObject);
+            }
+
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator MonsterJamPutsTheCarInTheStadiumAsATruck()
+        {
+            var screen = TrackScreen.Create(new NoInput(), () => NetworkSession.StartHosting("Host", TestPort + 4));
+            try
+            {
+                yield return null;
+                yield return null;
+
+                var session = screen.Session;
+                var settings = LobbySettings.Default;
+                settings.Mode = CarRacer.Core.Arena.GameMode.Monster;
+                session.ChangeSettings(settings);
+                session.Command(LobbyCommand.Start);
+                yield return null;
+                yield return null;
+
+                Assert.AreEqual(CarRacer.Core.Arena.GameMode.Monster, session.Race.Mode);
+                Assert.IsTrue(screen.Car.MonsterTruck, "the car handles as a monster truck");
+                var centre = CarRacer.Core.Arena.ArenaLayout.MonsterCentre.ToUnity();
+                Assert.Less(Vector3.Distance(screen.Car.BodyPosition, centre), CarRacer.Core.Arena.MonsterRules.StadiumRadius);
+                Assert.IsNotNull(GameObject.Find("Ramp 0"), "the stadium has its ramps");
+                Assert.IsNull(screen.CameraRig.ArenaCentre, "Monster Jam keeps the chase camera");
             }
             finally
             {

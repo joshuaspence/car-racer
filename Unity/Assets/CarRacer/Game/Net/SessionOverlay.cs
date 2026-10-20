@@ -29,6 +29,9 @@ namespace CarRacer.Game.Net
     /// </summary>
     public sealed class SessionOverlay : MonoBehaviour
     {
+        /// <summary>How long a Monster Jam score ("Big air! +12") stays up.</summary>
+        public const float StuntPopupSeconds = 1.5f;
+
         /// <summary>How much lower the race status sits in the top-left corner, clear of the status line.</summary>
         public const float LeftCornerDrop = 16f;
 
@@ -52,6 +55,9 @@ namespace CarRacer.Game.Net
         private UiRoot _layer;
         private Label _status;
         private Label _banner;
+        private Label _stunt;
+        private string _stuntText;
+        private float _stuntUntil;
         private Label _countdown;
         private VisualElement _view;
         private ScrollView _lobbyScroll;
@@ -70,6 +76,11 @@ namespace CarRacer.Game.Net
             _session = session;
             _cars = cars;
             _cup = new CupPanel(session, host);
+            cars.StuntScored += text =>
+            {
+                _stuntText = text;
+                _stuntUntil = Time.unscaledTime + StuntPopupSeconds;
+            };
 
             _layer = UiRoot.Create(transform, "Session", order: 10);
             _layer.Restyle += Build;
@@ -99,6 +110,9 @@ namespace CarRacer.Game.Net
             _layer.Full.Add(_countdown);
             _banner = Big(56, 260f, 80f);
             _layer.Full.Add(_banner);
+            _stunt = Big(44, 360f, 60f);
+            _stunt.style.color = UiKit.Accent;
+            _layer.Full.Add(_stunt);
         }
 
         /// <summary>A large centred line across the screen, <paramref name="top"/> pixels down; hidden until given text.</summary>
@@ -506,10 +520,10 @@ namespace CarRacer.Game.Net
             var row = UiKit.Row();
             var mode = UiKit.Button(ModeName(settings.Mode), () => Change(s =>
             {
-                s.Mode = (GameMode)(((int)s.Mode + 1) % 3);
+                s.Mode = (GameMode)(((int)s.Mode + 1) % 4);
                 return s;
             }));
-            mode.style.width = 150f;
+            mode.style.width = 190f;
             row.Add(mode);
             row.Add(UiKit.Space(12f));
             if (settings.Mode == GameMode.Race)
@@ -535,7 +549,10 @@ namespace CarRacer.Game.Net
             }
             else
             {
-                var hint = UiKit.Hint(settings.Mode == GameMode.Sumo ? "Last car on the platform wins" : $"{BattleRules.StartingLives} lives, items only");
+                var hint = UiKit.Hint(
+                    settings.Mode == GameMode.Sumo ? "Last car on the platform wins"
+                    : settings.Mode == GameMode.Monster ? "Monster trucks: big air and crushes score"
+                    : $"{BattleRules.StartingLives} lives, items only");
                 hint.style.flexShrink = 1f;
                 row.Add(hint);
             }
@@ -760,7 +777,12 @@ namespace CarRacer.Game.Net
             }
 
             Show(_countdown, big);
-            if (race.Mode != GameMode.Race)
+            Show(_stunt, Time.unscaledTime < _stuntUntil ? _stuntText : null);
+            if (race.Mode == GameMode.Monster)
+            {
+                UpdateMonsterStatus(race, me, msToGo);
+            }
+            else if (race.Mode != GameMode.Race)
             {
                 UpdateArenaStatus(race, me, msToGo);
             }
@@ -802,6 +824,30 @@ namespace CarRacer.Game.Net
             Set(_corner3, RulesNote(race.Rules));
         }
 
+        /// <summary>The Monster Jam HUD (design doc §7.0): this phone's place and points, and the time left.</summary>
+        private void UpdateMonsterStatus(IRaceView race, byte me, long msToGo)
+        {
+            string place = string.Empty;
+            string points = string.Empty;
+            var standings = race.Standings;
+            if (standings != null)
+            {
+                for (int i = 0; i < standings.Order.Count; i++)
+                {
+                    if (standings.Order[i].PlayerId == me)
+                    {
+                        place = $"{RaceFormat.Ordinal(i + 1)} / {standings.Order.Count}";
+                        points = $"{standings.Order[i].Points} pts";
+                    }
+                }
+            }
+
+            Set(_corner1, place);
+            Set(_corner2, points);
+            bool clock = race.Phase == RacePhase.Racing;
+            Set(_corner3, clock ? RaceFormat.Time(System.Math.Max(0L, MonsterRules.TimeLimitMs + msToGo)) : string.Empty);
+        }
+
         /// <summary>The arena HUD (design doc §7.0): this phone's lives (Battle) or place once out, how many are left, and Battle's clock.</summary>
         private void UpdateArenaStatus(IRaceView race, byte me, long msToGo)
         {
@@ -840,7 +886,7 @@ namespace CarRacer.Game.Net
             _signature.Clear().Append("results/");
             foreach (var r in race.Results.Results)
             {
-                _signature.Append(r.PlayerId).Append(r.Position).Append(r.RaceTimeMs).Append(r.DidNotFinish).Append('|');
+                _signature.Append(r.PlayerId).Append(r.Position).Append(r.RaceTimeMs).Append(r.DidNotFinish).Append(r.Points).Append('|');
             }
 
             _signature.Append(_session.Players.Count).Append(_session.LeadsRoom).Append(_session.LeaderId);
@@ -868,8 +914,8 @@ namespace CarRacer.Game.Net
             {
                 bool stillHere = TryFind(r.PlayerId, out var player);
 
-                // In an arena the time is how long the player lasted.
-                string time = r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
+                // In an arena the time is how long the player lasted; Monster Jam shows the points instead.
+                string time = race.Mode == GameMode.Monster ? $"{r.Points} pts" : r.DidNotFinish ? "DNF" : RaceFormat.Time(r.RaceTimeMs);
                 string tag = r.PlayerId == me ? " (you)" : !stillHere ? " (left)" : player.IsBot ? " (bot)" : string.Empty;
                 var line = UiKit.Row();
                 line.Add(Dot(stillHere ? player.ColourIndex : r.PlayerId));
@@ -904,7 +950,8 @@ namespace CarRacer.Game.Net
             _view.Add(row);
         }
 
-        private static string ModeName(GameMode mode) => mode == GameMode.Race ? "Race" : mode == GameMode.Sumo ? "Sumo" : "Battle";
+        private static string ModeName(GameMode mode) =>
+            mode == GameMode.Race ? "Race" : mode == GameMode.Sumo ? "Sumo" : mode == GameMode.Monster ? "Monster Jam" : "Battle";
 
         /// <summary>False if the player has left the session since the race began.</summary>
         private bool TryFind(byte playerId, out RosterEntry player)
