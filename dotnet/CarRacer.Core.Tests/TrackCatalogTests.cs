@@ -28,6 +28,9 @@ namespace CarRacer.Core.Tests
         [InlineData("figure-eight", 700f)]
         [InlineData("sweepers", 500f)]
         [InlineData("switchbacks", 480f)]
+        [InlineData("dunes", 500f)]
+        [InlineData("carousel", 440f)]
+        [InlineData("ridge", 565f)]
         public void EachTrackIsAboutAsLongAsItsDescriptionSays(string id, float metres)
         {
             // The lengths quoted in SampleTracks and the design doc, to within 10 m.
@@ -127,6 +130,28 @@ namespace CarRacer.Core.Tests
             }
 
             Assert.True(airborne);
+        }
+
+        [Fact]
+        public void TheDunesHaveACrestToJumpOnEachStraight()
+        {
+            // Counted as separate jumps when they're more than 100 m apart along the road.
+            var spline = Layout("dunes").Spline;
+            const float speed = 20f;
+            var takeOffs = new List<float>();
+            for (float d = 0f; d < spline.Length; d += 1f)
+            {
+                float y0 = spline.SampleAtDistance(d - 4f).Position.Y;
+                float y1 = spline.SampleAtDistance(d).Position.Y;
+                float y2 = spline.SampleAtDistance(d + 4f).Position.Y;
+                float curvature = -(y0 - 2f * y1 + y2) / 16f;
+                if (speed * speed * curvature > 9.81f && (takeOffs.Count == 0 || d - takeOffs[takeOffs.Count - 1] > 100f))
+                {
+                    takeOffs.Add(d);
+                }
+            }
+
+            Assert.Equal(2, takeOffs.Count);
         }
 
         [Fact]
