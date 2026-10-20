@@ -504,8 +504,8 @@ leader).
      list so remembered and sent body indices keep their meaning (protocol 23). Bots take every
      other body, so a full grid of them shows cars from across the garage. The choice (`Garage`, remembered on the phone) goes in the join request;
      the host keeps the player's colour unless someone has it, when they get the next free colour
-     along (`LobbyRoster`), and the roster tells every phone each player's body. Bots take the
-     bodies in turn. Practice uses the garage car.
+     along (`LobbyRoster`), and the roster tells every phone each player's body. Practice uses
+     the garage car.
    - The **Garage** page (from the main menu) shows the car turning on a turntable (`GaragePreview`:
      its own camera, far below the menu, rendering to a texture), arrows to step through the
      bodies, the body's top speed, steering and acceleration as bars (with the number beside each,
