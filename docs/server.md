@@ -8,7 +8,7 @@ leave, whoever has been there longest takes over.
 
 Each release (`v*` tag) publishes the server two ways:
 
-- **Docker image:** `ghcr.io/joshuaspence/car-racer:<tag>` (and `:latest`)
+- **Docker image:** `ghcr.io/spence-com-au/car-racer:<tag>` (and `:latest`)
 - **Tarball:** `CarRacer-server-<tag>-linux-x86_64.tar.gz` on the Releases page
 
 Use the same version as the phones: a different protocol version shows as "Update required".
@@ -18,7 +18,7 @@ Use the same version as the phones: a different protocol version shows as "Updat
 ```sh
 docker run -d --name car-racer --network host --restart unless-stopped \
   -v car-racer:/home/carracer/.config \
-  ghcr.io/joshuaspence/car-racer:latest -name "Lounge"
+  ghcr.io/spence-com-au/car-racer:latest -name "Lounge"
 ```
 
 - **`--network host` is required.** Phones find the server by UDP broadcast and multicast,

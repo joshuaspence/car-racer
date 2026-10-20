@@ -2,7 +2,7 @@
 # in build/StandaloneLinux64, with this directory's files copied in beside it.
 #
 #   docker run -d --network host --restart unless-stopped \
-#     -v car-racer:/home/carracer/.config ghcr.io/joshuaspence/car-racer -name "Lounge"
+#     -v car-racer:/home/carracer/.config ghcr.io/spence-com-au/car-racer -name "Lounge"
 #
 # Host networking is needed: phones find the server by UDP broadcast and multicast on the LAN,
 # which don't cross Docker's bridge network.
