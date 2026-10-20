@@ -212,6 +212,7 @@ namespace CarRacer.Game.Net
                 ShowView(string.Empty, null);
                 _raceHud.style.display = DisplayStyle.None;
                 Show(_countdown, null);
+                Show(_stunt, null);
                 return;
             }
 
@@ -222,6 +223,7 @@ namespace CarRacer.Game.Net
             {
                 case RacePhase.Lobby:
                     Show(_countdown, null);
+                    Show(_stunt, null);
                     if (_session.IsHost && Time.unscaledTime >= _nextAddressRefresh)
                     {
                         RefreshHostAddresses();
@@ -236,6 +238,7 @@ namespace CarRacer.Game.Net
                     break;
                 case RacePhase.Results:
                     Show(_countdown, null);
+                    Show(_stunt, null);
                     var table = _cup.CurrentStandings(race);
                     ShowView(ResultsSignature(race, table), () => BuildResults(race, me, table));
                     if (table != null && _cupCountdown != null)
