@@ -52,3 +52,6 @@ re-encoded to 32 kHz stereo Ogg Vorbis.
 | `arena.ogg` | Sumo and Battle | [Midnight Cruiser](https://opengameart.org/content/midnight-cruiser) by Zane Little Music |
 | `sweepers.ogg` | Seaside Sweepers | [The World Is Ours](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
 | `switchbacks.ogg` | Switchback Hill | [100 Victories](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
+| `dunes.ogg` | Dune Jumps | [It Takes a Hero](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
+| `carousel.ogg` | Carousel Ring | [Space Cadet Training Montage](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |
+| `ridge.ogg` | Ridge Run | [Face the Facts](https://opengameart.org/content/10-free-chiptune-tracks-a-bag-of-chips) by Zane Little Music |

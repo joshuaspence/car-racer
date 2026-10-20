@@ -45,6 +45,9 @@ namespace CarRacer.Core.Scoring
             CupEvent.Race(2),
             CupEvent.Race(3),
             CupEvent.Race(4),
+            CupEvent.Race(5),
+            CupEvent.Race(6),
+            CupEvent.Race(7),
         });
 
         public static readonly Cup MixedCup = new Cup("mixed", "Mixed Cup", new[]
@@ -54,6 +57,9 @@ namespace CarRacer.Core.Scoring
             CupEvent.Race(2),
             CupEvent.Race(3),
             CupEvent.Race(4),
+            CupEvent.Race(5),
+            CupEvent.Race(6),
+            CupEvent.Race(7),
             CupEvent.ArenaEvent(GameMode.Sumo),
             CupEvent.ArenaEvent(GameMode.Battle),
         });
