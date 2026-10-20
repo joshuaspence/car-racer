@@ -9,6 +9,9 @@ namespace CarRacer.Core.Net
 
         /// <summary>1-based finishing position, or 0 while still racing.</summary>
         public byte FinishPosition;
+
+        /// <summary>Monster Jam points so far (design doc §7.0); 0 in other modes.</summary>
+        public ushort Points;
     }
 
     /// <summary>Host → all, a couple of times a second during a race: everyone in race order, with laps done.</summary>
@@ -26,6 +29,7 @@ namespace CarRacer.Core.Net
                 w.WriteByte(e.PlayerId);
                 w.WriteByte(e.LapsCompleted);
                 w.WriteByte(e.FinishPosition);
+                w.WriteUShort(e.Points);
             }
         }
 
@@ -35,7 +39,7 @@ namespace CarRacer.Core.Net
             var message = new StandingsMessage();
             for (int i = 0; i < count; i++)
             {
-                message.Order.Add(new StandingsEntry { PlayerId = r.ReadByte(), LapsCompleted = r.ReadByte(), FinishPosition = r.ReadByte() });
+                message.Order.Add(new StandingsEntry { PlayerId = r.ReadByte(), LapsCompleted = r.ReadByte(), FinishPosition = r.ReadByte(), Points = r.ReadUShort() });
             }
 
             return message;
@@ -51,6 +55,9 @@ namespace CarRacer.Core.Net
         public byte Position;
         public long RaceTimeMs;
         public bool DidNotFinish;
+
+        /// <summary>Monster Jam points (design doc §7.0); 0 in other modes.</summary>
+        public ushort Points;
     }
 
     /// <summary>Host → all: the race is over. Everyone in finishing order; unfinished racers are placed by race order and marked DNF.</summary>
@@ -70,6 +77,7 @@ namespace CarRacer.Core.Net
                 w.WriteByte(e.Position);
                 w.WriteLong(e.RaceTimeMs);
                 w.WriteBool(e.DidNotFinish);
+                w.WriteUShort(e.Points);
             }
         }
 
@@ -86,9 +94,53 @@ namespace CarRacer.Core.Net
                     Position = r.ReadByte(),
                     RaceTimeMs = r.ReadLong(),
                     DidNotFinish = r.ReadBool(),
+                    Points = r.ReadUShort(),
                 });
             }
 
+            return message;
+        }
+    }
+
+    public enum StuntKind : byte
+    {
+        /// <summary>A jump landed, after <see cref="StuntMessage.AirMs"/> in the air.</summary>
+        Air = 0,
+
+        /// <summary>The truck crushed <see cref="StuntMessage.VictimId"/>'s truck.</summary>
+        Crush = 1,
+    }
+
+    /// <summary>Guest → host, in Monster Jam (design doc §7.0): a stunt by this phone's own truck, for the host to score.</summary>
+    public sealed class StuntMessage : IGameMessage
+    {
+        public byte PlayerId;
+        public StuntKind Kind;
+        public ushort AirMs;
+        public byte VictimId;
+
+        public MessageType Type => MessageType.Stunt;
+
+        public void Write(NetWriter w)
+        {
+            w.WriteByte(PlayerId);
+            w.WriteByte((byte)Kind);
+            w.WriteUShort(AirMs);
+            w.WriteByte(VictimId);
+        }
+
+        public static StuntMessage Read(NetReader r)
+        {
+            var message = new StuntMessage { PlayerId = r.ReadByte() };
+            byte kind = r.ReadByte();
+            if (kind > (byte)StuntKind.Crush)
+            {
+                throw new NetFormatException($"Unknown stunt {kind}.");
+            }
+
+            message.Kind = (StuntKind)kind;
+            message.AirMs = r.ReadUShort();
+            message.VictimId = r.ReadByte();
             return message;
         }
     }

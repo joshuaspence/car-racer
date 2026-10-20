@@ -61,6 +61,7 @@ namespace CarRacer.Core.Tests
 
             AddArena(areas, "sumo", ArenaLayout.SumoCentre, SumoRules.StartRadius + 30f);
             AddArena(areas, "battle", ArenaLayout.BattleCentre, BattleRules.BowlRadius + 10f);
+            AddArena(areas, "monster", ArenaLayout.MonsterCentre, MonsterRules.StadiumRadius + 10f);
             for (int a = 0; a < areas.Count; a++)
             {
                 for (int b = a + 1; b < areas.Count; b++)

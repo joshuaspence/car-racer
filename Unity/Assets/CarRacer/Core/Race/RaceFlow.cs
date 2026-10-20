@@ -22,7 +22,7 @@ namespace CarRacer.Core.Race
         RacePhase Phase { get; }
         int LapCount { get; }
 
-        /// <summary>Race, Sumo or Battle; set by each countdown.</summary>
+        /// <summary>Race, Sumo, Battle or Monster; set by each countdown.</summary>
         GameMode Mode { get; }
 
         /// <summary>Which track a race is on (an index into the game's track list); set by each countdown.</summary>
@@ -48,6 +48,12 @@ namespace CarRacer.Core.Race
 
         /// <summary>This phone's car crossed checkpoint <paramref name="index"/> (from <see cref="CheckpointDetector"/>).</summary>
         void ReportOwnCheckpoint(int index);
+
+        /// <summary>
+        /// Monster Jam (design doc §7.0): this phone's truck landed a jump of <paramref name="airMs"/>
+        /// (<see cref="StuntKind.Air"/>) or crushed <paramref name="victimId"/>'s truck (<see cref="StuntKind.Crush"/>).
+        /// </summary>
+        void ReportOwnStunt(StuntKind kind, long airMs, byte victimId);
     }
 
     /// <summary>
@@ -59,7 +65,9 @@ namespace CarRacer.Core.Race
     /// and the event ends when at most one car is left (or Battle's time runs out). Arena standings
     /// carry each player's lives in <see cref="StandingsEntry.LapsCompleted"/> and, once they are
     /// out, their place in <see cref="StandingsEntry.FinishPosition"/>; results carry how long each
-    /// lasted as the race time.
+    /// lasted as the race time. In Monster Jam it keeps score with a <see cref="StuntTracker"/>
+    /// from the stunts each phone reports, standings and results carry the points, and the event
+    /// ends when the time runs out.
     /// </summary>
     public sealed class HostRace : IRaceView
     {
@@ -100,6 +108,7 @@ namespace CarRacer.Core.Race
             _fractionToNextCheckpoint = fractionToNextCheckpoint;
             _carPositions = carPositions;
             _session.CheckpointReceived += OnCheckpoint;
+            _session.StuntReceived += OnStunt;
         }
 
         public RacePhase Phase { get; private set; } = RacePhase.Lobby;
@@ -120,8 +129,11 @@ namespace CarRacer.Core.Race
         /// <summary>The race referee; null in arena modes.</summary>
         public RaceTracker Tracker { get; private set; }
 
-        /// <summary>The arena referee; null in races.</summary>
+        /// <summary>The arena referee in Sumo and Battle; null otherwise.</summary>
         public EliminationTracker Arena { get; private set; }
+
+        /// <summary>The Monster Jam scorer; null otherwise.</summary>
+        public StuntTracker Stunts { get; private set; }
 
         /// <summary>
         /// Starts the countdown for everyone in the roster, after filling the grid with bots. A race
@@ -181,7 +193,8 @@ namespace CarRacer.Core.Race
             }
 
             Tracker = mode == GameMode.Race ? new RaceTracker(_checkpointCounts[trackIndex], laps, ids) : null;
-            Arena = mode == GameMode.Race ? null : new EliminationTracker(ids, mode == GameMode.Battle ? BattleRules.StartingLives : 1);
+            Arena = mode == GameMode.Sumo || mode == GameMode.Battle ? new EliminationTracker(ids, mode == GameMode.Battle ? BattleRules.StartingLives : 1) : null;
+            Stunts = mode == GameMode.Monster ? new StuntTracker(ids) : null;
             LapCount = laps;
             StartAtLocalMs = _clockMs() + StartLeadMs + CountdownMs;
             Standings = null;
@@ -205,6 +218,12 @@ namespace CarRacer.Core.Race
 
             if (Phase != RacePhase.Racing)
             {
+                return;
+            }
+
+            if (Mode == GameMode.Monster)
+            {
+                TickMonster(now);
                 return;
             }
 
@@ -241,6 +260,17 @@ namespace CarRacer.Core.Race
             SendStandingsNow();
         }
 
+        public void ReportOwnStunt(StuntKind kind, long airMs, byte victimId) => Score(_session.HostPlayerId, kind, airMs, victimId);
+
+        /// <summary>Monster Jam: a bot's truck (which the host drives) landed a jump or crushed another truck.</summary>
+        public void ReportBotStunt(byte botId, StuntKind kind, long airMs, byte victimId)
+        {
+            if (_session.IsBot(botId))
+            {
+                Score(botId, kind, airMs, victimId);
+            }
+        }
+
         /// <summary>Sumo's platform radius now (design doc §7.0).</summary>
         public float PlatformRadius => SumoRules.PlatformRadius(Math.Max(0, _clockMs() - StartAtLocalMs) / 1000f);
 
@@ -263,6 +293,7 @@ namespace CarRacer.Core.Race
 
             Phase = RacePhase.Lobby;
             Arena = null;
+            Stunts = null;
             _session.EventInProgress = false;
             _session.Broadcast(new ReturnToLobbyMessage(), reliable: true);
             _session.RemoveBots();
@@ -275,6 +306,70 @@ namespace CarRacer.Core.Race
             // Trust the guest's race time only within what has actually elapsed on the host.
             long elapsed = _clockMs() - StartAtLocalMs;
             Report(message.PlayerId, message.CheckpointIndex, Math.Max(0, Math.Min(message.RaceTimeMs, elapsed)));
+        }
+
+        private void OnStunt(StuntMessage stunt) => Score(stunt.PlayerId, stunt.Kind, stunt.AirMs, stunt.VictimId);
+
+        private void Score(byte playerId, StuntKind kind, long airMs, byte victimId)
+        {
+            if (Phase != RacePhase.Racing || Mode != GameMode.Monster)
+            {
+                return;
+            }
+
+            long elapsed = _clockMs() - StartAtLocalMs;
+            int points;
+            if (kind == StuntKind.Air)
+            {
+                points = Stunts.AddAir(playerId, airMs, elapsed);
+            }
+            else
+            {
+                // Only a crush the host can see: both trucks where it has them, close together.
+                float distance = float.MaxValue;
+                if (_carPositions != null && _carPositions(playerId, out Vec3 attacker) && _carPositions(victimId, out Vec3 victim))
+                {
+                    distance = (attacker - victim).Length;
+                }
+
+                points = Stunts.AddCrush(playerId, victimId, elapsed, distance);
+            }
+
+            if (points > 0)
+            {
+                SendStandingsNow();
+            }
+        }
+
+        private void TickMonster(long now)
+        {
+            long elapsed = now - StartAtLocalMs;
+            if (now >= _nextStandingsMs)
+            {
+                SendStandingsNow();
+            }
+
+            if (elapsed < MonsterRules.TimeLimitMs)
+            {
+                return;
+            }
+
+            Results = new RaceResultsMessage();
+            foreach (var placing in Stunts.Placings())
+            {
+                Results.Results.Add(new RaceResultEntry
+                {
+                    PlayerId = (byte)placing.PlayerId,
+                    Name = _names.TryGetValue(placing.PlayerId, out string name) ? name : string.Empty,
+                    Position = (byte)placing.Position,
+                    RaceTimeMs = MonsterRules.TimeLimitMs,
+                    Points = (ushort)Math.Min(placing.Points, ushort.MaxValue),
+                });
+            }
+
+            Standings = BuildStandings();
+            Phase = RacePhase.Results;
+            _session.Broadcast(Results, reliable: true);
         }
 
         private void TickArena(long now)
@@ -376,6 +471,16 @@ namespace CarRacer.Core.Race
         private StandingsMessage BuildStandings()
         {
             var message = new StandingsMessage();
+            if (Stunts != null)
+            {
+                foreach (var placing in Stunts.Placings())
+                {
+                    message.Order.Add(new StandingsEntry { PlayerId = (byte)placing.PlayerId, Points = (ushort)Math.Min(placing.Points, ushort.MaxValue) });
+                }
+
+                return message;
+            }
+
             if (Arena != null)
             {
                 foreach (var placing in Arena.Placings(_clockMs() - StartAtLocalMs))
@@ -457,6 +562,22 @@ namespace CarRacer.Core.Race
                 PlayerId = _session.PlayerId,
                 CheckpointIndex = (ushort)index,
                 RaceTimeMs = _clockMs() - StartAtLocalMs,
+            }, reliable: true);
+        }
+
+        public void ReportOwnStunt(StuntKind kind, long airMs, byte victimId)
+        {
+            if (Phase != RacePhase.Racing || Mode != GameMode.Monster)
+            {
+                return;
+            }
+
+            _session.SendToHost(new StuntMessage
+            {
+                PlayerId = _session.PlayerId,
+                Kind = kind,
+                AirMs = (ushort)Math.Max(0L, Math.Min(airMs, ushort.MaxValue)),
+                VictimId = victimId,
             }, reliable: true);
         }
 
