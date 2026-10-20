@@ -1,11 +1,12 @@
 # CI setup
 
-Four GitHub Actions workflows live in `.github/workflows/`:
+Five GitHub Actions workflows live in `.github/workflows/`:
 
 | Workflow | Runs on | Needs secrets? | What it does |
 |---|---|---|---|
-| `core.yml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
-| `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
+| `ci.yml` | every push to `master`, every PR | No (passes them on to `unity.yml`) | Reports `Lint` (checks Unity `.meta` files) and `Test`, which calls `core.yml` and `unity.yml` and fails if any of their jobs failed. These are the checks branch protection requires, named the same in every repository in the organisation, so a job that should block merging goes in `Test`'s `needs` |
+| `core.yml` | called by `ci.yml` | No | `dotnet test` for the engine-independent core |
+| `unity.yml` | called by `ci.yml`, or run by hand | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
 | `release.yml` | pushing a `v*` tag, or run by hand with a version | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
 | `claude.yaml` | every non-draft PR (on each push), and `@claude` mentions | `CLAUDE_CODE_OAUTH_TOKEN` | Claude reviews the PR, or answers the mention, via [`spence-com-au/claude-code-action`](https://github.com/spence-com-au/claude-code-action) |
 

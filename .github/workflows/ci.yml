@@ -1,0 +1,43 @@
+name: CI
+
+# Reports `Lint` and `Test`, the checks branch protection requires, named the same in every
+# repository in the organisation. This file decides what they cover: a job that should block
+# merging goes in `Test`'s `needs`.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Unity .meta files
+        run: python3 tools/generate_unity_meta.py --check
+
+  core:
+    uses: ./.github/workflows/core.yml
+
+  unity:
+    uses: ./.github/workflows/unity.yml
+    secrets: inherit
+    # The repository's default token is read-only, and a called workflow can't ask for more than
+    # its caller grants. The Unity test runner reports its results as a check.
+    permissions:
+      contents: read
+      checks: write
+
+  # A skipped job reports success, so without `always()` a failure in `needs` would skip this job
+  # and let the PR merge. A skipped job in `needs` still passes: without the Unity secrets (fork
+  # and Dependabot PRs) the Unity jobs skip by design.
+  test:
+    name: Test
+    if: always()
+    needs: [core, unity]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

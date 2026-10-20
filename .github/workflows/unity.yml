@@ -3,9 +3,7 @@ name: Unity
 # Unity tests and a development APK for every PR. Needs the UNITY_LICENSE, UNITY_EMAIL and
 # UNITY_PASSWORD secrets (see docs/ci-setup.md); without them these jobs are skipped.
 on:
-  push:
-    branches: [master]
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
 concurrency:

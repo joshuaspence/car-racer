@@ -671,7 +671,10 @@ leader).
 
 ## 15. CI, builds and distribution
 
-- **`Core` workflow** (no secrets): `dotnet test` and a `.meta` file check on every push and PR.
+- **`CI` workflow:** reports the two checks branch protection requires, named the same in every
+  repository in the organisation: `Lint` (the `.meta` file check) and `Test`, which runs the
+  `Core` and `Unity` workflows and fails if any of their jobs failed.
+- **`Core` workflow** (no secrets): `dotnet test` on every push and PR.
 - **`Unity` workflow** (GameCI): Unity tests and a **development APK artifact** on every PR.
   Needs `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`; skipped with a notice if they're absent.
 - **`Release` workflow:** pushing a `v*` tag (or running it by hand with a version, which tags
