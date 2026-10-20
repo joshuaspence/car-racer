@@ -89,6 +89,25 @@ namespace CarRacer.Core.Tests
         }
 
         [Fact]
+        public void TheTruckDoingTheHittingOrLandingIsTheOneThatCrushes()
+        {
+            var a = new Vec3(0f, 0f, 0f);
+            var b = new Vec3(0f, 0f, 2f);
+
+            // A charges into B, which is barely moving: A's crush, not B's.
+            Assert.True(MonsterRules.IsCrush(a, new Vec3(0f, 0f, 10f), b, new Vec3(0f, 0f, 1f)));
+            Assert.False(MonsterRules.IsCrush(b, new Vec3(0f, 0f, 1f), a, new Vec3(0f, 0f, 10f)));
+
+            // A gentle nudge is nobody's crush.
+            Assert.False(MonsterRules.IsCrush(a, new Vec3(0f, 0f, 5f), b, Vec3.Zero));
+
+            // Coming down on top counts at any speed; the truck underneath didn't crush anyone.
+            var above = new Vec3(0f, 1f, 0.5f);
+            Assert.True(MonsterRules.IsCrush(above, new Vec3(0f, -3f, 1f), a, Vec3.Zero));
+            Assert.False(MonsterRules.IsCrush(a, Vec3.Zero, above, new Vec3(0f, -3f, 1f)));
+        }
+
+        [Fact]
         public void TheHostOnlyBelievesAirTimeThatFitsTheClock()
         {
             var stunts = new StuntTracker(new[] { 1, 2 });

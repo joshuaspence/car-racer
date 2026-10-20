@@ -326,7 +326,9 @@ takes touches, and it sits under the performance readout.
   2.2 times the size (`MonsterTruck`, built from the same model, so the paint still works), with
   big-air handling (gravity eased by 4 m/s² in the air) and heavy hits (bumps 2.4 times as
   dramatic as cars'). Scoring: a jump of 0.4 s or more scores 1 point per 0.1 s in the air (up
-  to 6 s), and a crush (a bump of 9 m/s per kg or more, or landing on a truck) scores 25. The
+  to 6 s), and a crush scores 25: coming down on a truck from 0.6 m or more above it, or meeting it at a
+  closing speed of 9 m/s or more while doing more of the closing (`MonsterRules.IsCrush`, so of
+  the two phones that see a touch, only one counts it). The
   most points after 2 minutes wins; ties keep the order players joined. No items.
   - **Who scores:** each phone times its own truck's jumps and spots its own crushes, as it
     reports its own checkpoints, and sends them (`StuntMessage`); the host keeps the score

@@ -83,8 +83,11 @@ namespace CarRacer.Core.Arena
         /// <summary>Points for crushing another truck: hitting it hard, or landing on it.</summary>
         public const int CrushPoints = 25;
 
-        /// <summary>A bump counts as a crush at this impulse per unit mass or more.</summary>
-        public const float CrushImpulsePerMass = 9f;
+        /// <summary>Trucks meeting at this closing speed (m/s) or more is a crush, for whichever was doing more of the closing.</summary>
+        public const float CrushClosingSpeed = 9f;
+
+        /// <summary>Coming down on a truck from this far above it (m) is a crush too, at any speed.</summary>
+        public const float CrushDropHeight = 0.6f;
 
         /// <summary>The same truck can't be crushed by the same attacker again for this long.</summary>
         public const long CrushCooldownMs = 1500;
@@ -100,6 +103,32 @@ namespace CarRacer.Core.Arena
 
         /// <summary>The points a jump of <paramref name="airMs"/> scores.</summary>
         public static int AirPoints(long airMs) => airMs < MinAirMs ? 0 : (int)(Math.Min(airMs, MaxAirMs) / MsPerAirPoint);
+
+        /// <summary>
+        /// Whether a truck at <paramref name="self"/> moving at <paramref name="selfVelocity"/> crushed
+        /// the one it just touched at <paramref name="other"/>: it came down on top of it, or hit it
+        /// hard while doing more of the closing than the other truck. Both phones see the same touch;
+        /// at most one of them counts it as their crush.
+        /// </summary>
+        public static bool IsCrush(Vec3 self, Vec3 selfVelocity, Vec3 other, Vec3 otherVelocity)
+        {
+            if (self.Y - other.Y >= CrushDropHeight && selfVelocity.Y < 0f)
+            {
+                return true;
+            }
+
+            var towards = (other - self).Flattened;
+            float apart = towards.Length;
+            if (apart < 1e-3f)
+            {
+                return false;
+            }
+
+            towards /= apart;
+            float mine = Vec3.Dot(selfVelocity.Flattened, towards);
+            float theirs = -Vec3.Dot(otherVelocity.Flattened, towards);
+            return mine + theirs >= CrushClosingSpeed && mine > theirs;
+        }
     }
 
     /// <summary>A ramp in the Monster Jam stadium: a wedge rising from its foot towards its forward direction.</summary>
