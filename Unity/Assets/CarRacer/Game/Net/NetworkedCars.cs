@@ -45,6 +45,9 @@ namespace CarRacer.Game.Net
         private readonly List<Bump> _bumps = new List<Bump>();
         private readonly HashSet<byte> _spunOut = new HashSet<byte>();
         private readonly Shield _shield = new Shield();
+
+        // Monster Jam: when this phone last showed a crush on each victim, so the popup keeps to the host's cooldown.
+        private readonly Dictionary<byte, long> _lastCrushPopupMs = new Dictionary<byte, long>();
         private Transform _shieldRing;
         private BotCars _botCars;
         private TrackScreen _screen;
@@ -436,6 +439,15 @@ namespace CarRacer.Game.Net
             }
 
             _session.Race.ReportOwnStunt(StuntKind.Crush, 0, victimId);
+
+            // The host scores nothing for a repeat crush on the same truck within the cooldown, so don't show one.
+            long now = NetworkSession.NowMs;
+            if (_lastCrushPopupMs.TryGetValue(victimId, out long last) && now - last < MonsterRules.CrushCooldownMs)
+            {
+                return;
+            }
+
+            _lastCrushPopupMs[victimId] = now;
             StuntScored?.Invoke($"Crush! +{MonsterRules.CrushPoints}");
         }
 
