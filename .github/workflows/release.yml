@@ -54,12 +54,10 @@ jobs:
           androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
 
-      - name: Name the APK after the tag
-        run: sudo mv build/Android/CarRacer.apk "build/Android/CarRacer-${GITHUB_REF_NAME}.apk"
-
+      # Unversioned, so `releases/latest/download/CarRacer.apk` always points at the newest build.
       - uses: softprops/action-gh-release@v2
         with:
-          files: build/Android/CarRacer-${{ github.ref_name }}.apk
+          files: build/Android/CarRacer.apk
           generate_release_notes: true
 
   linux-server:
