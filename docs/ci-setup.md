@@ -86,8 +86,8 @@ repository to get updates automatically.
 The same release carries the Linux server as `CarRacer-server-v0.1.0-linux-x86_64.tar.gz`, and
 the image `ghcr.io/spence-com-au/car-racer:v0.1.0` (and `:latest`) goes to GitHub's container
 registry using the workflow's own token. The first time, the package is private: make it public
-under **GitHub → the spence-com-au organisation → Packages → car-racer → Package settings** so servers can pull it
-without logging in.
+under **GitHub → the spence-com-au organisation → Packages → car-racer → Package settings** so
+servers can pull it without logging in.
 
 ## 5. First-time Unity editor setup (local)
 
