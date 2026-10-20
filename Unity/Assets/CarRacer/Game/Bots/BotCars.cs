@@ -311,7 +311,7 @@ namespace CarRacer.Game.Bots
                 {
                     if (other.PlayerId == bump.OtherPlayerId)
                     {
-                        ReportCrush(bot, other.PlayerId, other.Position, other.Velocity);
+                        ReportCrush(bot, bot.Car.BodyVelocity.ToCore(), other.PlayerId, other.Position, other.Velocity);
                     }
                 }
             }
@@ -326,11 +326,11 @@ namespace CarRacer.Game.Bots
             }
         }
 
-        /// <summary>Monster Jam: a bot's truck touched another car; a crush if it came down on it or did the hitting.</summary>
-        private void ReportCrush(Bot bot, byte victimId, Vec3 victimPosition, Vec3 victimVelocity)
+        /// <summary>Monster Jam: a bot's truck, moving at <paramref name="velocity"/>, touched another car; a crush if it came down on it or did the hitting.</summary>
+        private void ReportCrush(Bot bot, Vec3 velocity, byte victimId, Vec3 victimPosition, Vec3 victimVelocity)
         {
             if (_session.Race is HostRace race && race.Mode == GameMode.Monster
-                && MonsterRules.IsCrush(bot.Car.BodyPosition.ToCore(), bot.Car.BodyVelocity.ToCore(), victimPosition, victimVelocity))
+                && MonsterRules.IsCrush(bot.Car.BodyPosition.ToCore(), velocity, victimPosition, victimVelocity))
             {
                 race.ReportBotStunt(bot.PlayerId, StuntKind.Crush, 0, victimId);
             }
@@ -530,7 +530,8 @@ namespace CarRacer.Game.Bots
                     car.InputSource = bot;
                     car.PlayerId = player.PlayerId;
                     car.Landed += seconds => OnBotLanded(bot, seconds);
-                    car.TouchedCar += (other, velocity) => ReportCrush(bot, other.PlayerId, other.BodyPosition.ToCore(), velocity.ToCore());
+                    // A physics contact has already been resolved by now, so judge it on the speeds both cars hit at.
+                    car.TouchedCar += other => ReportCrush(bot, car.PreImpactVelocity.ToCore(), other.PlayerId, other.BodyPosition.ToCore(), other.PreImpactVelocity.ToCore());
                     if (_cars.TryTakeOverRemote(player.PlayerId, out var at, out float heading, out var velocity))
                     {
                         TakeOver(bot, at, heading, velocity);

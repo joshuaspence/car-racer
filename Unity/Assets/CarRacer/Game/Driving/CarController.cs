@@ -107,6 +107,12 @@ namespace CarRacer.Game.Driving
         /// <summary>The physics sphere's centre and velocity, as sent to other phones.</summary>
         public Vector3 BodyPosition => _body.position;
         public Vector3 BodyVelocity => _body.linearVelocity;
+
+        /// <summary>
+        /// The velocity the car went into the latest physics step with: by the time a collision
+        /// reports, the engine has already resolved it, so this is the speed it hit at.
+        /// </summary>
+        public Vector3 PreImpactVelocity { get; private set; }
         public bool Grounded { get; private set; }
         public CarInput LastInput { get; private set; }
 
@@ -122,8 +128,8 @@ namespace CarRacer.Game.Driving
         /// <summary>The car landed after this many seconds off the ground.</summary>
         public event System.Action<float> Landed;
 
-        /// <summary>The car ran into another car with a physics body here (a bot, or the host's own car), moving at this velocity.</summary>
-        public event System.Action<CarController, Vector3> TouchedCar;
+        /// <summary>The car ran into another car with a physics body here (a bot, or the host's own car); both cars' <see cref="PreImpactVelocity"/> say how they met.</summary>
+        public event System.Action<CarController> TouchedCar;
 
         /// <summary>Speed along the car's heading in m/s; negative when reversing.</summary>
         public float ForwardSpeed => _body == null ? 0f : Vector3.Dot(_body.linearVelocity, _state.Forward.ToUnity());
@@ -207,7 +213,7 @@ namespace CarRacer.Game.Driving
             var other = collision.rigidbody != null ? collision.rigidbody.GetComponent<CarController>() : null;
             if (other != null)
             {
-                TouchedCar?.Invoke(other, other.BodyVelocity);
+                TouchedCar?.Invoke(other);
                 if (MonsterTruck)
                 {
                     // Heavy hitters: the physics engine's push, made as much more dramatic as a truck's bumps.
@@ -284,6 +290,8 @@ namespace CarRacer.Game.Driving
             {
                 _body.AddForce(Vector3.up * MonsterRules.AirLift, ForceMode.Acceleration);
             }
+
+            PreImpactVelocity = _body.linearVelocity;
 
             if (_body.position.y < FallLimit)
             {

@@ -389,7 +389,7 @@ namespace CarRacer.Game.Net
                 {
                     if (other.PlayerId == bump.OtherPlayerId)
                     {
-                        ReportCrush(other.PlayerId, other.Position, other.Velocity);
+                        ReportCrush(car.BodyVelocity.ToCore(), other.PlayerId, other.Position, other.Velocity);
                     }
                 }
             }
@@ -414,13 +414,20 @@ namespace CarRacer.Game.Net
             }
         }
 
-        private void OnTouchedCar(CarController other, Vector3 velocity) => ReportCrush(other.PlayerId, other.BodyPosition.ToCore(), velocity.ToCore());
+        /// <summary>A physics contact has already been resolved by now, so judge it on the speeds both cars hit at.</summary>
+        private void OnTouchedCar(CarController other)
+        {
+            if (_screen.Car != null)
+            {
+                ReportCrush(_screen.Car.PreImpactVelocity.ToCore(), other.PlayerId, other.BodyPosition.ToCore(), other.PreImpactVelocity.ToCore());
+            }
+        }
 
-        /// <summary>Monster Jam: this phone's truck touched another; a crush if it came down on it or did the hitting.</summary>
-        private void ReportCrush(byte victimId, CarRacer.Core.Numerics.Vec3 victimPosition, CarRacer.Core.Numerics.Vec3 victimVelocity)
+        /// <summary>Monster Jam: this phone's truck, moving at <paramref name="velocity"/>, touched another; a crush if it came down on it or did the hitting.</summary>
+        private void ReportCrush(CarRacer.Core.Numerics.Vec3 velocity, byte victimId, CarRacer.Core.Numerics.Vec3 victimPosition, CarRacer.Core.Numerics.Vec3 victimVelocity)
         {
             var car = _screen.Car;
-            if (!ScoringStunts || car == null || !MonsterRules.IsCrush(car.BodyPosition.ToCore(), car.BodyVelocity.ToCore(), victimPosition, victimVelocity))
+            if (!ScoringStunts || car == null || !MonsterRules.IsCrush(car.BodyPosition.ToCore(), velocity, victimPosition, victimVelocity))
             {
                 return;
             }
