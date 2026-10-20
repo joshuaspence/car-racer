@@ -78,6 +78,13 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+Push the tag rather than creating the release on the Releases page. The repository's releases
+are immutable, so assets can only be attached while a release is a draft: the workflow uploads
+the APK and the server tarball to a draft and publishes it once both are up. A release published
+by hand already exists when its tag fires the workflow, so the workflow stops early; that version
+can't take assets, so tag the next one. A failed run leaves a draft behind, which a re-run fills
+in and publishes.
+
 The tag becomes the app version (`0.1.0`), and the Android version code is derived from it.
 The APK is published as `CarRacer.apk` on the repository's Releases page, so
 <https://github.com/spence-com-au/car-racer/releases/latest/download/CarRacer.apk> always
