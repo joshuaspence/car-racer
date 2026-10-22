@@ -1,23 +1,22 @@
 # CI setup
 
-Four GitHub Actions workflows live in `.github/workflows/`:
+Three GitHub Actions workflows live in `.github/workflows/`:
 
 | Workflow | Runs on | Needs secrets? | What it does |
 |---|---|---|---|
 | `core.yml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
 | `unity.yml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
 | `release.yml` | pushing a `v*` tag, or run by hand with a version | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
-| `claude.yaml` | every non-draft PR into a branch other than `master` (on each push), and `@claude` mentions | `CLAUDE_CODE_OAUTH_TOKEN` | Claude reviews the PR, or answers the mention, via [`spence-com-au/claude-code-action`](https://github.com/spence-com-au/claude-code-action) |
 
-A PR into `master` is reviewed by `claude-review.yaml` instead, which the org's `Workflows` ruleset
-runs from [`spence-com-au/.github`](https://github.com/spence-com-au/.github).
+Claude reviews every non-draft PR into `master` on each push, from `claude-review.yaml`, which the
+org's `Workflows` ruleset runs from [`spence-com-au/.github`](https://github.com/spence-com-au/.github).
 
 Until the Unity secrets exist, `unity.yml` skips its jobs with a notice instead of failing.
 
 Add secrets under **GitHub → repository → Settings → Secrets and variables → Actions → New
 repository secret**.
 
-## 1. Claude review (for `claude.yaml` and `claude-review.yaml`)
+## 1. Claude review (for `claude-review.yaml`)
 
 Run `claude setup-token` locally and save the token it prints as the `CLAUDE_CODE_OAUTH_TOKEN`
 secret. Drafts aren't reviewed, and neither is a push Dependabot makes, since its run is passed no
