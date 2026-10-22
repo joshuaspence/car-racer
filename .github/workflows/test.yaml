@@ -1,7 +1,6 @@
 ---
 name: 'Test'
 
-# Engine-independent game logic: builds and tests without Unity, so it needs no secrets.
 on:
   pull_request: {}
   push:
