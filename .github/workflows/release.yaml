@@ -89,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: '${{ github.token }}'
         run: |
-          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || echo none)
+          draft=$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft 2>/dev/null || echo none)
           if [ "${draft}" = false ]; then
             echo "::error::Release ${TAG} is already published and immutable, so its assets can't be uploaded. Cut releases by pushing a tag or running this workflow (docs/ci-setup.md), and use a new version."
             exit 1
@@ -116,9 +116,8 @@ jobs:
             gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f "ref=refs/tags/${TAG}" -f "sha=${GITHUB_SHA}"
           fi
 
-
   linux-server:
-    name: 'Linux server tarball and Docker image'
+    name: 'Linux Server Tarball and Docker Image'
     runs-on: 'ubuntu-latest'
     timeout-minutes: 60
 
@@ -170,7 +169,7 @@ jobs:
 
       - name: 'Image name'
         id: 'image'
-        run: 'echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"'
+        run: 'echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "${GITHUB_OUTPUT}"'
 
       - uses: 'docker/build-push-action@v6'
         with:
