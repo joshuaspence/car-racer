@@ -52,5 +52,5 @@ python3 tools/generate_unity_meta.py --check
 
 - Development APKs are signed with the committed `Unity/Keystores/debug.keystore` so they
   install over each other; release APKs are signed with the keystore in GitHub secrets
-  (`release.yml`, on `v*` tags). Never sign a release with the debug key.
+  (`release.yaml`, on `v*` tags). Never sign a release with the debug key.
 - Minimum Android 8.0 (API 26), ARM64. The Pixel 2 XL is the low-end performance baseline.

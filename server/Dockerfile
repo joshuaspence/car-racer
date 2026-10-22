@@ -1,4 +1,4 @@
-# The Car Racer host on a Linux server (docs/server.md). Built by release.yml from the Linux player
+# The Car Racer host on a Linux server (docs/server.md). Built by release.yaml from the Linux player
 # in build/StandaloneLinux64, with this directory's files copied in beside it.
 #
 #   docker run -d --network host --restart unless-stopped \

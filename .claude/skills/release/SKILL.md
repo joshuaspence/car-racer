@@ -5,7 +5,7 @@ description: Release a new version of Car Racer (signed APK, Linux server tarbal
 
 # Releasing a version
 
-Releases come from the `Release` workflow (`.github/workflows/release.yml`; background in
+Releases come from the `Release` workflow (`.github/workflows/release.yaml`; background in
 `docs/ci-setup.md` §4). You start it by hand on `master` with a version. It tags `master`, builds
 the release-signed APK and the Linux server, uploads them to a **draft** release, pushes the
 Docker image and then publishes the release. The repository's releases are **immutable**: once
@@ -36,7 +36,7 @@ actions_run_trigger
   method: run_workflow
   owner: spence-com-au
   repo: car-racer
-  workflow_id: release.yml
+  workflow_id: release.yaml
   ref: master
   inputs: { "version": "v0.13.0" }
 ```
@@ -46,7 +46,7 @@ or push the tag (`git tag v0.13.0 && git push origin v0.13.0`). Don't create the
 Releases page: the published release would be immutable before the workflow could attach
 anything.
 
-Then find the run (`list_workflow_runs` for `release.yml`, event `workflow_dispatch`, newest
+Then find the run (`list_workflow_runs` for `release.yaml`, event `workflow_dispatch`, newest
 first) and give the user its link.
 
 ## 4. Follow it through
