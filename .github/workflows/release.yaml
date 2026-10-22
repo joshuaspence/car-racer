@@ -111,7 +111,7 @@ jobs:
             exit 1
           fi
           if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$TAG" > /dev/null 2>&1; then
-            echo "Tag ${TAG }already exists; releasing it."
+            echo "Tag ${TAG} already exists; releasing it."
           else
             gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f "ref=refs/tags/${TAG}" -f "sha=${GITHUB_SHA}"
           fi
