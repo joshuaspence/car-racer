@@ -1,17 +1,18 @@
 # CI setup
 
-Three GitHub Actions workflows live in `.github/workflows/`:
+Four GitHub Actions workflows live in `.github/workflows/`:
 
 | Workflow | Runs on | Needs secrets? | What it does |
 |---|---|---|---|
-| `core.yaml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core; checks Unity `.meta` files |
-| `unity.yaml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
+| `lint.yaml` | every push to `master`, every PR | No | Checks every file under `Unity/Assets` has its `.meta` file |
+| `test.yaml` | every push to `master`, every PR | No | `dotnet test` for the engine-independent core |
+| `build.yaml` | every push to `master`, every PR | Unity licence | Unity EditMode/PlayMode tests; builds a development APK and the Linux server (started briefly to check it hosts) and attaches them to the run |
 | `release.yaml` | pushing a `v*` tag, or run by hand with a version | Unity licence + keystore | Builds a release-signed APK and the Linux server, publishes them to GitHub Releases, and pushes the server's Docker image to GHCR ([`server.md`](server.md)) |
 
 Claude reviews every non-draft PR into `master` on each push, from `claude-review.yaml`, which the
 org's `Workflows` ruleset runs from [`spence-com-au/.github`](https://github.com/spence-com-au/.github).
 
-Until the Unity secrets exist, `unity.yaml` skips its jobs with a notice instead of failing.
+Until the Unity secrets exist, `build.yaml` skips its jobs with a notice instead of failing.
 
 Add secrets under **GitHub → repository → Settings → Secrets and variables → Actions → New
 repository secret**.
@@ -22,7 +23,7 @@ Run `claude setup-token` locally and save the token it prints as the `CLAUDE_COD
 secret. Drafts aren't reviewed, and neither is a push Dependabot makes, since its run is passed no
 secrets.
 
-## 2. Unity licence (for `unity.yaml` and `release.yaml`)
+## 2. Unity licence (for `build.yaml` and `release.yaml`)
 
 Unity Personal is free, but every machine that runs Unity, including CI, needs an activated licence.
 

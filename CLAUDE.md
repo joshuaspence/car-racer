@@ -43,7 +43,7 @@ python3 tools/generate_unity_meta.py --check
 
 - **Every file under `Unity/Assets` needs a `.meta` file.** Files written outside the editor get
   one from `tools/generate_unity_meta.py` (deterministic GUIDs); CI fails if any are missing.
-- **Unity code can't be compiled outside CI here.** The `Unity` workflow compiles it, runs the
+- **Unity code can't be compiled outside CI here.** The `Build` workflow compiles it, runs the
   EditMode/PlayMode tests and builds a development APK on every PR; treat that check as the
   compile check for `Game`, `Editor` and Unity tests.
 - **Bump `DiscoveryConstants.ProtocolVersion`** whenever any network message format changes.

@@ -68,6 +68,6 @@ service manager or Docker restarts it.
 
 The server is the ordinary Linux player (`BuildScript.BuildLinuxServerFromCommandLine`) run with
 `-batchmode -nographics -server` by `server/run-server.sh`, rather than Unity's Dedicated Server
-subtarget, which needs an editor module the CI images may lack. `unity.yaml` builds it on every PR
+subtarget, which needs an editor module the CI images may lack. `build.yaml` builds it on every PR
 and starts it for a few seconds to check it hosts; `release.yaml` packages it and pushes the image
 built from `server/Dockerfile`.
