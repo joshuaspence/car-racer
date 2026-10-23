@@ -56,7 +56,7 @@ A healthy run takes about 30–40 minutes: `check` → `android` (~20 min) → `
 every 15 minutes.
 
 - **Success:** the release page `https://github.com/spence-com-au/car-racer/releases/tag/<version>`
-  lists `CarRacer.apk` and `CarRacer-server-<version>-linux-x86_64.tar.gz`, and it is marked
+  lists `CarRacer-<version>.apk` and `CarRacer-server-<version>-linux-x86_64.tar.gz`, and it is marked
   Latest. Tell the user it's out.
 - **Failure:** read the failed job's log (`get_job_logs` with `failed_only`) and explain the cause.
   - `check` says the release is already published: that version is used up, so pick the next one.

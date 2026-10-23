@@ -96,11 +96,9 @@ can't take assets, so release the next one. A failed run leaves a draft behind, 
 fills in and publishes.
 
 The tag becomes the app version (`0.1.0`), and the Android version code is derived from it.
-The APK is published as `CarRacer.apk` on the repository's Releases page, so
-<https://github.com/spence-com-au/car-racer/releases/latest/download/CarRacer.apk> always
-downloads the newest release. Friends can install it from there, or use
-[Obtainium](https://github.com/ImranR98/Obtainium) pointed at the repository to get updates
-automatically.
+The APK is published as `CarRacer-v0.1.0.apk` on the repository's Releases page. Friends can
+install it directly, or use [Obtainium](https://github.com/ImranR98/Obtainium) pointed at the
+repository to get updates automatically.
 
 The same release carries the Linux server as `CarRacer-server-v0.1.0-linux-x86_64.tar.gz`, and
 the image `ghcr.io/spence-com-au/car-racer:v0.1.0` (and `:latest`) goes to GitHub's container

@@ -69,13 +69,15 @@ jobs:
           androidKeyaliasName: '${{ secrets.ANDROID_KEYALIAS_NAME }}'
           androidKeyaliasPass: '${{ secrets.ANDROID_KEYALIAS_PASS }}'
 
-      # Unversioned, so `releases/latest/download/CarRacer.apk` always points at the newest build. A draft: the
-      # repository's releases are immutable, so nothing can be attached once it is published. The `publish` job
-      # publishes it after every asset is up.
+      - name: 'Name the APK after the tag'
+        run: 'sudo mv build/Android/CarRacer.apk "build/Android/CarRacer-${TAG}.apk"'
+
+      # A draft: the repository's releases are immutable, so nothing can be attached once it is published. The
+      # `publish` job publishes it after every asset is up.
       - uses: 'softprops/action-gh-release@v2'
         with:
           tag_name: '${{ env.TAG }}'
-          files: 'build/Android/CarRacer.apk'
+          files: 'build/Android/CarRacer-${{ env.TAG }}.apk'
           generate_release_notes: true
           draft: true
 
