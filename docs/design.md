@@ -671,14 +671,15 @@ leader).
 
 ## 15. CI, builds and distribution
 
-- **`Core` workflow** (no secrets): `dotnet test` and a `.meta` file check on every push and PR.
-- **`Unity` workflow** (GameCI): Unity tests and a **development APK artifact** on every PR.
+- **`Lint` and `Test` workflows** (no secrets): a `.meta` file check and `dotnet test` on every
+  push and PR.
+- **`Build` workflow** (GameCI): Unity tests and a **development APK artifact** on every PR.
   Needs `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`; skipped with a notice if they're absent.
 - **`Release` workflow:** pushing a `v*` tag (or running it by hand with a version, which tags
   `master`) builds a **release-signed APK** and publishes it to **GitHub Releases**
   (Obtainium-friendly). Needs the Android keystore secrets too. Releases are immutable, so the
   assets go up to a draft that the workflow publishes last.
-- **Linux server** (§2.3, [`server.md`](server.md)): the `Unity` workflow builds the Linux player
+- **Linux server** (§2.3, [`server.md`](server.md)): the `Build` workflow builds the Linux player
   on every PR and starts it with `-server` for a few seconds to check it hosts; a release adds a
   tarball to the release and pushes a Docker image to GHCR (`server/Dockerfile`, run with host
   networking so discovery reaches the LAN). It's the plain Linux player run with

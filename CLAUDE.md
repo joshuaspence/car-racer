@@ -43,7 +43,7 @@ python3 tools/generate_unity_meta.py --check
 
 - **Every file under `Unity/Assets` needs a `.meta` file.** Files written outside the editor get
   one from `tools/generate_unity_meta.py` (deterministic GUIDs); CI fails if any are missing.
-- **Unity code can't be compiled outside CI here.** The `Unity` workflow compiles it, runs the
+- **Unity code can't be compiled outside CI here.** The `Build` workflow compiles it, runs the
   EditMode/PlayMode tests and builds a development APK on every PR; treat that check as the
   compile check for `Game`, `Editor` and Unity tests.
 - **Bump `DiscoveryConstants.ProtocolVersion`** whenever any network message format changes.
@@ -52,5 +52,5 @@ python3 tools/generate_unity_meta.py --check
 
 - Development APKs are signed with the committed `Unity/Keystores/debug.keystore` so they
   install over each other; release APKs are signed with the keystore in GitHub secrets
-  (`release.yml`, on `v*` tags). Never sign a release with the debug key.
+  (`release.yaml`, on `v*` tags). Never sign a release with the debug key.
 - Minimum Android 8.0 (API 26), ARM64. The Pixel 2 XL is the low-end performance baseline.
