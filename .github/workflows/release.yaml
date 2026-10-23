@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
         with:
           ref: 'refs/tags/${{ env.TAG }}'
           fetch-depth: 0
@@ -45,13 +45,13 @@ jobs:
           haskell: true
           large-packages: false
 
-      - uses: 'actions/cache@v4'
+      - uses: 'actions/cache@v4.3.0'
         with:
           path: 'Unity/Library'
           key: "Library-android-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}"
           restore-keys: 'Library-android-'
 
-      - uses: 'game-ci/unity-builder@v4'
+      - uses: 'game-ci/unity-builder@v4.8.2'
         env:
           UNITY_EMAIL: '${{ secrets.UNITY_EMAIL }}'
           UNITY_LICENSE: '${{ secrets.UNITY_LICENSE }}'
@@ -72,7 +72,7 @@ jobs:
       # Unversioned, so `releases/latest/download/CarRacer.apk` always points at the newest build. A draft: the
       # repository's releases are immutable, so nothing can be attached once it is published. The `publish` job
       # publishes it after every asset is up.
-      - uses: 'softprops/action-gh-release@v2'
+      - uses: 'softprops/action-gh-release@v2.6.2'
         with:
           tag_name: '${{ env.TAG }}'
           files: 'build/Android/CarRacer.apk'
@@ -125,19 +125,19 @@ jobs:
     needs: 'android'
 
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
         with:
           ref: 'refs/tags/${{ env.TAG }}'
           fetch-depth: 0
           lfs: true
 
-      - uses: 'actions/cache@v4'
+      - uses: 'actions/cache@v4.3.0'
         with:
           path: 'Unity/Library'
           key: "Library-linux-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}"
           restore-keys: 'Library-linux-'
 
-      - uses: 'game-ci/unity-builder@v4'
+      - uses: 'game-ci/unity-builder@v4.8.2'
         env:
           UNITY_EMAIL: '${{ secrets.UNITY_EMAIL }}'
           UNITY_LICENSE: '${{ secrets.UNITY_LICENSE }}'
@@ -155,13 +155,13 @@ jobs:
           cp server/run-server.sh server/Dockerfile build/StandaloneLinux64/
           tar -czf "CarRacer-server-${TAG}-linux-x86_64.tar.gz" --transform "s,^build/StandaloneLinux64,car-racer-server," build/StandaloneLinux64
 
-      - uses: 'softprops/action-gh-release@v2'
+      - uses: 'softprops/action-gh-release@v2.6.2'
         with:
           tag_name: '${{ env.TAG }}'
           files: 'CarRacer-server-${{ env.TAG }}-linux-x86_64.tar.gz'
           draft: true
 
-      - uses: 'docker/login-action@v3'
+      - uses: 'docker/login-action@v3.7.0'
         with:
           registry: 'ghcr.io'
           username: '${{ github.actor }}'
@@ -171,7 +171,7 @@ jobs:
         id: 'image'
         run: 'echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "${GITHUB_OUTPUT}"'
 
-      - uses: 'docker/build-push-action@v6'
+      - uses: 'docker/build-push-action@v6.19.2'
         with:
           context: 'build/StandaloneLinux64'
           file: 'build/StandaloneLinux64/Dockerfile'

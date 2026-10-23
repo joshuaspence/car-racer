@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
         with:
           fetch-depth: 0
           lfs: true
@@ -39,13 +39,13 @@ jobs:
           haskell: true
           large-packages: false
 
-      - uses: 'actions/cache@v4'
+      - uses: 'actions/cache@v4.3.0'
         with:
           path: 'Unity/Library'
           key: "Library-android-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}"
           restore-keys: 'Library-android-'
 
-      - uses: 'game-ci/unity-builder@v4'
+      - uses: 'game-ci/unity-builder@v4.8.2'
         env:
           UNITY_EMAIL: '${{ secrets.UNITY_EMAIL }}'
           UNITY_LICENSE: '${{ secrets.UNITY_LICENSE }}'
@@ -59,7 +59,7 @@ jobs:
           androidExportType: 'androidPackage'
           versioning: 'Semantic'
 
-      - uses: 'actions/upload-artifact@v4'
+      - uses: 'actions/upload-artifact@v4.6.2'
         with:
           name: 'CarRacer-dev-apk'
           path: 'build/Android/*.apk'
@@ -92,18 +92,18 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
         with:
           fetch-depth: 0
           lfs: true
 
-      - uses: 'actions/cache@v4'
+      - uses: 'actions/cache@v4.3.0'
         with:
           path: 'Unity/Library'
           key: "Library-linux-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}"
           restore-keys: 'Library-linux-'
 
-      - uses: 'game-ci/unity-builder@v4'
+      - uses: 'game-ci/unity-builder@v4.8.2'
         env:
           UNITY_EMAIL: '${{ secrets.UNITY_EMAIL }}'
           UNITY_LICENSE: '${{ secrets.UNITY_LICENSE }}'
@@ -126,7 +126,7 @@ jobs:
           grep -q 'Car Racer server "CI" on port 47901' server.log
           ! grep -q 'Hosting stopped' server.log
 
-      - uses: 'actions/upload-artifact@v4'
+      - uses: 'actions/upload-artifact@v4.6.2'
         with:
           name: 'CarRacer-linux-server'
           path: 'build/StandaloneLinux64'
@@ -142,17 +142,17 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
         with:
           lfs: true
 
-      - uses: 'actions/cache@v4'
+      - uses: 'actions/cache@v4.3.0'
         with:
           path: 'Unity/Library'
           key: "Library-test-${{ hashFiles('Unity/Assets/**', 'Unity/Packages/**', 'Unity/ProjectSettings/**') }}"
           restore-keys: 'Library-test-'
 
-      - uses: 'game-ci/unity-test-runner@v4'
+      - uses: 'game-ci/unity-test-runner@v4.4.0'
         id: 'tests'
         env:
           UNITY_EMAIL: '${{ secrets.UNITY_EMAIL }}'
@@ -167,7 +167,7 @@ jobs:
           # job before any test runs. A fixed version comes from the cache.
           cliVersion: 'v0.1.72'
 
-      - uses: 'actions/upload-artifact@v4'
+      - uses: 'actions/upload-artifact@v4.6.2'
         if: 'always()'
         with:
           name: 'unity-test-results'
