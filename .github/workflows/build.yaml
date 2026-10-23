@@ -66,7 +66,7 @@ jobs:
           if-no-files-found: 'error'
 
   licence:
-    name: 'Check Unity licence'
+    name: 'Check Unity Licence'
     runs-on: 'ubuntu-latest'
     outputs:
       available: '${{ steps.check.outputs.available }}'

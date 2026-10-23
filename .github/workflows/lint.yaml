@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   meta:
-    name: 'Unity .meta files'
+    name: 'Unity .meta Files'
     runs-on: 'ubuntu-latest'
     steps:
       - uses: 'actions/checkout@v4'
