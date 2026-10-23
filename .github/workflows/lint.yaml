@@ -14,5 +14,5 @@ jobs:
     name: 'Unity .meta Files'
     runs-on: 'ubuntu-latest'
     steps:
-      - uses: 'actions/checkout@v4'
+      - uses: 'actions/checkout@v4.4.0'
       - run: 'python3 tools/generate_unity_meta.py --check'
